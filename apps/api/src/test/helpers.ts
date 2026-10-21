@@ -1,5 +1,5 @@
 import { buildServer } from '../index.js';
-import { db, accounts, families, familyMembers } from '../lib/db/index.js';
+import { db, accounts, sql } from '../lib/db/index.js';
 import { SignJWT } from 'jose';
 import { env } from '../lib/env.js';
 
