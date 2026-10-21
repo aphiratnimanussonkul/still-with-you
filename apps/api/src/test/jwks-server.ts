@@ -46,10 +46,28 @@ export async function startJWKSServer(port: number = 8765): Promise<{ url: strin
     }
   });
 
-  await new Promise<void>((resolve) => {
-    server.listen(port, () => {
-      console.log(`Test JWKS server listening on port ${port}`);
-      resolve();
+  await new Promise<void>((resolve, reject) => {
+    server.listen(port, (err?: Error) => {
+      if (err) {
+        // Port already in use, another test file started the server
+        console.log(`JWKS server already running on port ${port}`);
+        isRunning = true;
+        resolve();
+      } else {
+        console.log(`Test JWKS server listening on port ${port}`);
+        isRunning = true;
+        resolve();
+      }
+    });
+    server.on('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        // Port already in use, that's okay
+        console.log(`JWKS server already running on port ${port}`);
+        isRunning = true;
+        resolve();
+      } else {
+        reject(err);
+      }
     });
   });
 
@@ -60,11 +78,16 @@ export async function startJWKSServer(port: number = 8765): Promise<{ url: strin
 }
 
 export async function stopJWKSServer(): Promise<void> {
-  if (server) {
+  if (server && isRunning) {
     await new Promise<void>((resolve, reject) => {
       server.close((err: Error) => {
-        if (err) reject(err);
-        else resolve();
+        if (err) {
+          // Server already closed, that's okay
+          resolve();
+        } else {
+          isRunning = false;
+          resolve();
+        }
       });
     });
   }
