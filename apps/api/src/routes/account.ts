@@ -1,5 +1,5 @@
 import { FastifyPluginAsync } from 'fastify';
-import { db, accounts, auditLogs } from '../lib/db/index.js';
+import { db, accounts, auditLog } from '../lib/db/index.js';
 import { eq } from 'drizzle-orm';
 import { updateConsentSchema } from '@still-with-you/contracts';
 
@@ -45,7 +45,7 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Write audit log only if value changed (no content)
     if (current.marketingConsent !== body.marketing_consent) {
-      await db.insert(auditLogs).values({
+      await db.insert(auditLog).values({
         actorAccountId: request.user!.id,
         action: 'consent_update',
         targetType: 'account',

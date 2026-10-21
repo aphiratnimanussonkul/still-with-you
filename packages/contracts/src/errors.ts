@@ -18,12 +18,13 @@ export const ErrorCode = {
   // 403 Forbidden
   FORBIDDEN: 'FORBIDDEN',
   ADMIN_REQUIRED: 'ADMIN_REQUIRED',
-  CANNOT_REMOVE_LAST_ADMIN: 'CANNOT_REMOVE_LAST_ADMIN',
+
+  // 409 Conflict
+  LAST_ADMIN: 'LAST_ADMIN',
 
   // 404 Not Found
   NOT_FOUND: 'NOT_FOUND',
 
-  // 409 Conflict
   EVENT_NOT_ACTIVE: 'EVENT_NOT_ACTIVE',
   EVENT_NOT_ARCHIVED: 'EVENT_NOT_ARCHIVED',
   SOURCE_ARCHIVED: 'SOURCE_ARCHIVED',
@@ -82,7 +83,7 @@ export const errorMessages: Record<ErrorCode, string> = {
   UNAUTHENTICATED: 'Authentication required',
   FORBIDDEN: 'You do not have permission to perform this action',
   ADMIN_REQUIRED: 'This action requires admin role',
-  CANNOT_REMOVE_LAST_ADMIN: 'Cannot remove or demote the last admin',
+  LAST_ADMIN: 'Cannot remove or demote the last admin when other members exist',
   NOT_FOUND: 'Resource not found',
   EVENT_NOT_ACTIVE: 'Event must be active for this operation',
   EVENT_NOT_ARCHIVED: 'Event must be archived before deletion',

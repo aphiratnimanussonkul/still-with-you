@@ -1,5 +1,5 @@
 import { FastifyPluginAsync } from 'fastify';
-import { db, families, familyMembers, accounts, auditLogs, invites } from '../lib/db/index.js';
+import { db, families, familyMembers, accounts, auditLog, invites } from '../lib/db/index.js';
 import { eq, and, isNull } from 'drizzle-orm';
 import { createFamilySchema, inviteMemberSchema, updateMemberRoleSchema, AppError, ErrorCode } from '@still-with-you/contracts';
 import crypto from 'crypto';
@@ -139,7 +139,7 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
       .returning();
 
     // Audit log
-    await db.insert(auditLogs).values({
+    await db.insert(auditLog).values({
       actorAccountId: request.user!.id,
       action: 'invite_create',
       targetType: 'invite',
@@ -182,30 +182,43 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
-  // Accept invite
+  // Accept invite (concurrency-safe)
   fastify.post<{ Params: { token: string } }>('/invites/:token/accept', async (request, reply) => {
     const { token } = request.params;
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
-    // Find invite
-    const [invite] = await db.select().from(invites).where(eq(invites.tokenHash, tokenHash)).limit(1);
+    // Atomically update invite from pending to accepted (concurrency-safe)
+    const [invite] = await db
+      .update(invites)
+      .set({ status: 'accepted', acceptedAt: new Date() })
+      .where(and(eq(invites.tokenHash, tokenHash), eq(invites.status, 'pending')))
+      .returning();
 
     if (!invite) {
-      throw new AppError(ErrorCode.NOT_FOUND, 'Invite not found or expired', 404);
-    }
+      // Check if invite exists but not pending
+      const [existingInvite] = await db.select().from(invites).where(eq(invites.tokenHash, tokenHash)).limit(1);
 
-    if (invite.status !== 'pending') {
+      if (!existingInvite) {
+        throw new AppError(ErrorCode.NOT_FOUND, 'Invite not found', 404);
+      }
+
+      if (existingInvite.status === 'expired' || existingInvite.expiresAt < new Date()) {
+        throw new AppError(ErrorCode.FORBIDDEN, 'Invite has expired', 403);
+      }
+
       throw new AppError(ErrorCode.FORBIDDEN, 'Invite already used or revoked', 403);
     }
 
+    // Check expiration
     if (invite.expiresAt < new Date()) {
-      // Mark as expired
       await db.update(invites).set({ status: 'expired' }).where(eq(invites.id, invite.id));
       throw new AppError(ErrorCode.FORBIDDEN, 'Invite has expired', 403);
     }
 
-    // Verify email matches
-    if (invite.email !== request.user!.email) {
+    // Verify email matches (case-insensitive, citext handles this)
+    if (invite.email.toLowerCase() !== request.user!.email!.toLowerCase()) {
+      // Revert the invite status
+      await db.update(invites).set({ status: 'pending', acceptedAt: null }).where(eq(invites.id, invite.id));
       throw new AppError(ErrorCode.FORBIDDEN, 'This invite is for a different email address', 403);
     }
 
@@ -234,11 +247,8 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    // Mark invite as accepted
-    await db.update(invites).set({ status: 'accepted', acceptedAt: new Date() }).where(eq(invites.id, invite.id));
-
     // Audit log
-    await db.insert(auditLogs).values({
+    await db.insert(auditLog).values({
       actorAccountId: request.user!.id,
       action: 'invite_accept',
       targetType: 'invite',
@@ -270,7 +280,7 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
     await db.update(invites).set({ status: 'revoked' }).where(eq(invites.id, id));
 
     // Audit log
-    await db.insert(auditLogs).values({
+    await db.insert(auditLog).values({
       actorAccountId: request.user!.id,
       action: 'invite_revoke',
       targetType: 'invite',
@@ -298,7 +308,7 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
       .where(and(eq(familyMembers.familyId, fid), eq(familyMembers.accountId, aid)));
 
     // Audit log
-    await db.insert(auditLogs).values({
+    await db.insert(auditLog).values({
       actorAccountId: request.user!.id,
       action: 'member_role_update',
       targetType: 'family_member',
@@ -325,7 +335,7 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
       .where(and(eq(familyMembers.familyId, fid), eq(familyMembers.accountId, aid)));
 
     // Audit log
-    await db.insert(auditLogs).values({
+    await db.insert(auditLog).values({
       actorAccountId: request.user!.id,
       action: 'member_remove',
       targetType: 'family_member',
@@ -349,7 +359,7 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
       .where(and(eq(familyMembers.familyId, fid), eq(familyMembers.accountId, request.user!.id)));
 
     // Audit log
-    await db.insert(auditLogs).values({
+    await db.insert(auditLog).values({
       actorAccountId: request.user!.id,
       action: 'member_leave',
       targetType: 'family_member',

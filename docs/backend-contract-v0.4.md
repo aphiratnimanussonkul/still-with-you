@@ -332,8 +332,8 @@ POST /v1/notifications/{id}/read
 | 401 | `UNAUTHENTICATED` | Token expired or invalid |
 | 403 | `FORBIDDEN` | Resource exists but action not permitted |
 | 403 | `ADMIN_REQUIRED` | Action requires admin role |
-| 403 | `CANNOT_REMOVE_LAST_ADMIN` | Cannot remove/demote the last admin |
 | 404 | `NOT_FOUND` | Resource doesn't exist or user can't see it |
+| 409 | `LAST_ADMIN` | Cannot remove/demote last admin when other members exist |
 | 409 | `EVENT_NOT_ACTIVE` | Event must be active for this operation |
 | 409 | `EVENT_NOT_ARCHIVED` | Event must be archived before deletion |
 | 409 | `SOURCE_ARCHIVED` | Cannot restore when origin is archived |

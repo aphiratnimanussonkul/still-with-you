@@ -14,6 +14,16 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
       return reply.status(error.statusCode || 500).send(error.toJSON());
     }
 
+    // Handle database constraint errors
+    if (error.code === '23514' || error.message?.includes('LAST_ADMIN')) {
+      return reply.status(409).send({
+        error: {
+          code: ErrorCode.LAST_ADMIN,
+          message: errorMessages[ErrorCode.LAST_ADMIN],
+        },
+      });
+    }
+
     // Handle Zod validation errors
     if (error instanceof ZodError) {
       const firstError = error.errors[0];

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestServer, createTestAccount, cleanupTestData } from './helpers.js';
-import { db, accounts, auditLogs } from '../lib/db/index.js';
+import { db, accounts, auditLog } from '../lib/db/index.js';
 import { eq } from 'drizzle-orm';
 
 /**
@@ -93,8 +93,8 @@ describe('Marketing Consent', () => {
       // Check audit log
       const logs = await db
         .select()
-        .from(auditLogs)
-        .where(eq(auditLogs.actorAccountId, testAccount.id))
+        .from(auditLog)
+        .where(eq(auditLog.actorAccountId, testAccount.id))
         .limit(1);
 
       expect(logs.length).toBe(1);
@@ -139,7 +139,7 @@ describe('Marketing Consent', () => {
       });
 
       // Check audit log has all entries
-      const logs = await db.select().from(auditLogs).where(eq(auditLogs.actorAccountId, testAccount.id));
+      const logs = await db.select().from(auditLog).where(eq(auditLog.actorAccountId, testAccount.id));
 
       expect(logs.length).toBeGreaterThanOrEqual(3);
       expect(logs.every((log) => log.action === 'consent_update')).toBe(true);

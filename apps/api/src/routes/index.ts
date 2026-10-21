@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import healthRoutes from './health.js';
 import accountRoutes from './account.js';
+import accountDeletionRoutes from './account-deletion.js';
 import familyRoutes from './family.js';
 import eventRoutes from './events.js';
 import contributionRoutes from './contributions.js';
@@ -16,6 +17,7 @@ const routes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(
     async (fastify) => {
       await fastify.register(accountRoutes);
+      await fastify.register(accountDeletionRoutes);
       await fastify.register(familyRoutes);
       await fastify.register(eventRoutes);
       await fastify.register(contributionRoutes);

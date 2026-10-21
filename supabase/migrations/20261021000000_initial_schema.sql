@@ -1,82 +1,97 @@
--- Initial schema for Still With You v0.4
--- Creates all tables, enums, indexes, triggers, and RLS policies
+-- Still With You - Complete Schema (v0.4)
+-- Idempotent: safe to run multiple times
+-- Final table names: people, media, outbox, event_people, audit_log (singular per spec)
 
--- Enable UUID extension
+-- Enable extensions
 create extension if not exists "uuid-ossp";
+create extension if not exists "citext";
 
--- Create enums
-create type event_status as enum ('active', 'archived', 'deleted');
-create type contribution_status as enum ('published', 'trashed', 'purged');
-create type trash_reason as enum ('owner', 'event_deleted');
-create type member_role as enum ('member', 'admin');
+-- Create enums (idempotent)
+do $$ begin
+  create type event_status as enum ('active', 'archived', 'deleted');
+exception when duplicate_object then null;
+end $$;
 
--- Account table
-create table account (
+do $$ begin
+  create type contribution_status as enum ('published', 'trashed', 'purged');
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type trash_reason as enum ('owner', 'event_deleted');
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type member_role as enum ('member', 'admin');
+exception when duplicate_object then null;
+end $$;
+
+-- Accounts table
+create table if not exists accounts (
   id uuid primary key default uuid_generate_v4(),
   auth_id text unique not null,
-  email text unique,
+  email citext unique,
   display_name text not null,
   marketing_consent boolean not null default false,
   marketing_consent_at timestamptz,
   created_at timestamptz not null default now()
 );
 
--- Enable RLS
-alter table account enable row level security;
+alter table accounts enable row level security;
 
--- Family table
-create table family (
+-- Families table
+create table if not exists families (
   id uuid primary key default uuid_generate_v4(),
   name text not null,
-  created_by uuid not null references account(id),
+  created_by uuid references accounts(id) on delete set null,
   created_at timestamptz not null default now()
 );
 
-alter table family enable row level security;
+alter table families enable row level security;
 
--- Family member table
-create table family_member (
-  family_id uuid references family(id),
-  account_id uuid references account(id),
+-- Family members table
+create table if not exists family_members (
+  family_id uuid references families(id) on delete cascade,
+  account_id uuid references accounts(id) on delete cascade,
   role member_role not null default 'member',
   joined_at timestamptz not null default now(),
   left_at timestamptz,
   primary key (family_id, account_id)
 );
 
-alter table family_member enable row level security;
+alter table family_members enable row level security;
 
--- Create index for active members
-create index idx_family_member_active on family_member(family_id, account_id) where left_at is null;
+create index if not exists idx_family_member_active on family_members(family_id, account_id) where left_at is null;
 
--- Person table
-create table person (
+-- People table
+create table if not exists people (
   id uuid primary key default uuid_generate_v4(),
-  family_id uuid not null references family(id),
+  family_id uuid not null references families(id) on delete cascade,
   display_name text not null,
   birth_date date,
   death_date date,
-  account_id uuid unique references account(id)
+  account_id uuid unique references accounts(id) on delete set null
 );
 
-alter table person enable row level security;
+alter table people enable row level security;
 
--- Relationship table
-create table relationship (
-  family_id uuid not null references family(id),
-  from_person_id uuid not null references person(id),
-  to_person_id uuid not null references person(id),
+-- Relationships table
+create table if not exists relationships (
+  family_id uuid not null references families(id) on delete cascade,
+  from_person_id uuid not null references people(id) on delete cascade,
+  to_person_id uuid not null references people(id) on delete cascade,
   type text not null,
   primary key (from_person_id, to_person_id, type)
 );
 
-alter table relationship enable row level security;
+alter table relationships enable row level security;
 
--- Event table
-create table event (
+-- Events table
+create table if not exists events (
   id uuid primary key default uuid_generate_v4(),
-  family_id uuid not null references family(id),
-  creator_account_id uuid not null references account(id),
+  family_id uuid not null references families(id) on delete cascade,
+  creator_account_id uuid references accounts(id) on delete set null,
   title text,
   description text,
   occurred_from date,
@@ -97,34 +112,34 @@ create table event (
   )
 );
 
-alter table event enable row level security;
+alter table events enable row level security;
 
-create index idx_event_family_status on event(family_id, status);
-create index idx_event_creator on event(creator_account_id);
+create index if not exists idx_event_family_status on events(family_id, status);
+create index if not exists idx_event_creator on events(creator_account_id);
 
--- Event person junction table
-create table event_person (
-  event_id uuid references event(id),
-  person_id uuid references person(id),
+-- Event people junction table
+create table if not exists event_people (
+  event_id uuid references events(id) on delete cascade,
+  person_id uuid references people(id) on delete cascade,
   primary key (event_id, person_id)
 );
 
-alter table event_person enable row level security;
+alter table event_people enable row level security;
 
--- Contribution table
-create table contribution (
+-- Contributions table
+create table if not exists contributions (
   id uuid primary key default uuid_generate_v4(),
-  family_id uuid not null references family(id),
-  owner_account_id uuid not null references account(id),
-  narrator_person_id uuid references person(id),
-  event_id uuid references event(id) on delete set null,
-  origin_event_id uuid not null references event(id),
+  family_id uuid not null references families(id) on delete cascade,
+  owner_account_id uuid references accounts(id) on delete cascade,
+  narrator_person_id uuid references people(id) on delete set null,
+  event_id uuid references events(id) on delete set null,
+  origin_event_id uuid not null references events(id),
   origin_event_title_snapshot text,
   story text,
   status contribution_status not null default 'published',
   trashed_at timestamptz,
   trash_reason trash_reason,
-  derived_from_contribution_id uuid references contribution(id) on delete set null,
+  derived_from_contribution_id uuid references contributions(id) on delete set null,
   version int not null default 1,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -133,14 +148,14 @@ create table contribution (
   )
 );
 
-alter table contribution enable row level security;
+alter table contributions enable row level security;
 
-create index idx_contribution_owner_status on contribution(owner_account_id, status);
-create index idx_contribution_event on contribution(event_id) where status = 'published';
-create index idx_contribution_origin_event on contribution(origin_event_id);
+create index if not exists idx_contribution_owner_status on contributions(owner_account_id, status);
+create index if not exists idx_contribution_event on contributions(event_id) where status = 'published';
+create index if not exists idx_contribution_origin_event on contributions(origin_event_id);
 
--- Blob table for file storage
-create table blob (
+-- Blobs table for file storage
+create table if not exists blobs (
   id uuid primary key default uuid_generate_v4(),
   storage_key text unique not null,
   mime text not null,
@@ -150,40 +165,40 @@ create table blob (
   created_at timestamptz not null default now()
 );
 
-alter table blob enable row level security;
+alter table blobs enable row level security;
 
-create index idx_blob_ref_count_zero on blob(id) where ref_count = 0;
+create index if not exists idx_blob_ref_count_zero on blobs(id) where ref_count = 0;
 
 -- Media table
-create table media (
+create table if not exists media (
   id uuid primary key default uuid_generate_v4(),
-  contribution_id uuid not null references contribution(id),
-  blob_id uuid not null references blob(id),
-  blurred_blob_id uuid references blob(id),
-  taken_by_person_id uuid references person(id),
+  contribution_id uuid not null references contributions(id) on delete cascade,
+  blob_id uuid not null references blobs(id),
+  blurred_blob_id uuid references blobs(id),
+  taken_by_person_id uuid references people(id) on delete set null,
   sort_order int not null
 );
 
 alter table media enable row level security;
 
-create index idx_media_contribution on media(contribution_id);
+create index if not exists idx_media_contribution on media(contribution_id);
 
--- Contribution revision history
-create table contribution_revision (
-  contribution_id uuid references contribution(id) on delete cascade,
+-- Contribution revisions history
+create table if not exists contribution_revisions (
+  contribution_id uuid references contributions(id) on delete cascade,
   version int,
   story text not null,
-  edited_by uuid not null references account(id),
+  edited_by uuid references accounts(id) on delete set null,
   edited_at timestamptz not null default now(),
   primary key (contribution_id, version)
 );
 
-alter table contribution_revision enable row level security;
+alter table contribution_revisions enable row level security;
 
--- Audit log (no content stored)
-create table audit_log (
+-- Audit log (singular per spec, no content stored)
+create table if not exists audit_log (
   id bigserial primary key,
-  actor_account_id uuid references account(id),
+  actor_account_id uuid references accounts(id) on delete set null,
   action text not null,
   target_type text not null,
   target_id uuid not null,
@@ -192,11 +207,11 @@ create table audit_log (
 
 alter table audit_log enable row level security;
 
-create index idx_audit_log_actor on audit_log(actor_account_id);
-create index idx_audit_log_target on audit_log(target_type, target_id);
+create index if not exists idx_audit_log_actor on audit_log(actor_account_id);
+create index if not exists idx_audit_log_target on audit_log(target_type, target_id);
 
--- Outbox for async processing
-create table outbox (
+-- Outbox for async processing (singular per spec)
+create table if not exists outbox (
   id bigserial primary key,
   type text not null,
   payload jsonb not null,
@@ -206,39 +221,63 @@ create table outbox (
 
 alter table outbox enable row level security;
 
-create index idx_outbox_unsent on outbox(created_at) where sent_at is null;
+create index if not exists idx_outbox_unsent on outbox(created_at) where sent_at is null;
 
--- Notification table
-create table notification (
+-- Notifications table
+create table if not exists notifications (
   id uuid primary key default uuid_generate_v4(),
-  account_id uuid not null references account(id),
+  account_id uuid not null references accounts(id) on delete cascade,
   type text not null,
   payload jsonb not null,
   created_at timestamptz not null default now(),
   read_at timestamptz
 );
 
-alter table notification enable row level security;
+alter table notifications enable row level security;
 
-create index idx_notification_account_unread on notification(account_id, created_at) where read_at is null;
+create index if not exists idx_notification_account_unread on notifications(account_id, created_at) where read_at is null;
 
--- Idempotency key table
-create table idempotency_key (
-  account_id uuid not null references account(id),
+-- Idempotency keys table
+create table if not exists idempotency_keys (
+  account_id uuid not null references accounts(id) on delete cascade,
   key text not null,
   response jsonb,
   created_at timestamptz default now(),
   primary key (account_id, key)
 );
 
-alter table idempotency_key enable row level security;
+alter table idempotency_keys enable row level security;
 
--- Function to ensure at least one admin exists (race-safe with row lock)
+-- Invites table
+create table if not exists invites (
+  id uuid primary key default uuid_generate_v4(),
+  family_id uuid not null references families(id) on delete cascade,
+  email citext not null,
+  role member_role not null default 'member',
+  invited_by uuid references accounts(id) on delete set null,
+  status text not null default 'pending',
+  token_hash text not null unique,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  accepted_at timestamptz,
+  constraint check_invite_status check (status in ('pending', 'accepted', 'revoked', 'expired'))
+);
+
+alter table invites enable row level security;
+
+create index if not exists idx_invites_email_status on invites(lower(email), status);
+create index if not exists idx_invites_family on invites(family_id);
+create index if not exists idx_invites_token on invites(token_hash);
+
+-- Functions and triggers
+
+-- Function to check last admin (race-safe, allows sole member)
 create or replace function check_last_admin()
 returns trigger as $$
 declare
   family_row record;
   admin_count int;
+  total_active_members int;
 begin
   -- When removing (left_at set), deleting, or demoting an admin
   if (TG_OP = 'DELETE' or 
@@ -247,21 +286,33 @@ begin
     
     -- Lock the family row to prevent race conditions
     select * into family_row 
-    from family 
+    from families 
     where id = COALESCE(NEW.family_id, OLD.family_id)
     for update;
     
+    -- Count remaining active members (excluding the one being removed/demoted)
+    select count(*) into total_active_members
+    from family_members
+    where family_id = COALESCE(NEW.family_id, OLD.family_id)
+      and left_at is null
+      and account_id != OLD.account_id;
+    
+    -- If this is the sole member, allow (family will be deleted via purge path)
+    if total_active_members = 0 then
+      return COALESCE(NEW, OLD);
+    end if;
+    
     -- Count remaining active admins (excluding the one being removed/demoted)
     select count(*) into admin_count
-    from family_member
+    from family_members
     where family_id = COALESCE(NEW.family_id, OLD.family_id)
       and role = 'admin'
       and left_at is null
       and account_id != OLD.account_id;
     
-    -- Raise error if this is the last admin
+    -- If other members exist but no admins would remain, block
     if admin_count = 0 then
-      raise exception 'CANNOT_REMOVE_LAST_ADMIN: At least one admin must exist in the family';
+      raise exception 'LAST_ADMIN';
     end if;
   end if;
   
@@ -269,29 +320,18 @@ begin
 end;
 $$ language plpgsql;
 
--- Trigger to prevent removing last admin
-create trigger enforce_last_admin
-  before update or delete on family_member
-  for each row
-  execute function check_last_admin();
-
--- Function to make family creator first admin
+-- Function to set creator as admin
 create or replace function set_creator_as_admin()
 returns trigger as $$
 begin
-  insert into family_member (family_id, account_id, role)
-  values (NEW.id, NEW.created_by, 'admin');
+  insert into family_members (family_id, account_id, role)
+  values (NEW.id, NEW.created_by, 'admin')
+  on conflict do nothing;
   return NEW;
 end;
 $$ language plpgsql;
 
--- Trigger to auto-add creator as admin
-create trigger add_creator_as_admin
-  after insert on family
-  for each row
-  execute function set_creator_as_admin();
-
--- Function to update event updated_at and bump version
+-- Function to update event timestamp and bump version
 create or replace function update_event_timestamp()
 returns trigger as $$
 begin
@@ -301,13 +341,7 @@ begin
 end;
 $$ language plpgsql;
 
--- Trigger for event updates
-create trigger update_event_timestamp
-  before update on event
-  for each row
-  execute function update_event_timestamp();
-
--- Function to update contribution updated_at and bump version
+-- Function to update contribution timestamp and bump version
 create or replace function update_contribution_timestamp()
 returns trigger as $$
 begin
@@ -316,12 +350,6 @@ begin
   return NEW;
 end;
 $$ language plpgsql;
-
--- Trigger for contribution updates
-create trigger update_contribution_timestamp
-  before update on contribution
-  for each row
-  execute function update_contribution_timestamp();
 
 -- Function to prevent origin_event_id changes
 create or replace function prevent_origin_event_change()
@@ -333,12 +361,6 @@ begin
   return NEW;
 end;
 $$ language plpgsql;
-
--- Trigger to make origin_event_id immutable
-create trigger prevent_origin_event_change
-  before update on contribution
-  for each row
-  execute function prevent_origin_event_change();
 
 -- Function to validate contribution state consistency
 create or replace function validate_contribution_state()
@@ -358,65 +380,100 @@ begin
 end;
 $$ language plpgsql;
 
--- Trigger to validate contribution state
-create trigger validate_contribution_state
-  before insert or update on contribution
-  for each row
-  execute function validate_contribution_state();
-
--- Function to update blob ref_count when media is added/removed
+-- Function to update blob ref_count
 create or replace function update_blob_ref_count()
 returns trigger as $$
 begin
   if TG_OP = 'INSERT' then
-    update blob set ref_count = ref_count + 1 where id = NEW.blob_id;
+    update blobs set ref_count = ref_count + 1 where id = NEW.blob_id;
     if NEW.blurred_blob_id is not null then
-      update blob set ref_count = ref_count + 1 where id = NEW.blurred_blob_id;
+      update blobs set ref_count = ref_count + 1 where id = NEW.blurred_blob_id;
     end if;
   elsif TG_OP = 'DELETE' then
-    update blob set ref_count = ref_count - 1 where id = OLD.blob_id;
+    update blobs set ref_count = ref_count - 1 where id = OLD.blob_id;
     if OLD.blurred_blob_id is not null then
-      update blob set ref_count = ref_count - 1 where id = OLD.blurred_blob_id;
+      update blobs set ref_count = ref_count - 1 where id = OLD.blurred_blob_id;
     end if;
   end if;
   return COALESCE(NEW, OLD);
 end;
 $$ language plpgsql;
 
--- Trigger for media changes
+-- Create triggers (idempotent with drop if exists)
+drop trigger if exists enforce_last_admin on family_members;
+create trigger enforce_last_admin
+  before update or delete on family_members
+  for each row
+  execute function check_last_admin();
+
+drop trigger if exists add_creator_as_admin on families;
+create trigger add_creator_as_admin
+  after insert on families
+  for each row
+  execute function set_creator_as_admin();
+
+drop trigger if exists update_event_timestamp on events;
+create trigger update_event_timestamp
+  before update on events
+  for each row
+  execute function update_event_timestamp();
+
+drop trigger if exists update_contribution_timestamp on contributions;
+create trigger update_contribution_timestamp
+  before update on contributions
+  for each row
+  execute function update_contribution_timestamp();
+
+drop trigger if exists prevent_origin_event_change on contributions;
+create trigger prevent_origin_event_change
+  before update on contributions
+  for each row
+  execute function prevent_origin_event_change();
+
+drop trigger if exists validate_contribution_state on contributions;
+create trigger validate_contribution_state
+  before insert or update on contributions
+  for each row
+  execute function validate_contribution_state();
+
+drop trigger if exists media_ref_count on media;
 create trigger media_ref_count
   after insert or delete on media
   for each row
   execute function update_blob_ref_count();
 
--- Create view for AI-eligible contributions (excludes trashed/purged)
--- Use security_invoker to respect RLS policies
-create view ai_eligible_contributions 
+-- Create view for AI-eligible contributions (security_invoker)
+create or replace view ai_eligible_contributions 
 with (security_invoker = true) as
 select c.*
-from contribution c
+from contributions c
 where c.status = 'published';
 
--- Revoke access from anon and authenticated roles
 revoke all on ai_eligible_contributions from anon, authenticated;
 
--- Grant permissions to service role (this is what the API uses)
--- Note: In production, create a dedicated role instead of using postgres
-grant usage on schema public to postgres;
-grant all on all tables in schema public to postgres;
-grant all on all sequences in schema public to postgres;
+-- Setup storage bucket
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'private-media',
+  'private-media',
+  false,
+  20971520,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/heic']
+)
+on conflict (id) do nothing;
 
--- Comments for documentation
-comment on table account is 'User accounts from Supabase Auth';
-comment on table family is 'Family groups that organize memories';
-comment on table family_member is 'Members of families with roles (admin/member)';
-comment on column family_member.role is 'Admin can invite, promote/demote members; all can create events';
-comment on table person is 'People in family tree, may or may not have accounts';
-comment on table event is 'Memory events that group contributions';
-comment on column event.status is 'active (normal), archived (hidden from others), deleted (tombstone)';
-comment on table contribution is 'Individual stories with optional photos';
-comment on column contribution.origin_event_id is 'Original event, never changes even if event_id becomes null';
-comment on table blob is 'File storage references with ref counting';
-comment on column blob.ref_count is 'Number of media entries referencing this blob';
+-- Comments
+comment on table accounts is 'User accounts from Supabase Auth';
+comment on table families is 'Family groups that organize memories';
+comment on table family_members is 'Members of families with roles (admin/member)';
+comment on column family_members.role is 'Admin can invite, promote/demote members; all can create events';
+comment on table people is 'People in family tree, may or may not have accounts';
+comment on table events is 'Memory events that group contributions';
+comment on column events.status is 'active (normal), archived (hidden from others), deleted (tombstone)';
+comment on table contributions is 'Individual stories with optional photos';
+comment on column contributions.origin_event_id is 'Original event, never changes even if event_id becomes null';
+comment on table blobs is 'File storage references with ref counting';
+comment on column blobs.ref_count is 'Number of media entries referencing this blob';
 comment on table audit_log is 'Audit trail without content (privacy)';
 comment on table outbox is 'Async job queue for worker';
+comment on table invites is 'Pending family invitations with secure tokens';

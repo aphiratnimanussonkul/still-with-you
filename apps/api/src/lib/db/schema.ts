@@ -62,8 +62,8 @@ export const familyMembers = pgTable(
   })
 );
 
-// Persons table
-export const persons = pgTable('persons', {
+// People table
+export const people = pgTable('people', {
   id: uuid('id').primaryKey().defaultRandom(),
   familyId: uuid('family_id').notNull().references(() => families.id),
   displayName: text('display_name').notNull(),
@@ -77,8 +77,8 @@ export const relationships = pgTable(
   'relationships',
   {
     familyId: uuid('family_id').notNull().references(() => families.id),
-    fromPersonId: uuid('from_person_id').notNull().references(() => persons.id),
-    toPersonId: uuid('to_person_id').notNull().references(() => persons.id),
+    fromPersonId: uuid('from_person_id').notNull().references(() => people.id),
+    toPersonId: uuid('to_person_id').notNull().references(() => people.id),
     type: text('type').notNull(),
   },
   (table) => ({
@@ -112,12 +112,12 @@ export const events = pgTable(
   })
 );
 
-// Event persons junction table
-export const eventPersons = pgTable(
-  'event_persons',
+// Event people junction table
+export const eventPeople = pgTable(
+  'event_people',
   {
     eventId: uuid('event_id').notNull().references(() => events.id),
-    personId: uuid('person_id').notNull().references(() => persons.id),
+    personId: uuid('person_id').notNull().references(() => people.id),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.eventId, table.personId] }),
@@ -131,7 +131,7 @@ export const contributions: ReturnType<typeof pgTable> = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     familyId: uuid('family_id').notNull().references(() => families.id),
     ownerAccountId: uuid('owner_account_id').notNull().references(() => accounts.id),
-    narratorPersonId: uuid('narrator_person_id').references(() => persons.id),
+    narratorPersonId: uuid('narrator_person_id').references(() => people.id),
     eventId: uuid('event_id').references(() => events.id, { onDelete: 'set null' }),
     originEventId: uuid('origin_event_id').notNull().references(() => events.id),
     originEventTitleSnapshot: text('origin_event_title_snapshot'),
@@ -170,15 +170,15 @@ export const blobs = pgTable(
   })
 );
 
-// Medias table
-export const medias = pgTable(
-  'medias',
+// Media table
+export const media = pgTable(
+  'media',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     contributionId: uuid('contribution_id').notNull().references(() => contributions.id),
     blobId: uuid('blob_id').notNull().references(() => blobs.id),
     blurredBlobId: uuid('blurred_blob_id').references(() => blobs.id),
-    takenByPersonId: uuid('taken_by_person_id').references(() => persons.id),
+    takenByPersonId: uuid('taken_by_person_id').references(() => people.id),
     sortOrder: integer('sort_order').notNull(),
   },
   (table) => ({
@@ -201,9 +201,9 @@ export const contributionRevisions = pgTable(
   })
 );
 
-// Audit logs table
-export const auditLogs = pgTable(
-  'audit_logs',
+// Audit log table (singular per spec)
+export const auditLog = pgTable(
+  'audit_log',
   {
     id: bigserial('id', { mode: 'number' }).primaryKey(),
     actorAccountId: uuid('actor_account_id').references(() => accounts.id),
@@ -218,9 +218,9 @@ export const auditLogs = pgTable(
   })
 );
 
-// Outboxes table
-export const outboxes = pgTable(
-  'outboxes',
+// Outbox table
+export const outbox = pgTable(
+  'outbox',
   {
     id: bigserial('id', { mode: 'number' }).primaryKey(),
     type: text('type').notNull(),

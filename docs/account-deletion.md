@@ -6,39 +6,38 @@ Account deletion is constrained to prevent orphaned families and ensure data int
 
 ## Constraints
 
-### 1. Last Admin Protection
+### 1. Last Admin Protection (When Other Members Exist)
 
-An account **CANNOT** be deleted if it is the last admin of any family. The deletion will fail with a clear error message listing the affected families.
+An account **CANNOT** be deleted if it is the last admin of any family **that has other active members**. The deletion will fail with a clear error message.
 
-**Error Code:** `CANNOT_DELETE_LAST_ADMIN`  
-**HTTP Status:** 403 Forbidden
+If the account is the **sole member** of a family (last admin and last member), the family will be deleted along with the account via the purge path.
+
+**Error Code:** `LAST_ADMIN`  
+**HTTP Status:** 409 Conflict
 
 **Error Response:**
 ```json
 {
   "error": {
-    "code": "CANNOT_DELETE_LAST_ADMIN",
-    "message": "Cannot delete account that is the last admin of one or more families",
-    "families": [
-      {
-        "id": "family-uuid-1",
-        "name": "Smith Family"
-      },
-      {
-        "id": "family-uuid-2",
-        "name": "Johnson Family"
-      }
-    ]
+    "code": "LAST_ADMIN",
+    "message": "Cannot delete account: you are the last admin of \"Smith Family\" which has other members. Promote another admin first."
   }
 }
 ```
 
-### 2. Required Actions Before Deletion
+### 2. Automatic Purge (No Manual Steps Required)
 
-Before an account can be deleted, the user must:
+Account deletion now **automatically purges everything** in one transaction:
 
-1. **Transfer admin role** to another member in each family where they are the last admin, OR
-2. **Leave the family** after promoting another member to admin
+- ✅ All contributions marked as purged, content hard-deleted
+- ✅ Contribution revisions hard-deleted
+- ✅ Media hard-deleted, blob ref_count decremented
+- ✅ Blob file deletions enqueued to outbox for worker
+- ✅ Audit log entries created (IDs only, no content)
+- ✅ Families where account is sole member are deleted
+- ✅ Account deleted with cascades
+
+**No manual cleanup required** - the user does NOT need to purge contributions first.
 
 ### 3. Foreign Key Cascade Behavior
 
@@ -50,34 +49,29 @@ When an account is deleted (after passing the last-admin check), the following o
 | `family_members` | `account_id` | **CASCADE** | Membership records deleted |
 | `persons` | `account_id` | **SET NULL** | Person record preserved, account link removed |
 | `events` | `creator_account_id` | **SET NULL** | Event preserved, creator anonymized |
-| `contributions` | `owner_account_id` | **RESTRICT** | Must handle contributions first |
+| `contributions` | `owner_account_id` | **CASCADE** | Purged via deletion transaction |
 | `invites` | `invited_by` | **SET NULL** | Invite preserved, inviter anonymized |
 | `audit_logs` | `actor_account_id` | **SET NULL** | Audit trail preserved, actor anonymized |
 | `notifications` | `account_id` | **CASCADE** | User's notifications deleted |
 | `idempotency_keys` | `account_id` | **CASCADE** | User's idempotency keys deleted |
 
-### 4. Contribution Handling
+### 4. Contribution Purge Process
 
-**Decision:** Contributions use **RESTRICT** on `owner_account_id`.
+**Decision:** Contributions are **automatically purged** during account deletion.
 
-Before account deletion, the user must:
-- Purge all their contributions (published and trashed)
-- OR transfer ownership (future feature)
-
-Attempting to delete an account with existing contributions will fail with:
-
-**Error Code:** `ACCOUNT_HAS_CONTRIBUTIONS`  
-**HTTP Status:** 403 Forbidden
-
-```json
-{
-  "error": {
-    "code": "ACCOUNT_HAS_CONTRIBUTIONS",
-    "message": "Cannot delete account with existing contributions. Purge all contributions first.",
-    "contribution_count": 42
-  }
-}
-```
+The deletion transaction:
+1. Fetches all user's contributions
+2. For each contribution:
+   - Gets all media attachments
+   - Decrements blob `ref_count` for each blob
+   - Enqueues blob file deletion to `outbox` for worker
+   - Hard-deletes media records
+   - Hard-deletes revision history
+   - Marks contribution as `purged` with `story = NULL`
+   - Writes audit log (contribution ID only, no content)
+3. Deletes families where user is sole member
+4. Deletes account (cascades handle the rest)
+5. Final audit log entry (actor will be NULL after deletion)
 
 ## Implementation
 
@@ -106,25 +100,29 @@ DELETE /v1/me/account
 
 **Implementation Steps:**
 
-1. Check if user is last admin of any family
-2. If yes, return 403 with list of affected families
-3. Check if user has any contributions
-4. If yes, return 403 with contribution count
-5. Perform deletion with transaction:
-   - Set left_at on all family memberships
-   - Cascade delete notifications and idempotency keys
-   - Set NULL on foreign keys where configured
-   - Delete account record
-6. Write audit log (actor_id will be NULL)
-7. Invalidate all user's tokens
+1. Start transaction
+2. For each family where user is active member:
+   - If user is admin, check if other active members exist
+   - If yes and no other admins, **block** with 409 LAST_ADMIN
+   - If user is sole member, mark family for deletion
+3. Purge all user's contributions:
+   - Get all media, decrement blob ref_count
+   - Enqueue blob deletions to outbox
+   - Hard-delete media and revisions
+   - Mark contributions as purged (story = NULL)
+   - Write audit logs (IDs only)
+4. Delete families where user was sole member
+5. Delete account (cascades handle notifications, keys, etc.)
+6. Write final audit log (actor will be NULL)
+7. Commit transaction
 
 ### User Flow
 
-1. **User initiates deletion** → System checks constraints
-2. **If last admin** → Show affected families, guide to promote another admin
-3. **If has contributions** → Show count, offer bulk purge with confirmation
-4. **All clear** → Final confirmation with explanation of what will be deleted
-5. **Confirmed** → Account deleted, user logged out
+1. **User initiates deletion** → System checks last-admin constraint
+2. **If last admin with other members** → 409 error, must promote another admin first
+3. **If sole member** → Family deleted automatically
+4. **Final confirmation** → Explain contributions will be purged, data lost
+5. **Confirmed** → Everything purged in one transaction, user logged out
 
 ## Future Considerations
 
@@ -154,10 +152,12 @@ Allow transferring contribution ownership:
 ## Testing
 
 Test cases must cover:
-- ✅ Last admin deletion blocked
-- ✅ Last admin across multiple families
-- ✅ Deletion with contributions blocked
-- ✅ Successful deletion after cleanup
+- ✅ Last admin with other members → blocked (409 LAST_ADMIN)
+- ✅ Sole member (last admin, no other members) → family deleted
+- ✅ Contributions automatically purged
+- ✅ Blob ref_count decremented
+- ✅ Blob deletions enqueued to outbox
+- ✅ Audit logs created with IDs only (no content)
 - ✅ Foreign key cascade behavior
-- ✅ Audit log creation with NULL actor
-- ✅ Token invalidation after deletion
+- ✅ Transaction rollback on error
+- ✅ Multiple families handled correctly

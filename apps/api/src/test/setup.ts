@@ -6,7 +6,7 @@ import { sql as pgSql } from '../lib/db/index.js';
  */
 beforeAll(async () => {
   // Clean up test data
-  await pgSql`TRUNCATE TABLE family_members, families, accounts, audit_logs, invites CASCADE`;
+  await pgSql`TRUNCATE TABLE family_members, families, accounts, audit_log, invites, outbox CASCADE`;
 });
 
 /**
