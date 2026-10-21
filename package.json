@@ -1,0 +1,20 @@
+{
+  "name": "still-with-you",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private family memory PWA",
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "build": "pnpm --filter \"./packages/*\" build && pnpm --filter \"./apps/*\" build",
+    "test": "pnpm --recursive test",
+    "lint": "pnpm --recursive lint",
+    "typecheck": "pnpm --recursive typecheck",
+    "db:start": "cd supabase && supabase start",
+    "db:stop": "cd supabase && supabase stop",
+    "db:reset": "cd supabase && supabase db reset"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

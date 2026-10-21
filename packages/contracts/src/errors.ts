@@ -1,0 +1,95 @@
+/**
+ * Error codes for Still With You API
+ * Based on backend-contract-v0.4.md
+ */
+
+export const ErrorCode = {
+  // 400 Bad Request
+  STORY_REQUIRED: 'STORY_REQUIRED',
+  CONFIRM_TEXT_MISMATCH: 'CONFIRM_TEXT_MISMATCH',
+  MIXED_ORIGIN_EVENTS: 'MIXED_ORIGIN_EVENTS',
+  FILE_TYPE_NOT_ALLOWED: 'FILE_TYPE_NOT_ALLOWED',
+  TOO_MANY_PHOTOS: 'TOO_MANY_PHOTOS',
+  INVALID_INPUT: 'INVALID_INPUT',
+
+  // 401 Unauthorized
+  UNAUTHENTICATED: 'UNAUTHENTICATED',
+
+  // 403 Forbidden
+  FORBIDDEN: 'FORBIDDEN',
+  ADMIN_REQUIRED: 'ADMIN_REQUIRED',
+  CANNOT_REMOVE_LAST_ADMIN: 'CANNOT_REMOVE_LAST_ADMIN',
+
+  // 404 Not Found
+  NOT_FOUND: 'NOT_FOUND',
+
+  // 409 Conflict
+  EVENT_NOT_ACTIVE: 'EVENT_NOT_ACTIVE',
+  EVENT_NOT_ARCHIVED: 'EVENT_NOT_ARCHIVED',
+  SOURCE_ARCHIVED: 'SOURCE_ARCHIVED',
+  SOURCE_NOT_DELETED: 'SOURCE_NOT_DELETED',
+  VERSION_CONFLICT: 'VERSION_CONFLICT',
+
+  // 413 Payload Too Large
+  FILE_TOO_LARGE: 'FILE_TOO_LARGE',
+
+  // 429 Too Many Requests
+  RATE_LIMITED: 'RATE_LIMITED',
+
+  // 500 Internal Server Error
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+} as const;
+
+export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
+
+export interface ApiError {
+  error: {
+    code: ErrorCode;
+    message: string;
+    field?: string;
+  };
+}
+
+export class AppError extends Error {
+  constructor(
+    public code: ErrorCode,
+    message: string,
+    public statusCode: number = 500,
+    public field?: string
+  ) {
+    super(message);
+    this.name = 'AppError';
+  }
+
+  toJSON(): ApiError {
+    return {
+      error: {
+        code: this.code,
+        message: this.message,
+        ...(this.field && { field: this.field }),
+      },
+    };
+  }
+}
+
+export const errorMessages: Record<ErrorCode, string> = {
+  STORY_REQUIRED: 'Story text is required and cannot be empty',
+  CONFIRM_TEXT_MISMATCH: 'Confirmation text does not match',
+  MIXED_ORIGIN_EVENTS: 'Cannot create event from contributions with different origin events',
+  FILE_TYPE_NOT_ALLOWED: 'File type is not allowed',
+  TOO_MANY_PHOTOS: 'Too many photos attached',
+  INVALID_INPUT: 'Invalid input provided',
+  UNAUTHENTICATED: 'Authentication required',
+  FORBIDDEN: 'You do not have permission to perform this action',
+  ADMIN_REQUIRED: 'This action requires admin role',
+  CANNOT_REMOVE_LAST_ADMIN: 'Cannot remove or demote the last admin',
+  NOT_FOUND: 'Resource not found',
+  EVENT_NOT_ACTIVE: 'Event must be active for this operation',
+  EVENT_NOT_ARCHIVED: 'Event must be archived before deletion',
+  SOURCE_ARCHIVED: 'Cannot restore contribution when origin event is archived',
+  SOURCE_NOT_DELETED: 'Cannot create event from contributions whose origin event is not deleted',
+  VERSION_CONFLICT: 'Resource was modified by another user',
+  FILE_TOO_LARGE: 'File size exceeds the maximum allowed',
+  RATE_LIMITED: 'Too many requests, please try again later',
+  INTERNAL_ERROR: 'An internal error occurred',
+};
