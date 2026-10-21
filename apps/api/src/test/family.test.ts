@@ -258,7 +258,14 @@ describe('Family Management', () => {
 
       const family = JSON.parse(familyResponse.body);
 
-      // Try to demote the only admin
+      // Add another member (non-admin)
+      await db.insert(familyMembers).values({
+        familyId: family.id,
+        accountId: memberAccount.id,
+        role: 'member',
+      });
+
+      // Try to demote the only admin (with other members present)
       const demoteResponse = await server.inject({
         method: 'PATCH',
         url: `/v1/families/${family.id}/members/${adminAccount.id}`,
@@ -270,8 +277,10 @@ describe('Family Management', () => {
         },
       });
 
-      // Should fail with database constraint
-      expect(demoteResponse.statusCode).toBe(500);
+      // Should fail with 409 LAST_ADMIN error
+      expect(demoteResponse.statusCode).toBe(409);
+      const body = JSON.parse(demoteResponse.body);
+      expect(body.error.code).toBe('LAST_ADMIN');
     });
 
     it('should allow demoting admin when another admin exists', async () => {
@@ -380,7 +389,14 @@ describe('Family Management', () => {
 
       const family = JSON.parse(familyResponse.body);
 
-      // Try to remove the only admin
+      // Add another member (non-admin)
+      await db.insert(familyMembers).values({
+        familyId: family.id,
+        accountId: memberAccount.id,
+        role: 'member',
+      });
+
+      // Try to remove the only admin (with other members present)
       const removeResponse = await server.inject({
         method: 'DELETE',
         url: `/v1/families/${family.id}/members/${adminAccount.id}`,
@@ -389,8 +405,10 @@ describe('Family Management', () => {
         },
       });
 
-      // Should fail with database constraint
-      expect(removeResponse.statusCode).toBe(500);
+      // Should fail with 409 LAST_ADMIN error
+      expect(removeResponse.statusCode).toBe(409);
+      const body = JSON.parse(removeResponse.body);
+      expect(body.error.code).toBe('LAST_ADMIN');
     });
   });
 });
