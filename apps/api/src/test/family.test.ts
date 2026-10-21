@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestServer, createTestAccount, cleanupTestData } from './helpers.js';
-import { db, familyMember } from '../lib/db/index.js';
+import { db, familyMembers } from '../lib/db/index.js';
 import { eq, and, isNull } from 'drizzle-orm';
 
 /**
@@ -46,8 +46,8 @@ describe('Family Management', () => {
       // Verify creator is admin
       const [member] = await db
         .select()
-        .from(familyMember)
-        .where(and(eq(familyMember.familyId, body.id), eq(familyMember.accountId, adminAccount.id)))
+        .from(familyMembers)
+        .where(and(eq(familyMembers.familyId, body.id), eq(familyMembers.accountId, adminAccount.id)))
         .limit(1);
 
       expect(member).toBeDefined();
@@ -71,7 +71,7 @@ describe('Family Management', () => {
 
       const family = JSON.parse(familyResponse.body);
 
-      // Invite member
+      // Create invite
       const inviteResponse = await server.inject({
         method: 'POST',
         url: `/v1/families/${family.id}/invites`,
@@ -84,12 +84,25 @@ describe('Family Management', () => {
       });
 
       expect(inviteResponse.statusCode).toBe(201);
+      const inviteBody = JSON.parse(inviteResponse.body);
+      expect(inviteBody.token).toBeTruthy();
+
+      // Accept invite
+      const acceptResponse = await server.inject({
+        method: 'POST',
+        url: `/v1/invites/${inviteBody.token}/accept`,
+        headers: {
+          authorization: `Bearer mock-token-${memberAccount.authId}`,
+        },
+      });
+
+      expect(acceptResponse.statusCode).toBe(200);
 
       // Verify member was added
       const [member] = await db
         .select()
-        .from(familyMember)
-        .where(and(eq(familyMember.familyId, family.id), eq(familyMember.accountId, memberAccount.id)))
+        .from(familyMembers)
+        .where(and(eq(familyMembers.familyId, family.id), eq(familyMembers.accountId, memberAccount.id)))
         .limit(1);
 
       expect(member).toBeDefined();
@@ -112,7 +125,7 @@ describe('Family Management', () => {
       const family = JSON.parse(familyResponse.body);
 
       // Add memberAccount as regular member
-      await db.insert(familyMember).values({
+      await db.insert(familyMembers).values({
         familyId: family.id,
         accountId: memberAccount.id,
         role: 'member',
@@ -134,7 +147,7 @@ describe('Family Management', () => {
 
       expect(inviteResponse.statusCode).toBe(403);
       const body = JSON.parse(inviteResponse.body);
-      expect(body.error.code).toBe('ADMIN_REQUIRED');
+      expect(body.error.code).toBe('FORBIDDEN');
     });
   });
 
@@ -155,7 +168,7 @@ describe('Family Management', () => {
       const family = JSON.parse(familyResponse.body);
 
       // Add member
-      await db.insert(familyMember).values({
+      await db.insert(familyMembers).values({
         familyId: family.id,
         accountId: memberAccount.id,
         role: 'member',
@@ -178,8 +191,8 @@ describe('Family Management', () => {
       // Verify role changed
       const [member] = await db
         .select()
-        .from(familyMember)
-        .where(and(eq(familyMember.familyId, family.id), eq(familyMember.accountId, memberAccount.id)))
+        .from(familyMembers)
+        .where(and(eq(familyMembers.familyId, family.id), eq(familyMembers.accountId, memberAccount.id)))
         .limit(1);
 
       expect(member.role).toBe('admin');
@@ -201,7 +214,7 @@ describe('Family Management', () => {
       const family = JSON.parse(familyResponse.body);
 
       // Add member
-      await db.insert(familyMember).values({
+      await db.insert(familyMembers).values({
         familyId: family.id,
         accountId: memberAccount.id,
         role: 'member',
@@ -221,7 +234,7 @@ describe('Family Management', () => {
 
       expect(promoteResponse.statusCode).toBe(403);
       const body = JSON.parse(promoteResponse.body);
-      expect(body.error.code).toBe('ADMIN_REQUIRED');
+      expect(body.error.code).toBe('FORBIDDEN');
     });
   });
 
@@ -273,7 +286,7 @@ describe('Family Management', () => {
       const family = JSON.parse(familyResponse.body);
 
       // Add second admin
-      await db.insert(familyMember).values({
+      await db.insert(familyMembers).values({
         familyId: family.id,
         accountId: memberAccount.id,
         role: 'admin',
@@ -296,8 +309,8 @@ describe('Family Management', () => {
       // Verify role changed
       const [member] = await db
         .select()
-        .from(familyMember)
-        .where(and(eq(familyMember.familyId, family.id), eq(familyMember.accountId, adminAccount.id)))
+        .from(familyMembers)
+        .where(and(eq(familyMembers.familyId, family.id), eq(familyMembers.accountId, adminAccount.id)))
         .limit(1);
 
       expect(member.role).toBe('member');
@@ -321,7 +334,7 @@ describe('Family Management', () => {
       const family = JSON.parse(familyResponse.body);
 
       // Add member
-      await db.insert(familyMember).values({
+      await db.insert(familyMembers).values({
         familyId: family.id,
         accountId: memberAccount.id,
         role: 'member',
@@ -341,8 +354,8 @@ describe('Family Management', () => {
       // Verify member has left_at set
       const [member] = await db
         .select()
-        .from(familyMember)
-        .where(and(eq(familyMember.familyId, family.id), eq(familyMember.accountId, memberAccount.id)))
+        .from(familyMembers)
+        .where(and(eq(familyMembers.familyId, family.id), eq(familyMembers.accountId, memberAccount.id)))
         .limit(1);
 
       expect(member.leftAt).not.toBeNull();

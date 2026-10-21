@@ -2,7 +2,7 @@ import { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { env } from '../lib/env.js';
-import { db, account } from '../lib/db/index.js';
+import { db, accounts } from '../lib/db/index.js';
 import { eq } from 'drizzle-orm';
 import { AppError, ErrorCode } from '@still-with-you/contracts';
 
@@ -54,24 +54,27 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
       const authId = payload.sub;
       const email = payload.email as string | undefined;
 
-      let [userAccount] = await db.select().from(account).where(eq(account.authId, authId)).limit(1);
+      if (!email) {
+        throw new AppError(ErrorCode.UNAUTHENTICATED, 'Email required for authentication', 401);
+      }
 
-      // Create account if it doesn't exist (first login)
+      const displayName = (payload.user_metadata as any)?.full_name || email.split('@')[0];
+
+      // Upsert account (insert if not exists, otherwise do nothing)
+      await db
+        .insert(accounts)
+        .values({
+          authId,
+          email,
+          displayName,
+        })
+        .onConflictDoNothing({ target: accounts.authId });
+
+      // Fetch the account
+      const [userAccount] = await db.select().from(accounts).where(eq(accounts.authId, authId)).limit(1);
+
       if (!userAccount) {
-        if (!email) {
-          throw new AppError(ErrorCode.UNAUTHENTICATED, 'Email required for account creation', 401);
-        }
-
-        const displayName = (payload.user_metadata as any)?.full_name || email.split('@')[0];
-
-        [userAccount] = await db
-          .insert(account)
-          .values({
-            authId,
-            email,
-            displayName,
-          })
-          .returning();
+        throw new AppError(ErrorCode.UNAUTHENTICATED, 'Failed to load account', 401);
       }
 
       // Attach user to request

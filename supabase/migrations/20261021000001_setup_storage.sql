@@ -1,4 +1,4 @@
--- Setup private storage bucket for media files
+-- Setup private storage bucket for media files (idempotent)
 
 -- Create the private media bucket
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -8,7 +8,8 @@ values (
   false,
   20971520, -- 20MB in bytes
   array['image/jpeg', 'image/png', 'image/webp', 'image/heic']
-);
+)
+on conflict (id) do nothing;
 
 -- Note: RLS policies are intentionally NOT created for storage
 -- The API backend uses the service role to manage storage access

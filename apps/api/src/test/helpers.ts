@@ -1,5 +1,5 @@
 import { buildServer } from '../index.js';
-import { db, account, family, familyMember } from '../lib/db/index.js';
+import { db, accounts, families, familyMembers } from '../lib/db/index.js';
 import { SignJWT } from 'jose';
 import { env } from '../lib/env.js';
 
@@ -14,7 +14,7 @@ export async function createTestServer() {
 
 export async function createTestAccount(authId: string, email: string, displayName: string) {
   const [acc] = await db
-    .insert(account)
+    .insert(accounts)
     .values({
       authId,
       email,
@@ -27,7 +27,7 @@ export async function createTestAccount(authId: string, email: string, displayNa
 
 export async function createTestFamily(name: string, createdBy: string) {
   const [fam] = await db
-    .insert(family)
+    .insert(families)
     .values({
       name,
       createdBy,
@@ -43,7 +43,7 @@ export async function addFamilyMember(
   role: 'member' | 'admin' = 'member'
 ) {
   const [member] = await db
-    .insert(familyMember)
+    .insert(familyMembers)
     .values({
       familyId,
       accountId,
@@ -76,7 +76,7 @@ export async function generateTestToken(authId: string, email: string): Promise<
 }
 
 export async function cleanupTestData() {
-  await db.delete(familyMember);
-  await db.delete(family);
-  await db.delete(account);
+  await db.delete(familyMembers);
+  await db.delete(families);
+  await db.delete(accounts);
 }

@@ -233,20 +233,34 @@ create table idempotency_key (
 
 alter table idempotency_key enable row level security;
 
--- Function to ensure at least one admin exists
+-- Function to ensure at least one admin exists (race-safe with row lock)
 create or replace function check_last_admin()
 returns trigger as $$
+declare
+  family_row record;
+  admin_count int;
 begin
-  -- When removing or demoting an admin
-  if (TG_OP = 'DELETE' or (TG_OP = 'UPDATE' and NEW.role = 'member' and OLD.role = 'admin')) then
-    -- Check if this is the last admin
-    if not exists (
-      select 1 from family_member
-      where family_id = COALESCE(NEW.family_id, OLD.family_id)
-        and role = 'admin'
-        and left_at is null
-        and (TG_OP = 'DELETE' or account_id != OLD.account_id)
-    ) then
+  -- When removing (left_at set), deleting, or demoting an admin
+  if (TG_OP = 'DELETE' or 
+      (TG_OP = 'UPDATE' and NEW.role = 'member' and OLD.role = 'admin') or
+      (TG_OP = 'UPDATE' and NEW.left_at is not null and OLD.left_at is null and OLD.role = 'admin')) then
+    
+    -- Lock the family row to prevent race conditions
+    select * into family_row 
+    from family 
+    where id = COALESCE(NEW.family_id, OLD.family_id)
+    for update;
+    
+    -- Count remaining active admins (excluding the one being removed/demoted)
+    select count(*) into admin_count
+    from family_member
+    where family_id = COALESCE(NEW.family_id, OLD.family_id)
+      and role = 'admin'
+      and left_at is null
+      and account_id != OLD.account_id;
+    
+    -- Raise error if this is the last admin
+    if admin_count = 0 then
       raise exception 'CANNOT_REMOVE_LAST_ADMIN: At least one admin must exist in the family';
     end if;
   end if;
@@ -277,11 +291,12 @@ create trigger add_creator_as_admin
   for each row
   execute function set_creator_as_admin();
 
--- Function to update event updated_at
+-- Function to update event updated_at and bump version
 create or replace function update_event_timestamp()
 returns trigger as $$
 begin
   NEW.updated_at = now();
+  NEW.version = OLD.version + 1;
   return NEW;
 end;
 $$ language plpgsql;
@@ -292,11 +307,12 @@ create trigger update_event_timestamp
   for each row
   execute function update_event_timestamp();
 
--- Function to update contribution updated_at
+-- Function to update contribution updated_at and bump version
 create or replace function update_contribution_timestamp()
 returns trigger as $$
 begin
   NEW.updated_at = now();
+  NEW.version = OLD.version + 1;
   return NEW;
 end;
 $$ language plpgsql;
@@ -306,6 +322,47 @@ create trigger update_contribution_timestamp
   before update on contribution
   for each row
   execute function update_contribution_timestamp();
+
+-- Function to prevent origin_event_id changes
+create or replace function prevent_origin_event_change()
+returns trigger as $$
+begin
+  if NEW.origin_event_id != OLD.origin_event_id then
+    raise exception 'origin_event_id cannot be changed after creation';
+  end if;
+  return NEW;
+end;
+$$ language plpgsql;
+
+-- Trigger to make origin_event_id immutable
+create trigger prevent_origin_event_change
+  before update on contribution
+  for each row
+  execute function prevent_origin_event_change();
+
+-- Function to validate contribution state consistency
+create or replace function validate_contribution_state()
+returns trigger as $$
+begin
+  -- Trashed must have trash_reason and trashed_at
+  if NEW.status = 'trashed' and (NEW.trash_reason is null or NEW.trashed_at is null) then
+    raise exception 'Trashed contributions must have trash_reason and trashed_at';
+  end if;
+  
+  -- Published must not have trash_reason or trashed_at
+  if NEW.status = 'published' and (NEW.trash_reason is not null or NEW.trashed_at is not null) then
+    raise exception 'Published contributions cannot have trash_reason or trashed_at';
+  end if;
+  
+  return NEW;
+end;
+$$ language plpgsql;
+
+-- Trigger to validate contribution state
+create trigger validate_contribution_state
+  before insert or update on contribution
+  for each row
+  execute function validate_contribution_state();
 
 -- Function to update blob ref_count when media is added/removed
 create or replace function update_blob_ref_count()
@@ -333,10 +390,15 @@ create trigger media_ref_count
   execute function update_blob_ref_count();
 
 -- Create view for AI-eligible contributions (excludes trashed/purged)
-create view ai_eligible_contributions as
+-- Use security_invoker to respect RLS policies
+create view ai_eligible_contributions 
+with (security_invoker = true) as
 select c.*
 from contribution c
 where c.status = 'published';
+
+-- Revoke access from anon and authenticated roles
+revoke all on ai_eligible_contributions from anon, authenticated;
 
 -- Grant permissions to service role (this is what the API uses)
 -- Note: In production, create a dedicated role instead of using postgres

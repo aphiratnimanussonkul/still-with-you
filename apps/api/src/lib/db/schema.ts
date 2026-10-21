@@ -27,8 +27,8 @@ export const contributionStatusEnum = pgEnum('contribution_status', ['published'
 export const trashReasonEnum = pgEnum('trash_reason', ['owner', 'event_deleted']);
 export const memberRoleEnum = pgEnum('member_role', ['member', 'admin']);
 
-// Account table
-export const account = pgTable('account', {
+// Accounts table
+export const accounts = pgTable('accounts', {
   id: uuid('id').primaryKey().defaultRandom(),
   authId: text('auth_id').notNull().unique(),
   email: text('email').unique(),
@@ -38,20 +38,20 @@ export const account = pgTable('account', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// Family table
-export const family = pgTable('family', {
+// Families table
+export const families = pgTable('families', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
-  createdBy: uuid('created_by').notNull().references(() => account.id),
+  createdBy: uuid('created_by').notNull().references(() => accounts.id),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// Family member table
-export const familyMember = pgTable(
-  'family_member',
+// Family members table
+export const familyMembers = pgTable(
+  'family_members',
   {
-    familyId: uuid('family_id').notNull().references(() => family.id),
-    accountId: uuid('account_id').notNull().references(() => account.id),
+    familyId: uuid('family_id').notNull().references(() => families.id),
+    accountId: uuid('account_id').notNull().references(() => accounts.id),
     role: memberRoleEnum('role').notNull().default('member'),
     joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
     leftAt: timestamp('left_at', { withTimezone: true }),
@@ -62,23 +62,23 @@ export const familyMember = pgTable(
   })
 );
 
-// Person table
-export const person = pgTable('person', {
+// Persons table
+export const persons = pgTable('persons', {
   id: uuid('id').primaryKey().defaultRandom(),
-  familyId: uuid('family_id').notNull().references(() => family.id),
+  familyId: uuid('family_id').notNull().references(() => families.id),
   displayName: text('display_name').notNull(),
   birthDate: date('birth_date'),
   deathDate: date('death_date'),
-  accountId: uuid('account_id').unique().references(() => account.id),
+  accountId: uuid('account_id').unique().references(() => accounts.id),
 });
 
-// Relationship table
-export const relationship = pgTable(
-  'relationship',
+// Relationships table
+export const relationships = pgTable(
+  'relationships',
   {
-    familyId: uuid('family_id').notNull().references(() => family.id),
-    fromPersonId: uuid('from_person_id').notNull().references(() => person.id),
-    toPersonId: uuid('to_person_id').notNull().references(() => person.id),
+    familyId: uuid('family_id').notNull().references(() => families.id),
+    fromPersonId: uuid('from_person_id').notNull().references(() => persons.id),
+    toPersonId: uuid('to_person_id').notNull().references(() => persons.id),
     type: text('type').notNull(),
   },
   (table) => ({
@@ -86,13 +86,13 @@ export const relationship = pgTable(
   })
 );
 
-// Event table
-export const event = pgTable(
-  'event',
+// Events table
+export const events = pgTable(
+  'events',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    familyId: uuid('family_id').notNull().references(() => family.id),
-    creatorAccountId: uuid('creator_account_id').notNull().references(() => account.id),
+    familyId: uuid('family_id').notNull().references(() => families.id),
+    creatorAccountId: uuid('creator_account_id').notNull().references(() => accounts.id),
     title: text('title'),
     description: text('description'),
     occurredFrom: date('occurred_from'),
@@ -112,34 +112,34 @@ export const event = pgTable(
   })
 );
 
-// Event person junction table
-export const eventPerson = pgTable(
-  'event_person',
+// Event persons junction table
+export const eventPersons = pgTable(
+  'event_persons',
   {
-    eventId: uuid('event_id').notNull().references(() => event.id),
-    personId: uuid('person_id').notNull().references(() => person.id),
+    eventId: uuid('event_id').notNull().references(() => events.id),
+    personId: uuid('person_id').notNull().references(() => persons.id),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.eventId, table.personId] }),
   })
 );
 
-// Contribution table
-export const contribution: ReturnType<typeof pgTable> = pgTable(
-  'contribution',
+// Contributions table
+export const contributions: ReturnType<typeof pgTable> = pgTable(
+  'contributions',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    familyId: uuid('family_id').notNull().references(() => family.id),
-    ownerAccountId: uuid('owner_account_id').notNull().references(() => account.id),
-    narratorPersonId: uuid('narrator_person_id').references(() => person.id),
-    eventId: uuid('event_id').references(() => event.id, { onDelete: 'set null' }),
-    originEventId: uuid('origin_event_id').notNull().references(() => event.id),
+    familyId: uuid('family_id').notNull().references(() => families.id),
+    ownerAccountId: uuid('owner_account_id').notNull().references(() => accounts.id),
+    narratorPersonId: uuid('narrator_person_id').references(() => persons.id),
+    eventId: uuid('event_id').references(() => events.id, { onDelete: 'set null' }),
+    originEventId: uuid('origin_event_id').notNull().references(() => events.id),
     originEventTitleSnapshot: text('origin_event_title_snapshot'),
     story: text('story'),
     status: contributionStatusEnum('status').notNull().default('published'),
     trashedAt: timestamp('trashed_at', { withTimezone: true }),
     trashReason: trashReasonEnum('trash_reason'),
-    derivedFromContributionId: uuid('derived_from_contribution_id').references((): any => contribution, {
+    derivedFromContributionId: uuid('derived_from_contribution_id').references((): any => contributions, {
       onDelete: 'set null',
     }),
     version: integer('version').notNull().default(1),
@@ -153,9 +153,9 @@ export const contribution: ReturnType<typeof pgTable> = pgTable(
   })
 );
 
-// Blob table
-export const blob = pgTable(
-  'blob',
+// Blobs table
+export const blobs = pgTable(
+  'blobs',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     storageKey: text('storage_key').notNull().unique(),
@@ -170,15 +170,15 @@ export const blob = pgTable(
   })
 );
 
-// Media table
-export const media = pgTable(
-  'media',
+// Medias table
+export const medias = pgTable(
+  'medias',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    contributionId: uuid('contribution_id').notNull().references(() => contribution.id),
-    blobId: uuid('blob_id').notNull().references(() => blob.id),
-    blurredBlobId: uuid('blurred_blob_id').references(() => blob.id),
-    takenByPersonId: uuid('taken_by_person_id').references(() => person.id),
+    contributionId: uuid('contribution_id').notNull().references(() => contributions.id),
+    blobId: uuid('blob_id').notNull().references(() => blobs.id),
+    blurredBlobId: uuid('blurred_blob_id').references(() => blobs.id),
+    takenByPersonId: uuid('taken_by_person_id').references(() => persons.id),
     sortOrder: integer('sort_order').notNull(),
   },
   (table) => ({
@@ -186,14 +186,14 @@ export const media = pgTable(
   })
 );
 
-// Contribution revision table
-export const contributionRevision = pgTable(
-  'contribution_revision',
+// Contribution revisions table
+export const contributionRevisions = pgTable(
+  'contribution_revisions',
   {
-    contributionId: uuid('contribution_id').notNull().references(() => contribution.id, { onDelete: 'cascade' }),
+    contributionId: uuid('contribution_id').notNull().references(() => contributions.id, { onDelete: 'cascade' }),
     version: integer('version').notNull(),
     story: text('story').notNull(),
-    editedBy: uuid('edited_by').notNull().references(() => account.id),
+    editedBy: uuid('edited_by').notNull().references(() => accounts.id),
     editedAt: timestamp('edited_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
@@ -201,12 +201,12 @@ export const contributionRevision = pgTable(
   })
 );
 
-// Audit log table
-export const auditLog = pgTable(
-  'audit_log',
+// Audit logs table
+export const auditLogs = pgTable(
+  'audit_logs',
   {
     id: bigserial('id', { mode: 'number' }).primaryKey(),
-    actorAccountId: uuid('actor_account_id').references(() => account.id),
+    actorAccountId: uuid('actor_account_id').references(() => accounts.id),
     action: text('action').notNull(),
     targetType: text('target_type').notNull(),
     targetId: uuid('target_id').notNull(),
@@ -218,9 +218,9 @@ export const auditLog = pgTable(
   })
 );
 
-// Outbox table
-export const outbox = pgTable(
-  'outbox',
+// Outboxes table
+export const outboxes = pgTable(
+  'outboxes',
   {
     id: bigserial('id', { mode: 'number' }).primaryKey(),
     type: text('type').notNull(),
@@ -233,12 +233,12 @@ export const outbox = pgTable(
   })
 );
 
-// Notification table
-export const notification = pgTable(
-  'notification',
+// Notifications table
+export const notifications = pgTable(
+  'notifications',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    accountId: uuid('account_id').notNull().references(() => account.id),
+    accountId: uuid('account_id').notNull().references(() => accounts.id),
     type: text('type').notNull(),
     payload: jsonb('payload').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -249,16 +249,38 @@ export const notification = pgTable(
   })
 );
 
-// Idempotency key table
-export const idempotencyKey = pgTable(
-  'idempotency_key',
+// Idempotency keys table
+export const idempotencyKeys = pgTable(
+  'idempotency_keys',
   {
-    accountId: uuid('account_id').notNull().references(() => account.id),
+    accountId: uuid('account_id').notNull().references(() => accounts.id),
     key: text('key').notNull(),
     response: jsonb('response'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.accountId, table.key] }),
+  })
+);
+
+// Invites table
+export const invites = pgTable(
+  'invites',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    familyId: uuid('family_id').notNull().references(() => families.id),
+    email: text('email').notNull(),
+    role: memberRoleEnum('role').notNull().default('member'),
+    invitedBy: uuid('invited_by').notNull().references(() => accounts.id),
+    status: text('status').notNull().default('pending'),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+  },
+  (table) => ({
+    emailStatusIdx: index('idx_invites_email_status').on(table.email, table.status),
+    familyIdx: index('idx_invites_family').on(table.familyId),
+    tokenIdx: index('idx_invites_token').on(table.tokenHash),
   })
 );

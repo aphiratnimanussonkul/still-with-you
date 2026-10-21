@@ -26,10 +26,10 @@ async function buildServer() {
     },
   });
 
-  // Register CORS
+  // Register CORS (no credentials - using Bearer tokens only)
   await fastify.register(cors, {
     origin: env.WEB_ORIGIN,
-    credentials: true,
+    credentials: false,
   });
 
   // Register rate limiting

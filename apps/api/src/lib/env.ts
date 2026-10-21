@@ -42,3 +42,8 @@ for (const key of required) {
     throw new Error(`Environment variable ${key} is required`);
   }
 }
+
+// In production, WEB_ORIGIN must be set
+if (env.NODE_ENV === 'production' && !env.WEB_ORIGIN) {
+  throw new Error('WEB_ORIGIN must be set in production');
+}

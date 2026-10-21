@@ -1,5 +1,5 @@
 import { FastifyPluginAsync } from 'fastify';
-import { db, account, auditLog } from '../lib/db/index.js';
+import { db, accounts, auditLogs } from '../lib/db/index.js';
 import { eq } from 'drizzle-orm';
 import { updateConsentSchema } from '@still-with-you/contracts';
 
@@ -11,7 +11,7 @@ import { updateConsentSchema } from '@still-with-you/contracts';
 const accountRoutes: FastifyPluginAsync = async (fastify) => {
   // Get current account
   fastify.get('/me', async (request, reply) => {
-    const [userAccount] = await db.select().from(account).where(eq(account.id, request.user!.id)).limit(1);
+    const [userAccount] = await db.select().from(accounts).where(eq(accounts.id, request.user!.id)).limit(1);
 
     return reply.send({
       id: userAccount.id,
@@ -27,23 +27,31 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch('/me/consent', async (request, reply) => {
     const body = updateConsentSchema.parse(request.body);
 
+    // Get current value
+    const [current] = await db.select().from(accounts).where(eq(accounts.id, request.user!.id)).limit(1);
+
+    // Only update timestamp if consent value actually changes
+    const updates: any = { marketingConsent: body.marketing_consent };
+    if (current.marketingConsent !== body.marketing_consent) {
+      updates.marketingConsentAt = new Date();
+    }
+
     // Update consent
     const [updated] = await db
-      .update(account)
-      .set({
-        marketingConsent: body.marketing_consent,
-        marketingConsentAt: new Date(),
-      })
-      .where(eq(account.id, request.user!.id))
+      .update(accounts)
+      .set(updates)
+      .where(eq(accounts.id, request.user!.id))
       .returning();
 
-    // Write audit log (no content)
-    await db.insert(auditLog).values({
-      actorAccountId: request.user!.id,
-      action: 'consent_update',
-      targetType: 'account',
-      targetId: request.user!.id,
-    });
+    // Write audit log only if value changed (no content)
+    if (current.marketingConsent !== body.marketing_consent) {
+      await db.insert(auditLogs).values({
+        actorAccountId: request.user!.id,
+        action: 'consent_update',
+        targetType: 'account',
+        targetId: request.user!.id,
+      });
+    }
 
     return reply.send({
       id: updated.id,

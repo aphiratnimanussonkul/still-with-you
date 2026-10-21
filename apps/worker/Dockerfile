@@ -26,8 +26,8 @@ RUN npm install -g pnpm@8
 
 WORKDIR /app
 
-# Copy workspace files
-COPY package.json pnpm-workspace.yaml ./
+# Copy workspace files including lockfile
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/contracts/package.json ./packages/contracts/
 COPY apps/worker/package.json ./apps/worker/
 
@@ -37,6 +37,12 @@ RUN pnpm install --prod --frozen-lockfile
 # Copy built files
 COPY --from=builder /app/packages/contracts/dist ./packages/contracts/dist
 COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
+
+# Create node user and set ownership
+RUN chown -R node:node /app
+
+# Switch to node user
+USER node
 
 # Set working directory to worker
 WORKDIR /app/apps/worker

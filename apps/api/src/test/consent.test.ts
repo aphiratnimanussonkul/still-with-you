@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestServer, createTestAccount, cleanupTestData } from './helpers.js';
-import { db, account, auditLog } from '../lib/db/index.js';
+import { db, accounts, auditLogs } from '../lib/db/index.js';
 import { eq } from 'drizzle-orm';
 
 /**
@@ -42,7 +42,7 @@ describe('Marketing Consent', () => {
       expect(body.marketing_consent_at).toBeTruthy();
 
       // Verify in database
-      const [updated] = await db.select().from(account).where(eq(account.id, testAccount.id)).limit(1);
+      const [updated] = await db.select().from(accounts).where(eq(accounts.id, testAccount.id)).limit(1);
 
       expect(updated.marketingConsent).toBe(true);
       expect(updated.marketingConsentAt).toBeTruthy();
@@ -51,12 +51,12 @@ describe('Marketing Consent', () => {
     it('should update marketing consent to false', async () => {
       // First set to true
       await db
-        .update(account)
+        .update(accounts)
         .set({
           marketingConsent: true,
           marketingConsentAt: new Date(),
         })
-        .where(eq(account.id, testAccount.id));
+        .where(eq(accounts.id, testAccount.id));
 
       // Then set to false
       const response = await server.inject({
@@ -93,8 +93,8 @@ describe('Marketing Consent', () => {
       // Check audit log
       const logs = await db
         .select()
-        .from(auditLog)
-        .where(eq(auditLog.actorAccountId, testAccount.id))
+        .from(auditLogs)
+        .where(eq(auditLogs.actorAccountId, testAccount.id))
         .limit(1);
 
       expect(logs.length).toBe(1);
@@ -139,7 +139,7 @@ describe('Marketing Consent', () => {
       });
 
       // Check audit log has all entries
-      const logs = await db.select().from(auditLog).where(eq(auditLog.actorAccountId, testAccount.id));
+      const logs = await db.select().from(auditLogs).where(eq(auditLogs.actorAccountId, testAccount.id));
 
       expect(logs.length).toBeGreaterThanOrEqual(3);
       expect(logs.every((log) => log.action === 'consent_update')).toBe(true);
@@ -150,12 +150,12 @@ describe('Marketing Consent', () => {
     it('should return current consent status', async () => {
       // Set consent
       await db
-        .update(account)
+        .update(accounts)
         .set({
           marketingConsent: true,
           marketingConsentAt: new Date('2026-10-21T12:00:00Z'),
         })
-        .where(eq(account.id, testAccount.id));
+        .where(eq(accounts.id, testAccount.id));
 
       const response = await server.inject({
         method: 'GET',

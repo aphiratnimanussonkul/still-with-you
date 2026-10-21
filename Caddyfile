@@ -5,30 +5,17 @@
 }
 
 {$DOMAIN:localhost} {
-    # API routes
-    handle /v1/* {
-        reverse_proxy api:3000
-    }
-
-    handle /health {
-        reverse_proxy api:3000
-    }
-
-    # Fallback to API for all other routes
-    handle {
-        reverse_proxy api:3000
-    }
+    # Reverse proxy to API
+    reverse_proxy api:3000
 
     # Security headers
     header {
-        # Enable HSTS
-        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        # Enable HSTS (without preload for flexibility)
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
         # Prevent clickjacking
         X-Frame-Options "DENY"
         # Prevent MIME sniffing
         X-Content-Type-Options "nosniff"
-        # XSS protection
-        X-XSS-Protection "1; mode=block"
         # Referrer policy
         Referrer-Policy "strict-origin-when-cross-origin"
     }
