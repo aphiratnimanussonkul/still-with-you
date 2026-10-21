@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createTestServer, createTestAccount, cleanupTestData } from './helpers.js';
+import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
 import { db, familyMembers } from '../lib/db/index.js';
 import { eq, and, isNull } from 'drizzle-orm';
 
@@ -11,6 +11,8 @@ describe('Family Management', () => {
   let server: Awaited<ReturnType<typeof createTestServer>>;
   let adminAccount: Awaited<ReturnType<typeof createTestAccount>>;
   let memberAccount: Awaited<ReturnType<typeof createTestAccount>>;
+  let adminToken: string;
+  let memberToken: string;
 
   beforeEach(async () => {
     server = await createTestServer();
@@ -18,6 +20,8 @@ describe('Family Management', () => {
 
     adminAccount = await createTestAccount('auth-admin-1', 'admin@example.com', 'Admin User');
     memberAccount = await createTestAccount('auth-member-1', 'member@example.com', 'Member User');
+    adminToken = await generateTestToken(adminAccount.authId, adminAccount.email!);
+    memberToken = await generateTestToken(memberAccount.authId, memberAccount.email!);
   });
 
   afterEach(async () => {
@@ -31,7 +35,7 @@ describe('Family Management', () => {
         method: 'POST',
         url: '/v1/families',
         headers: {
-          authorization: `Bearer mock-token-${adminAccount.authId}`,
+          authorization: `Bearer ${adminToken}`,
         },
         payload: {
           name: 'Test Family',
@@ -62,7 +66,7 @@ describe('Family Management', () => {
         method: 'POST',
         url: '/v1/families',
         headers: {
-          authorization: `Bearer mock-token-${adminAccount.authId}`,
+          authorization: `Bearer ${adminToken}`,
         },
         payload: {
           name: 'Test Family',
@@ -76,7 +80,7 @@ describe('Family Management', () => {
         method: 'POST',
         url: `/v1/families/${family.id}/invites`,
         headers: {
-          authorization: `Bearer mock-token-${adminAccount.authId}`,
+          authorization: `Bearer ${adminToken}`,
         },
         payload: {
           email: memberAccount.email,
@@ -92,7 +96,7 @@ describe('Family Management', () => {
         method: 'POST',
         url: `/v1/invites/${inviteBody.token}/accept`,
         headers: {
-          authorization: `Bearer mock-token-${memberAccount.authId}`,
+          authorization: `Bearer ${memberToken}`,
         },
       });
 
@@ -115,7 +119,7 @@ describe('Family Management', () => {
         method: 'POST',
         url: '/v1/families',
         headers: {
-          authorization: `Bearer mock-token-${adminAccount.authId}`,
+          authorization: `Bearer ${adminToken}`,
         },
         payload: {
           name: 'Test Family',
@@ -138,7 +142,7 @@ describe('Family Management', () => {
         method: 'POST',
         url: `/v1/families/${family.id}/invites`,
         headers: {
-          authorization: `Bearer mock-token-${memberAccount.authId}`,
+          authorization: `Bearer ${memberToken}`,
         },
         payload: {
           email: anotherAccount.email,
@@ -158,7 +162,7 @@ describe('Family Management', () => {
         method: 'POST',
         url: '/v1/families',
         headers: {
-          authorization: `Bearer mock-token-${adminAccount.authId}`,
+          authorization: `Bearer ${adminToken}`,
         },
         payload: {
           name: 'Test Family',
@@ -179,7 +183,7 @@ describe('Family Management', () => {
         method: 'PATCH',
         url: `/v1/families/${family.id}/members/${memberAccount.id}`,
         headers: {
-          authorization: `Bearer mock-token-${adminAccount.authId}`,
+          authorization: `Bearer ${adminToken}`,
         },
         payload: {
           role: 'admin',
@@ -204,7 +208,7 @@ describe('Family Management', () => {
         method: 'POST',
         url: '/v1/families',
         headers: {
-          authorization: `Bearer mock-token-${adminAccount.authId}`,
+          authorization: `Bearer ${adminToken}`,
         },
         payload: {
           name: 'Test Family',
@@ -225,7 +229,7 @@ describe('Family Management', () => {
         method: 'PATCH',
         url: `/v1/families/${family.id}/members/${adminAccount.id}`,
         headers: {
-          authorization: `Bearer mock-token-${memberAccount.authId}`,
+          authorization: `Bearer ${memberToken}`,
         },
         payload: {
           role: 'member',
@@ -245,7 +249,7 @@ describe('Family Management', () => {
         method: 'POST',
         url: '/v1/families',
         headers: {
-          authorization: `Bearer mock-token-${adminAccount.authId}`,
+          authorization: `Bearer ${adminToken}`,
         },
         payload: {
           name: 'Test Family',
@@ -259,7 +263,7 @@ describe('Family Management', () => {
         method: 'PATCH',
         url: `/v1/families/${family.id}/members/${adminAccount.id}`,
         headers: {
-          authorization: `Bearer mock-token-${adminAccount.authId}`,
+          authorization: `Bearer ${adminToken}`,
         },
         payload: {
           role: 'member',
@@ -276,7 +280,7 @@ describe('Family Management', () => {
         method: 'POST',
         url: '/v1/families',
         headers: {
-          authorization: `Bearer mock-token-${adminAccount.authId}`,
+          authorization: `Bearer ${adminToken}`,
         },
         payload: {
           name: 'Test Family',
@@ -297,7 +301,7 @@ describe('Family Management', () => {
         method: 'PATCH',
         url: `/v1/families/${family.id}/members/${adminAccount.id}`,
         headers: {
-          authorization: `Bearer mock-token-${adminAccount.authId}`,
+          authorization: `Bearer ${adminToken}`,
         },
         payload: {
           role: 'member',
@@ -324,7 +328,7 @@ describe('Family Management', () => {
         method: 'POST',
         url: '/v1/families',
         headers: {
-          authorization: `Bearer mock-token-${adminAccount.authId}`,
+          authorization: `Bearer ${adminToken}`,
         },
         payload: {
           name: 'Test Family',
@@ -345,7 +349,7 @@ describe('Family Management', () => {
         method: 'DELETE',
         url: `/v1/families/${family.id}/members/${memberAccount.id}`,
         headers: {
-          authorization: `Bearer mock-token-${adminAccount.authId}`,
+          authorization: `Bearer ${adminToken}`,
         },
       });
 
@@ -367,7 +371,7 @@ describe('Family Management', () => {
         method: 'POST',
         url: '/v1/families',
         headers: {
-          authorization: `Bearer mock-token-${adminAccount.authId}`,
+          authorization: `Bearer ${adminToken}`,
         },
         payload: {
           name: 'Test Family',
@@ -381,7 +385,7 @@ describe('Family Management', () => {
         method: 'DELETE',
         url: `/v1/families/${family.id}/members/${adminAccount.id}`,
         headers: {
-          authorization: `Bearer mock-token-${adminAccount.authId}`,
+          authorization: `Bearer ${adminToken}`,
         },
       });
 

@@ -17,13 +17,14 @@ declare module 'fastify' {
   }
 }
 
-const JWKS = createRemoteJWKSet(new URL(env.JWKS_URI));
-
 /**
  * JWT authentication plugin
  * Verifies Supabase access tokens via JWKS
  */
 const authPlugin: FastifyPluginAsync = async (fastify) => {
+  // Create JWKS on plugin initialization (after env is loaded)
+  const JWKS = createRemoteJWKSet(new URL(env.JWKS_URI));
+
   fastify.decorateRequest('user', null);
 
   fastify.addHook('onRequest', async (request: FastifyRequest) => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createTestServer, createTestAccount, cleanupTestData } from './helpers.js';
+import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
 import { db, accounts, auditLog } from '../lib/db/index.js';
 import { eq } from 'drizzle-orm';
 
@@ -10,12 +10,14 @@ import { eq } from 'drizzle-orm';
 describe('Marketing Consent', () => {
   let server: Awaited<ReturnType<typeof createTestServer>>;
   let testAccount: Awaited<ReturnType<typeof createTestAccount>>;
+  let testToken: string;
 
   beforeEach(async () => {
     server = await createTestServer();
     await cleanupTestData();
 
     testAccount = await createTestAccount('auth-test-1', 'test@example.com', 'Test User');
+    testToken = await generateTestToken(testAccount.authId, testAccount.email!);
   });
 
   afterEach(async () => {
@@ -29,7 +31,7 @@ describe('Marketing Consent', () => {
         method: 'PATCH',
         url: '/v1/me/consent',
         headers: {
-          authorization: `Bearer mock-token-${testAccount.authId}`,
+          authorization: `Bearer ${testToken}`,
         },
         payload: {
           marketing_consent: true,
@@ -63,7 +65,7 @@ describe('Marketing Consent', () => {
         method: 'PATCH',
         url: '/v1/me/consent',
         headers: {
-          authorization: `Bearer mock-token-${testAccount.authId}`,
+          authorization: `Bearer ${testToken}`,
         },
         payload: {
           marketing_consent: false,
@@ -81,7 +83,7 @@ describe('Marketing Consent', () => {
         method: 'PATCH',
         url: '/v1/me/consent',
         headers: {
-          authorization: `Bearer mock-token-${testAccount.authId}`,
+          authorization: `Bearer ${testToken}`,
         },
         payload: {
           marketing_consent: true,
@@ -109,7 +111,7 @@ describe('Marketing Consent', () => {
         method: 'PATCH',
         url: '/v1/me/consent',
         headers: {
-          authorization: `Bearer mock-token-${testAccount.authId}`,
+          authorization: `Bearer ${testToken}`,
         },
         payload: {
           marketing_consent: true,
@@ -120,7 +122,7 @@ describe('Marketing Consent', () => {
         method: 'PATCH',
         url: '/v1/me/consent',
         headers: {
-          authorization: `Bearer mock-token-${testAccount.authId}`,
+          authorization: `Bearer ${testToken}`,
         },
         payload: {
           marketing_consent: false,
@@ -131,7 +133,7 @@ describe('Marketing Consent', () => {
         method: 'PATCH',
         url: '/v1/me/consent',
         headers: {
-          authorization: `Bearer mock-token-${testAccount.authId}`,
+          authorization: `Bearer ${testToken}`,
         },
         payload: {
           marketing_consent: true,
@@ -161,7 +163,7 @@ describe('Marketing Consent', () => {
         method: 'GET',
         url: '/v1/me',
         headers: {
-          authorization: `Bearer mock-token-${testAccount.authId}`,
+          authorization: `Bearer ${testToken}`,
         },
       });
 
@@ -178,7 +180,7 @@ describe('Marketing Consent', () => {
         method: 'GET',
         url: '/v1/me',
         headers: {
-          authorization: `Bearer mock-token-${testAccount.authId}`,
+          authorization: `Bearer ${testToken}`,
         },
       });
 

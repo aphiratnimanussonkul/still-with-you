@@ -265,7 +265,7 @@ create table if not exists invites (
 
 alter table invites enable row level security;
 
-create index if not exists idx_invites_email_status on invites(lower(email), status);
+create index if not exists idx_invites_email on invites(email);
 create index if not exists idx_invites_family on invites(family_id);
 create index if not exists idx_invites_token on invites(token_hash);
 
@@ -312,7 +312,7 @@ begin
     
     -- If other members exist but no admins would remain, block
     if admin_count = 0 then
-      raise exception 'LAST_ADMIN';
+      raise exception 'Cannot remove last admin when other members exist' using errcode = 'P0L01';
     end if;
   end if;
   

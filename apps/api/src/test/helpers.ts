@@ -56,21 +56,28 @@ export async function addFamilyMember(
 
 /**
  * Generate a test JWT token for an account
- * Note: In real tests against Supabase, you'd use actual Supabase tokens
- * For unit tests, we'll mock the JWT verification
+ * Uses RS256 signing with the test JWKS server's private key
  */
 export async function generateTestToken(authId: string, email: string): Promise<string> {
-  const secret = new TextEncoder().encode('test-secret-key-32-chars-minimum!!');
+  const { getPrivateKey } = await import('./jwks-server.js');
+  const privateKey = getPrivateKey();
+
+  if (!privateKey) {
+    throw new Error('Test JWKS server not initialized. Ensure setup.ts runs first.');
+  }
 
   const token = await new SignJWT({
     sub: authId,
     email,
     aud: 'authenticated',
+    user_metadata: {
+      full_name: email.split('@')[0],
+    },
   })
-    .setProtectedHeader({ alg: 'HS256' })
+    .setProtectedHeader({ alg: 'RS256', kid: 'test-key-1' })
     .setIssuer(env.JWT_ISSUER)
     .setExpirationTime('1h')
-    .sign(secret);
+    .sign(privateKey);
 
   return token;
 }

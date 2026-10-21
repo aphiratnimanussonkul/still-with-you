@@ -14,8 +14,9 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
       return reply.status(error.statusCode || 500).send(error.toJSON());
     }
 
-    // Handle database constraint errors
-    if (error.code === '23514' || error.message?.includes('LAST_ADMIN')) {
+    // Handle database custom error codes
+    if (error.code === 'P0L01') {
+      // Last admin constraint violation
       return reply.status(409).send({
         error: {
           code: ErrorCode.LAST_ADMIN,

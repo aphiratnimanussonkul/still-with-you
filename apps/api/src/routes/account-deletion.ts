@@ -26,6 +26,9 @@ const accountDeletionRoutes: FastifyPluginAsync = async (fastify) => {
       const familyIds = userMemberships.map((m) => m.familyId);
 
       if (familyIds.length > 0) {
+        // Lock all affected families FOR UPDATE to prevent races
+        await tx.execute(sql`SELECT id FROM ${families} WHERE id = ANY(${familyIds}::uuid[]) FOR UPDATE`);
+
         // For each family, check if user is last admin with other members
         for (const membership of userMemberships) {
           if (membership.role === 'admin') {
@@ -87,30 +90,26 @@ const accountDeletionRoutes: FastifyPluginAsync = async (fastify) => {
         // Get media for this contribution
         const contributionMedia = await tx.select().from(media).where(eq(media.contributionId, contrib.id));
 
-        // Decrement blob ref_count and enqueue deletions
+        // Collect blob IDs for cleanup check
+        const blobIds = new Set<string>();
         for (const m of contributionMedia) {
-          // Decrement ref_count
-          await tx
-            .update(blobs)
-            .set({ refCount: sql`${blobs.refCount} - 1` })
-            .where(eq(blobs.id, m.blobId));
-
-          if (m.blurredBlobId) {
-            await tx
-              .update(blobs)
-              .set({ refCount: sql`${blobs.refCount} - 1` })
-              .where(eq(blobs.id, m.blurredBlobId));
-          }
-
-          // Enqueue blob deletion for worker
-          await tx.insert(outbox).values({
-            type: 'blob_delete',
-            payload: { blob_id: m.blobId, blurred_blob_id: m.blurredBlobId },
-          });
+          blobIds.add(m.blobId);
+          if (m.blurredBlobId) blobIds.add(m.blurredBlobId);
         }
 
-        // Hard delete media
+        // Hard delete media (trigger will decrement ref_count automatically)
         await tx.delete(media).where(eq(media.contributionId, contrib.id));
+
+        // Check which blobs now have ref_count = 0 and enqueue deletion
+        for (const blobId of blobIds) {
+          const [blob] = await tx.select({ refCount: blobs.refCount }).from(blobs).where(eq(blobs.id, blobId));
+          if (blob && blob.refCount === 0) {
+            await tx.insert(outbox).values({
+              type: 'blob_delete',
+              payload: { blob_id: blobId },
+            });
+          }
+        }
 
         // Hard delete revisions
         await tx.delete(contributionRevisions).where(eq(contributionRevisions.contributionId, contrib.id));
@@ -155,16 +154,16 @@ const accountDeletionRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
-      // 4. Delete account (cascade handles family_members, notifications, etc.)
-      await tx.delete(accounts).where(eq(accounts.id, accountId));
-
-      // 5. Final audit log (actor will be NULL since account is deleted)
+      // 4. Final audit log BEFORE deleting account (actor still exists)
       await tx.insert(auditLog).values({
         actorAccountId: accountId,
         action: 'account_delete',
         targetType: 'account',
         targetId: accountId,
       });
+
+      // 5. Delete account (cascade handles family_members, notifications, etc.)
+      await tx.delete(accounts).where(eq(accounts.id, accountId));
     });
 
     return reply.status(204).send();

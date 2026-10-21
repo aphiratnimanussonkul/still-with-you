@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { db, families, familyMembers, accounts, auditLog, invites } from '../lib/db/index.js';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, sql } from 'drizzle-orm';
 import { createFamilySchema, inviteMemberSchema, updateMemberRoleSchema, AppError, ErrorCode } from '@still-with-you/contracts';
 import crypto from 'crypto';
 
@@ -182,80 +182,85 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
-  // Accept invite (concurrency-safe)
+  // Accept invite (concurrency-safe, fully transactional)
   fastify.post<{ Params: { token: string } }>('/invites/:token/accept', async (request, reply) => {
     const { token } = request.params;
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const userEmail = request.user!.email!;
 
-    // Atomically update invite from pending to accepted (concurrency-safe)
-    const [invite] = await db
-      .update(invites)
-      .set({ status: 'accepted', acceptedAt: new Date() })
-      .where(and(eq(invites.tokenHash, tokenHash), eq(invites.status, 'pending')))
-      .returning();
+    const result = await db.transaction(async (tx) => {
+      // Atomically update invite from pending to accepted with email match (concurrency-safe)
+      // citext column handles case-insensitive comparison
+      const [invite] = await tx
+        .update(invites)
+        .set({ status: 'accepted', acceptedAt: new Date() })
+        .where(
+          and(
+            eq(invites.tokenHash, tokenHash),
+            eq(invites.status, 'pending'),
+            sql`${invites.email} = ${userEmail}`,
+            sql`${invites.expiresAt} > NOW()`
+          )
+        )
+        .returning();
 
-    if (!invite) {
-      // Check if invite exists but not pending
-      const [existingInvite] = await db.select().from(invites).where(eq(invites.tokenHash, tokenHash)).limit(1);
+      if (!invite) {
+        // Check why it failed
+        const [existingInvite] = await tx.select().from(invites).where(eq(invites.tokenHash, tokenHash)).limit(1);
 
-      if (!existingInvite) {
-        throw new AppError(ErrorCode.NOT_FOUND, 'Invite not found', 404);
+        if (!existingInvite) {
+          throw new AppError(ErrorCode.NOT_FOUND, 'Invite not found', 404);
+        }
+
+        if (existingInvite.status === 'expired' || existingInvite.expiresAt < new Date()) {
+          throw new AppError(ErrorCode.FORBIDDEN, 'Invite has expired', 403);
+        }
+
+        if (existingInvite.status !== 'pending') {
+          throw new AppError(ErrorCode.FORBIDDEN, 'Invite already used or revoked', 403);
+        }
+
+        // Email mismatch (citext comparison failed)
+        throw new AppError(ErrorCode.FORBIDDEN, 'This invite is for a different email address', 403);
       }
 
-      if (existingInvite.status === 'expired' || existingInvite.expiresAt < new Date()) {
-        throw new AppError(ErrorCode.FORBIDDEN, 'Invite has expired', 403);
+      // Check if already a member
+      const [existing] = await tx
+        .select()
+        .from(familyMembers)
+        .where(and(eq(familyMembers.familyId, invite.familyId), eq(familyMembers.accountId, request.user!.id)))
+        .limit(1);
+
+      if (existing && !existing.leftAt) {
+        throw new AppError(ErrorCode.FORBIDDEN, 'You are already a member', 403);
       }
 
-      throw new AppError(ErrorCode.FORBIDDEN, 'Invite already used or revoked', 403);
-    }
+      // Add as member (or rejoin)
+      if (existing && existing.leftAt) {
+        await tx
+          .update(familyMembers)
+          .set({ leftAt: null, joinedAt: new Date(), role: invite.role })
+          .where(and(eq(familyMembers.familyId, invite.familyId), eq(familyMembers.accountId, request.user!.id)));
+      } else {
+        await tx.insert(familyMembers).values({
+          familyId: invite.familyId,
+          accountId: request.user!.id,
+          role: invite.role,
+        });
+      }
 
-    // Check expiration
-    if (invite.expiresAt < new Date()) {
-      await db.update(invites).set({ status: 'expired' }).where(eq(invites.id, invite.id));
-      throw new AppError(ErrorCode.FORBIDDEN, 'Invite has expired', 403);
-    }
-
-    // Verify email matches (case-insensitive, citext handles this)
-    if (invite.email.toLowerCase() !== request.user!.email!.toLowerCase()) {
-      // Revert the invite status
-      await db.update(invites).set({ status: 'pending', acceptedAt: null }).where(eq(invites.id, invite.id));
-      throw new AppError(ErrorCode.FORBIDDEN, 'This invite is for a different email address', 403);
-    }
-
-    // Check if already a member
-    const [existing] = await db
-      .select()
-      .from(familyMembers)
-      .where(and(eq(familyMembers.familyId, invite.familyId), eq(familyMembers.accountId, request.user!.id)))
-      .limit(1);
-
-    if (existing && !existing.leftAt) {
-      throw new AppError(ErrorCode.FORBIDDEN, 'You are already a member', 403);
-    }
-
-    // Add as member (or rejoin)
-    if (existing && existing.leftAt) {
-      await db
-        .update(familyMembers)
-        .set({ leftAt: null, joinedAt: new Date(), role: invite.role })
-        .where(and(eq(familyMembers.familyId, invite.familyId), eq(familyMembers.accountId, request.user!.id)));
-    } else {
-      await db.insert(familyMembers).values({
-        familyId: invite.familyId,
-        accountId: request.user!.id,
-        role: invite.role,
+      // Audit log
+      await tx.insert(auditLog).values({
+        actorAccountId: request.user!.id,
+        action: 'invite_accept',
+        targetType: 'invite',
+        targetId: invite.id,
       });
-    }
 
-    // Audit log
-    await db.insert(auditLog).values({
-      actorAccountId: request.user!.id,
-      action: 'invite_accept',
-      targetType: 'invite',
-      targetId: invite.id,
+      return { familyId: invite.familyId };
     });
 
-    return reply.send({ success: true, family_id: invite.familyId });
+    return reply.send({ success: true, family_id: result.familyId });
   });
 
   // Revoke invite (admin only)
@@ -352,18 +357,51 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
     // Check membership
     await checkActiveMember(fid, request.user!.id);
 
-    // Set left_at (last admin check is in database trigger)
-    await db
-      .update(familyMembers)
-      .set({ leftAt: new Date() })
-      .where(and(eq(familyMembers.familyId, fid), eq(familyMembers.accountId, request.user!.id)));
+    // Check if sole member - if so, delete family instead of just leaving
+    await db.transaction(async (tx) => {
+      // Lock family
+      await tx.execute(sql`SELECT id FROM ${families} WHERE id = ${fid}::uuid FOR UPDATE`);
 
-    // Audit log
-    await db.insert(auditLog).values({
-      actorAccountId: request.user!.id,
-      action: 'member_leave',
-      targetType: 'family_member',
-      targetId: request.user!.id,
+      // Count other active members
+      const [result] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(familyMembers)
+        .where(
+          and(
+            eq(familyMembers.familyId, fid),
+            isNull(familyMembers.leftAt),
+            sql`${familyMembers.accountId} != ${request.user!.id}`
+          )
+        );
+
+      const otherMembersCount = result?.count || 0;
+
+      if (otherMembersCount === 0) {
+        // Sole member - delete family (cascade handles members, events, etc.)
+        await tx.delete(families).where(eq(families.id, fid));
+
+        // Audit log
+        await tx.insert(auditLog).values({
+          actorAccountId: request.user!.id,
+          action: 'family_delete',
+          targetType: 'family',
+          targetId: fid,
+        });
+      } else {
+        // Other members exist - set left_at (last admin check is in database trigger)
+        await tx
+          .update(familyMembers)
+          .set({ leftAt: new Date() })
+          .where(and(eq(familyMembers.familyId, fid), eq(familyMembers.accountId, request.user!.id)));
+
+        // Audit log
+        await tx.insert(auditLog).values({
+          actorAccountId: request.user!.id,
+          action: 'member_leave',
+          targetType: 'family_member',
+          targetId: request.user!.id,
+        });
+      }
     });
 
     return reply.send({ success: true });
