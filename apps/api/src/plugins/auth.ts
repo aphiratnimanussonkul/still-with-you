@@ -22,12 +22,16 @@ declare module 'fastify' {
  * Verifies Supabase access tokens via JWKS
  */
 const authPlugin: FastifyPluginAsync = async (fastify) => {
-  // Create JWKS on plugin initialization (after env is loaded)
-  const JWKS = createRemoteJWKSet(new URL(env.JWKS_URI));
-
   fastify.decorateRequest('user', null);
 
+  // Lazy-load JWKS on first request (after globalSetup in tests)
+  let JWKS: ReturnType<typeof createRemoteJWKSet> | null = null;
+
   fastify.addHook('onRequest', async (request: FastifyRequest) => {
+    // Initialize JWKS on first request
+    if (!JWKS) {
+      JWKS = createRemoteJWKSet(new URL(env.JWKS_URI));
+    }
     // Skip auth for health check
     if (request.url === '/health') {
       return;

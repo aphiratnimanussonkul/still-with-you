@@ -27,7 +27,9 @@ const accountDeletionRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (familyIds.length > 0) {
         // Lock all affected families FOR UPDATE to prevent races
-        await tx.execute(sql`SELECT id FROM ${families} WHERE id = ANY(${familyIds}::uuid[]) FOR UPDATE`);
+        for (const familyId of familyIds) {
+          await tx.select().from(families).where(eq(families.id, familyId)).for('update');
+        }
 
         // For each family, check if user is last admin with other members
         for (const membership of userMemberships) {
