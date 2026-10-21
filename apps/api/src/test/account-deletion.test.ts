@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
-import { db, accounts, families, familyMembers, contributions, media, blobs, auditLog } from '../lib/db/index.js';
-import { eq, and, isNull } from 'drizzle-orm';
+import { db, accounts, families, familyMembers, auditLog } from '../lib/db/index.js';
+import { eq } from 'drizzle-orm';
 
 /**
  * Account deletion tests

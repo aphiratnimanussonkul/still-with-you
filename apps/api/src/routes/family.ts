@@ -307,10 +307,17 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
     await checkActiveMember(fid, aid);
 
     // Update role (last admin check is in database trigger)
-    await db
-      .update(familyMembers)
-      .set({ role: body.role })
-      .where(and(eq(familyMembers.familyId, fid), eq(familyMembers.accountId, aid)));
+    try {
+      await db
+        .update(familyMembers)
+        .set({ role: body.role })
+        .where(and(eq(familyMembers.familyId, fid), eq(familyMembers.accountId, aid)));
+    } catch (error: any) {
+      if (error.code === 'P0L01') {
+        throw new AppError(ErrorCode.LAST_ADMIN, 'Cannot demote last admin when other members exist', 409);
+      }
+      throw error;
+    }
 
     // Audit log
     await db.insert(auditLog).values({
@@ -334,10 +341,17 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
     await checkActiveMember(fid, aid);
 
     // Set left_at (soft delete, last admin check is in database trigger)
-    await db
-      .update(familyMembers)
-      .set({ leftAt: new Date() })
-      .where(and(eq(familyMembers.familyId, fid), eq(familyMembers.accountId, aid)));
+    try {
+      await db
+        .update(familyMembers)
+        .set({ leftAt: new Date() })
+        .where(and(eq(familyMembers.familyId, fid), eq(familyMembers.accountId, aid)));
+    } catch (error: any) {
+      if (error.code === 'P0L01') {
+        throw new AppError(ErrorCode.LAST_ADMIN, 'Cannot remove last admin when other members exist', 409);
+      }
+      throw error;
+    }
 
     // Audit log
     await db.insert(auditLog).values({

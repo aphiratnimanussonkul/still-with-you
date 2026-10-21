@@ -297,22 +297,38 @@ begin
       and left_at is null
       and account_id != OLD.account_id;
     
-    -- If this is the sole member, allow (family will be deleted via purge path)
-    if total_active_members = 0 then
-      return COALESCE(NEW, OLD);
-    end if;
-    
-    -- Count remaining active admins (excluding the one being removed/demoted)
-    select count(*) into admin_count
-    from family_members
-    where family_id = COALESCE(NEW.family_id, OLD.family_id)
-      and role = 'admin'
-      and left_at is null
-      and account_id != OLD.account_id;
-    
-    -- If other members exist but no admins would remain, block
-    if admin_count = 0 then
-      raise exception 'Cannot remove last admin when other members exist' using errcode = 'P0L01';
+    -- For demotion (role change): ALWAYS block if no other admins, even for sole member
+    if (TG_OP = 'UPDATE' and NEW.role = 'member' and OLD.role = 'admin') then
+      -- Count remaining active admins (excluding the one being demoted)
+      select count(*) into admin_count
+      from family_members
+      where family_id = COALESCE(NEW.family_id, OLD.family_id)
+        and role = 'admin'
+        and left_at is null
+        and account_id != OLD.account_id;
+      
+      if admin_count = 0 then
+        raise exception 'Cannot demote last admin' using errcode = 'P0L01';
+      end if;
+    -- For removal/leave: allow if sole member (family will be deleted via purge)
+    else
+      -- If this is the sole member, allow (family will be deleted via purge path)
+      if total_active_members = 0 then
+        return COALESCE(NEW, OLD);
+      end if;
+      
+      -- Count remaining active admins (excluding the one being removed)
+      select count(*) into admin_count
+      from family_members
+      where family_id = COALESCE(NEW.family_id, OLD.family_id)
+        and role = 'admin'
+        and left_at is null
+        and account_id != OLD.account_id;
+      
+      -- If other members exist but no admins would remain, block
+      if admin_count = 0 then
+        raise exception 'Cannot remove last admin when other members exist' using errcode = 'P0L01';
+      end if;
     end if;
   end if;
   

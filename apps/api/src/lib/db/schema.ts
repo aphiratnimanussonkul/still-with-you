@@ -12,9 +12,7 @@ import {
   pgEnum,
   primaryKey,
   index,
-  check,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
 
 /**
  * Drizzle schema matching Supabase migrations

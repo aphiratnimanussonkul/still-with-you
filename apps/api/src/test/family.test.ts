@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
 import { db, familyMembers } from '../lib/db/index.js';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 /**
  * Family management tests
@@ -278,6 +278,39 @@ describe('Family Management', () => {
       });
 
       // Should fail with 409 LAST_ADMIN error
+      expect(demoteResponse.statusCode).toBe(409);
+      const body = JSON.parse(demoteResponse.body);
+      expect(body.error.code).toBe('LAST_ADMIN');
+    });
+
+    it('should block demoting sole admin even without other members', async () => {
+      // Create family (adminAccount becomes first and only admin)
+      const familyResponse = await server.inject({
+        method: 'POST',
+        url: '/v1/families',
+        headers: {
+          authorization: `Bearer ${adminToken}`,
+        },
+        payload: {
+          name: 'Solo Family',
+        },
+      });
+
+      const family = JSON.parse(familyResponse.body);
+
+      // Try to demote the sole admin
+      const demoteResponse = await server.inject({
+        method: 'PATCH',
+        url: `/v1/families/${family.id}/members/${adminAccount.id}`,
+        headers: {
+          authorization: `Bearer ${adminToken}`,
+        },
+        payload: {
+          role: 'member',
+        },
+      });
+
+      // Should fail with 409 LAST_ADMIN error (even though sole member)
       expect(demoteResponse.statusCode).toBe(409);
       const body = JSON.parse(demoteResponse.body);
       expect(body.error.code).toBe('LAST_ADMIN');

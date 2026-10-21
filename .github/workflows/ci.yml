@@ -45,7 +45,7 @@ jobs:
         run: pnpm --filter @still-with-you/contracts build
 
       - name: Lint
-        run: pnpm lint || true
+        run: pnpm lint
 
       - name: Type check
         run: pnpm typecheck
@@ -100,6 +100,7 @@ jobs:
       - name: Run tests
         run: pnpm test
         env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
           SUPABASE_URL: http://localhost:54321
           SUPABASE_SERVICE_ROLE_KEY: test-key

@@ -12,31 +12,31 @@ import { AppError, ErrorCode } from '@still-with-you/contracts';
  * POST /v1/events/:id/delete
  */
 const eventRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.post<{ Params: { fid: string } }>('/families/:fid/events', async (request, reply) => {
+  fastify.post<{ Params: { fid: string } }>('/families/:fid/events', async (_request, _reply) => {
     throw new AppError(ErrorCode.INTERNAL_ERROR, 'TODO: Implement create event', 501);
   });
 
-  fastify.get<{ Params: { fid: string } }>('/families/:fid/events', async (request, reply) => {
+  fastify.get<{ Params: { fid: string } }>('/families/:fid/events', async (_request, _reply) => {
     throw new AppError(ErrorCode.INTERNAL_ERROR, 'TODO: Implement list events', 501);
   });
 
-  fastify.get<{ Params: { id: string } }>('/events/:id', async (request, reply) => {
+  fastify.get<{ Params: { id: string } }>('/events/:id', async (_request, _reply) => {
     throw new AppError(ErrorCode.INTERNAL_ERROR, 'TODO: Implement get event', 501);
   });
 
-  fastify.patch<{ Params: { id: string } }>('/events/:id', async (request, reply) => {
+  fastify.patch<{ Params: { id: string } }>('/events/:id', async (_request, _reply) => {
     throw new AppError(ErrorCode.INTERNAL_ERROR, 'TODO: Implement update event', 501);
   });
 
-  fastify.post<{ Params: { id: string } }>('/events/:id/archive', async (request, reply) => {
+  fastify.post<{ Params: { id: string } }>('/events/:id/archive', async (_request, _reply) => {
     throw new AppError(ErrorCode.INTERNAL_ERROR, 'TODO: Implement archive event', 501);
   });
 
-  fastify.post<{ Params: { id: string } }>('/events/:id/unarchive', async (request, reply) => {
+  fastify.post<{ Params: { id: string } }>('/events/:id/unarchive', async (_request, _reply) => {
     throw new AppError(ErrorCode.INTERNAL_ERROR, 'TODO: Implement unarchive event', 501);
   });
 
-  fastify.post<{ Params: { id: string } }>('/events/:id/delete', async (request, reply) => {
+  fastify.post<{ Params: { id: string } }>('/events/:id/delete', async (_request, _reply) => {
     throw new AppError(ErrorCode.INTERNAL_ERROR, 'TODO: Implement delete event', 501);
   });
 };
