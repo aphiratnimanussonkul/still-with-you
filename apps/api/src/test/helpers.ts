@@ -56,15 +56,11 @@ export async function addFamilyMember(
 
 /**
  * Generate a test JWT token for an account
- * Uses RS256 signing with the test JWKS server's private key
+ * Uses RS256 signing with the test key pair
  */
 export async function generateTestToken(authId: string, email: string): Promise<string> {
-  const { getPrivateKey } = await import('./jwks-server.js');
-  const privateKey = getPrivateKey();
-
-  if (!privateKey) {
-    throw new Error('Test JWKS server not initialized. Ensure setup.ts runs first.');
-  }
+  const { getTestPrivateKey } = await import('./test-keys.js');
+  const privateKey = getTestPrivateKey();
 
   const token = await new SignJWT({
     sub: authId,

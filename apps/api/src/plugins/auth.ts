@@ -24,13 +24,19 @@ declare module 'fastify' {
 const authPlugin: FastifyPluginAsync = async (fastify) => {
   fastify.decorateRequest('user', null);
 
-  // Lazy-load JWKS on first request (after globalSetup in tests)
+  // Use test JWKS in test environment, otherwise remote JWKS
   let JWKS: ReturnType<typeof createRemoteJWKSet> | null = null;
 
   fastify.addHook('onRequest', async (request: FastifyRequest) => {
     // Initialize JWKS on first request
     if (!JWKS) {
-      JWKS = createRemoteJWKSet(new URL(env.JWKS_URI));
+      // In test environment, use injected local JWKS
+      if (env.NODE_ENV === 'test' && (global as any).__TEST_JWKS__) {
+        JWKS = (global as any).__TEST_JWKS__;
+      } else {
+        // Production: use remote JWKS
+        JWKS = createRemoteJWKSet(new URL(env.JWKS_URI));
+      }
     }
     // Skip auth for health check
     if (request.url === '/health') {
@@ -45,7 +51,11 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
     const token = authorization.slice(7);
 
     try {
-      // Verify JWT using Supabase JWKS
+      // Verify JWT using JWKS
+      if (!JWKS) {
+        throw new AppError(ErrorCode.UNAUTHENTICATED, 'JWKS not initialized', 401);
+      }
+
       const { payload } = await jwtVerify(token, JWKS, {
         issuer: env.JWT_ISSUER,
         audience: 'authenticated',

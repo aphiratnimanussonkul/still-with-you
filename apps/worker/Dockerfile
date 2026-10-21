@@ -2,7 +2,7 @@
 FROM node:20-alpine AS builder
 
 # Install pnpm
-RUN npm install -g pnpm@8
+RUN npm install -g pnpm@10
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ RUN pnpm --filter "@still-with-you/worker" build
 FROM node:20-alpine
 
 # Install pnpm
-RUN npm install -g pnpm@8
+RUN npm install -g pnpm@10
 
 WORKDIR /app
 

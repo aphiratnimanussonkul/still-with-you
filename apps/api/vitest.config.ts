@@ -10,8 +10,6 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    globalSetup: ['./src/test/global-setup.ts'],
-    globalTeardown: ['./src/test/global-teardown.ts'],
     setupFiles: ['./src/test/setup.ts'],
     env: {
       DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:54322/postgres',
