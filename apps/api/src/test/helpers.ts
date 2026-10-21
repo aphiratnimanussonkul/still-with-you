@@ -79,7 +79,6 @@ export async function generateTestToken(authId: string, email: string): Promise<
 }
 
 export async function cleanupTestData() {
-  await db.delete(familyMembers);
-  await db.delete(families);
-  await db.delete(accounts);
+  // Use TRUNCATE to avoid triggering last-admin check
+  await sql`TRUNCATE TABLE family_members, families, accounts, audit_log, invites, outbox CASCADE`;
 }
