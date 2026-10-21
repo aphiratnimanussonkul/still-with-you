@@ -9,8 +9,17 @@ import { generateKeyPair, exportJWK } from 'jose';
 let privateKey: any;
 let publicKey: any;
 let server: any;
+let isRunning = false;
 
 export async function startJWKSServer(port: number = 8765): Promise<{ url: string; privateKey: any }> {
+  // Return existing server if already running
+  if (isRunning && privateKey) {
+    return {
+      url: `http://localhost:${port}`,
+      privateKey,
+    };
+  }
+
   // Generate RS256 key pair
   const keyPair = await generateKeyPair('RS256');
   privateKey = keyPair.privateKey;
