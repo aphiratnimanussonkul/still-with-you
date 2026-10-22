@@ -64,6 +64,30 @@ export const familyListResponseSchema = z.object({
   families: z.array(familyResponseSchema),
 });
 
+// Media upload session (frontend/MSW draft; backend still shipping)
+export const createMediaUploadSchema = z.object({
+  content_type: z.string(),
+  size_bytes: z.number().int().positive(),
+});
+
+export const mediaUploadSessionSchema = z.object({
+  media_id: uuidSchema,
+  upload_url: z.string().url(),
+  expires_at: z.string().datetime(),
+  max_bytes: z.number().int().positive(),
+  max_per_story: z.number().int().positive(),
+});
+
+export const mediaItemSchema = z.object({
+  id: uuidSchema,
+  status: z.enum(['reserved', 'uploaded', 'processing', 'ready', 'failed']),
+  url: z.string().url().nullable().optional(),
+  thumb_url: z.string().url().nullable().optional(),
+  width: z.number().int().nullable().optional(),
+  height: z.number().int().nullable().optional(),
+  expires_at: z.string().datetime().nullable().optional(),
+});
+
 // Event schemas
 export const EVENT_DELETE_CONFIRM_TEXT = 'ลบเรื่องนี้';
 export const EVENT_DELETE_COOLING_DAYS = 7;
@@ -112,6 +136,7 @@ export const eventResponseSchema = z.object({
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
   version: z.number().int(),
+  media: z.array(mediaItemSchema).optional(),
 });
 
 export const eventListResponseSchema = z.object({
@@ -147,6 +172,9 @@ export const createContributionSchema = z.object({
 export const updateContributionSchema = z.object({
   story: nonEmptyStringSchema.optional(),
   media_ids: z.array(uuidSchema).optional(),
+  add_media_upload_ids: z.array(uuidSchema).optional(),
+  remove_media_ids: z.array(uuidSchema).optional(),
+  media_order: z.array(uuidSchema).optional(),
 });
 
 export const contributionResponseSchema = z.object({
@@ -166,12 +194,6 @@ export const contributionResponseSchema = z.object({
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
   media: z.array(storyMediaItemSchema).default([]),
-});
-
-// Upload schemas
-export const createMediaUploadSchema = z.object({
-  content_type: z.string().min(1),
-  size_bytes: z.number().int().positive(),
 });
 
 export const createUploadSchema = createMediaUploadSchema;
@@ -341,6 +363,8 @@ export type CreateMediaUpload = z.infer<typeof createMediaUploadSchema>;
 export type UploadResponse = z.infer<typeof uploadResponseSchema>;
 export type MediaUploadResponse = z.infer<typeof mediaUploadResponseSchema>;
 export type StoryMediaItem = z.infer<typeof storyMediaItemSchema>;
+export type MediaUploadSession = z.infer<typeof mediaUploadSessionSchema>;
+export type MediaItem = z.infer<typeof mediaItemSchema>;
 export type MediaResponse = z.infer<typeof mediaResponseSchema>;
 export type TrashItemResponse = z.infer<typeof trashItemResponseSchema>;
 export type TrashResponse = z.infer<typeof trashResponseSchema>;

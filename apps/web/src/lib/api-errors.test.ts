@@ -75,6 +75,31 @@ describe('messageForError', () => {
     expect(messageForError(apiError('UNKNOWN_CODE'))).toBe(copy['error.unknown']);
   });
 
+  it('interpolates FILE_TOO_LARGE from details.max_bytes or the 20MB default', () => {
+    expect(
+      messageForError(apiError(ErrorCode.FILE_TOO_LARGE, { max_bytes: 20 * 1024 * 1024 }))
+    ).toBe(interpolate(copy['error.FILE_TOO_LARGE'], { max_mb: '20' }));
+    expect(messageForError(apiError(ErrorCode.FILE_TOO_LARGE))).toBe(
+      interpolate(copy['error.FILE_TOO_LARGE'], { max_mb: '20' })
+    );
+  });
+
+  it('interpolates TOO_MANY_PHOTOS from details.max_per_story', () => {
+    expect(
+      messageForError(apiError(ErrorCode.TOO_MANY_PHOTOS, { max_per_story: 20 }))
+    ).toBe(interpolate(copy['error.TOO_MANY_PHOTOS'], { max: '20' }));
+  });
+
+  it('maps upload-state codes without inventing copy', () => {
+    expect(messageForError(apiError(ErrorCode.UNSUPPORTED_TYPE))).toBe(
+      copy['error.UNSUPPORTED_TYPE']
+    );
+    expect(messageForError(apiError(ErrorCode.UPLOAD_MISMATCH))).toBe(
+      copy['error.UPLOAD_MISMATCH']
+    );
+    expect(messageForError(apiError(ErrorCode.MEDIA_NOT_READY))).toBe(copy['error.MEDIA_NOT_READY']);
+  });
+
   it('maps INTERNAL_ERROR and 5xx to the 5xx copy', () => {
     expect(messageForError(apiError(ErrorCode.INTERNAL_ERROR))).toBe(copy['error.INTERNAL_ERROR']);
     expect(
