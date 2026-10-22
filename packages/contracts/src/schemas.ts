@@ -276,6 +276,8 @@ export const meTrashListResponseSchema = z.object({
 });
 
 // Notification schemas
+export const notificationTypeSchema = z.enum(['contribution_added', 'invite_accepted']);
+
 export const notificationResponseSchema = z.object({
   id: uuidSchema,
   account_id: uuidSchema,
@@ -283,6 +285,12 @@ export const notificationResponseSchema = z.object({
   payload: z.record(z.unknown()),
   created_at: z.string().datetime(),
   read_at: z.string().datetime().nullable(),
+});
+
+export const notificationListResponseSchema = z.object({
+  notifications: z.array(notificationResponseSchema),
+  next_cursor: z.string().nullable(),
+  unread_count: z.number().int().nonnegative(),
 });
 
 export const FOCUS_MAX_PER_FAMILY = 10;
@@ -498,6 +506,8 @@ export type TrashResponse = z.infer<typeof trashResponseSchema>;
 export type MeTrashItem = z.infer<typeof meTrashItemSchema>;
 export type MeTrashListResponse = z.infer<typeof meTrashListResponseSchema>;
 export type NotificationResponse = z.infer<typeof notificationResponseSchema>;
+export type NotificationListResponse = z.infer<typeof notificationListResponseSchema>;
+export type NotificationTypeName = z.infer<typeof notificationTypeSchema>;
 export type UpdateFocus = z.infer<typeof updateFocusSchema>;
 export type CreateFact = z.infer<typeof createFactSchema>;
 export type SkipFact = z.infer<typeof skipFactSchema>;

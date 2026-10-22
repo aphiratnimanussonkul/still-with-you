@@ -5,6 +5,7 @@ import { db, events, contributions, accounts, auditLog } from '../lib/db/index.j
 import { findActiveMember, getActiveMember, assertContributionOwner } from '../lib/authz.js';
 import { attachMediaToStory, hardDeleteStoryMedia } from '../lib/media/attach.js';
 import { presentStoryMedia } from '../lib/media/present.js';
+import { insertNotification, NotificationType } from '../lib/notifications.js';
 
 /**
  * Contribution routes — owner-only for edit/trash/restore/purge (AC-24).
@@ -131,6 +132,18 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
         action: 'contribution_create',
         targetType: 'contribution',
         targetId: row.id,
+      });
+
+      await insertNotification(tx, {
+        accountId: event.creatorAccountId,
+        actorAccountId: request.user!.id,
+        type: NotificationType.CONTRIBUTION_ADDED,
+        payload: {
+          family_id: event.familyId,
+          event_id: event.id,
+          contribution_id: row.id,
+          actor_account_id: request.user!.id,
+        },
       });
 
       return row;

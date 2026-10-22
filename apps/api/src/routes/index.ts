@@ -9,6 +9,7 @@ import mediaRoutes from './media.js';
 import focusRoutes from './focus.js';
 import factsRoutes from './facts.js';
 import peopleRoutes from './people.js';
+import notificationRoutes from './notifications.js';
 
 /**
  * Register all API routes
@@ -29,10 +30,7 @@ const routes: FastifyPluginAsync = async (fastify) => {
       await fastify.register(focusRoutes);
       await fastify.register(factsRoutes);
       await fastify.register(peopleRoutes);
-
-      // TODO: Add routes for:
-      // - /me/notifications
-      // - /notifications/:id/read
+      await fastify.register(notificationRoutes);
     },
     { prefix: '/v1' }
   );
