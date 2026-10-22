@@ -47,6 +47,20 @@ import { familyGraph } from '@/lib/family-graph';
 import { homeApi } from '@/lib/home-api';
 import { FamilyPage } from '@/pages/FamilyPage';
 
+function focusResponse(ids: string[]) {
+  return {
+    items: ids.map((id, position) => {
+      const person = mockPeople.find((row) => row.id === id) ?? mockPeople[0];
+      return {
+        person: { id: person.id, display_name: person.name },
+        photo_url: null,
+        memory_count: 0,
+        position,
+      };
+    }),
+  };
+}
+
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -66,11 +80,11 @@ describe('FamilyPage', () => {
   it('lets the signed-in account focus more than one person', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
     vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople });
-    vi.mocked(homeApi.getFocus).mockResolvedValue({ person_ids: [mockPeople[0].id] });
+    vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([mockPeople[0].id]));
     vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
-    vi.mocked(homeApi.putFocus).mockImplementation(async (_familyId, personIds) => ({
-      person_ids: personIds,
-    }));
+    vi.mocked(homeApi.putFocus).mockImplementation(async (_familyId, personIds) =>
+      focusResponse(personIds)
+    );
 
     renderPage();
     expect(await screen.findByText('ยายสมศรี')).toBeTruthy();
@@ -92,7 +106,7 @@ describe('FamilyPage', () => {
   it('uses the focus toggle copy from the PO note', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
     vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople });
-    vi.mocked(homeApi.getFocus).mockResolvedValue({ person_ids: [] });
+    vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([]));
     vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
 
     renderPage();
@@ -103,7 +117,7 @@ describe('FamilyPage', () => {
   it('shows the profile facts empty state on each person card', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
     vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople });
-    vi.mocked(homeApi.getFocus).mockResolvedValue({ person_ids: [] });
+    vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([]));
     vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
 
     renderPage();
@@ -121,7 +135,7 @@ describe('FamilyPage', () => {
   it('shows answer meta on a person facts list', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
     vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople });
-    vi.mocked(homeApi.getFocus).mockResolvedValue({ person_ids: [] });
+    vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([]));
     vi.mocked(homeApi.listFacts).mockImplementation(async (personId) => {
       if (personId !== mockPeople[0].id) return { groups: [] };
       return {
@@ -151,5 +165,25 @@ describe('FamilyPage', () => {
         })
       )
     ).toBeTruthy();
+  });
+
+  it('keeps the people list when focus fails and retries from the toggle', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople });
+    vi.mocked(homeApi.getFocus).mockRejectedValue(new Error('boom'));
+    vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
+
+    renderPage();
+    expect(await screen.findByText('ยายสมศรี')).toBeTruthy();
+    expect(screen.getByText('ปู่สมชาย')).toBeTruthy();
+    expect(screen.getAllByText(copy['family.focus.toggle'])).toHaveLength(2);
+    expect(screen.getAllByText(copy['family.focus.load_error']).length).toBeGreaterThan(0);
+    const checkboxes = screen.getAllByRole('checkbox');
+    expect(
+      checkboxes.every((box) => box.hasAttribute('disabled') || box.getAttribute('data-disabled') !== null)
+    ).toBe(true);
+
+    fireEvent.click(screen.getAllByRole('button', { name: copy['family.focus.load_error.action'] })[0]);
+    await waitFor(() => expect(vi.mocked(homeApi.getFocus).mock.calls.length).toBeGreaterThan(1));
   });
 });

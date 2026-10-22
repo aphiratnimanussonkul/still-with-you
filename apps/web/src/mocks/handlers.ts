@@ -9,12 +9,14 @@ import {
   eventResponseSchema,
   familyListResponseSchema,
   familyResponseSchema,
+  focusListResponseSchema,
   mediaItemSchema,
   mediaUploadSessionSchema,
   updateConsentSchema,
   updateContributionSchema,
 } from '@still-with-you/contracts';
 import { http, HttpResponse, passthrough } from 'msw';
+import type { z } from 'zod';
 import { env } from '@/lib/env';
 import { MEDIA_DEFAULTS } from '@/lib/media-config';
 import {
@@ -29,7 +31,7 @@ import {
 } from '@/mocks/data';
 import {
   createFactSchema,
-  familyFocusSchema,
+  familyFocusRequestSchema,
   familyHomeSchema,
   skipFactSchema,
   updateFactSchema,
@@ -38,6 +40,30 @@ import { HOME_QUESTION_TEMPLATES, fillQuestionText } from '@/mocks/home-question
 
 const api = env.apiUrl.replace(/\/$/, '');
 const supabase = env.supabaseUrl.replace(/\/$/, '');
+
+function jsonContract<S extends z.ZodTypeAny>(schema: S, data: unknown, init?: ResponseInit) {
+  return HttpResponse.json(schema.parse(data), init);
+}
+
+function focusListPayload(familyId: string) {
+  const ids = focusByFamily[familyId] ?? [];
+  return {
+    items: ids.flatMap((id, position) => {
+      const person = people.find((row) => row.id === id);
+      if (!person) return [];
+      return [
+        {
+          person: { id: person.id, display_name: person.name },
+          photo_url: null,
+          memory_count: events.filter(
+            (event) => event.family_id === familyId && event.status === 'active'
+          ).length,
+          position,
+        },
+      ];
+    }),
+  };
+}
 
 let account = { ...mockAccount };
 const families = [...mockFamilies];
@@ -385,14 +411,14 @@ export const handlers = [
   http.get(`${api}/v1/families/:fid/focus`, ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    return HttpResponse.json({ person_ids: focusByFamily[String(params.fid)] ?? [] });
+    return jsonContract(focusListResponseSchema, focusListPayload(String(params.fid)));
   }),
 
   http.put(`${api}/v1/families/:fid/focus`, async ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
     const body = await request.json();
-    const parsed = familyFocusSchema.safeParse(body);
+    const parsed = familyFocusRequestSchema.safeParse(body);
     if (!parsed.success) {
       return HttpResponse.json(
         { error: { code: 'INVALID_INPUT', message: 'Invalid person_ids', field: 'person_ids' } },
@@ -400,7 +426,7 @@ export const handlers = [
       );
     }
     focusByFamily[String(params.fid)] = parsed.data.person_ids;
-    return HttpResponse.json(parsed.data);
+    return jsonContract(focusListResponseSchema, focusListPayload(String(params.fid)));
   }),
 
   http.get(`${api}/v1/families/:fid/members`, ({ request, params }) => {

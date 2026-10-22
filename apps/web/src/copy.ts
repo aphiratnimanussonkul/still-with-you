@@ -239,6 +239,8 @@ export const copy = {
   'home.question.already_answered.action': 'แก้คำตอบเดิม',
   'family.focus.toggle': 'แสดงบนหน้าแรก',
   'family.focus.note': 'เห็นเฉพาะคุณ',
+  'family.focus.load_error': 'โหลดรายชื่อบนหน้าแรกไม่สำเร็จ',
+  'family.focus.load_error.action': 'ลองอีกครั้ง',
   'trash.item.active.meta.family': 'ย้ายมาจาก {ชื่อความทรงจำ} · {ชื่อครอบครัว}',
   'family.list.title': 'ครอบครัวของคุณ',
   'family.empty.title': 'ยังไม่ได้อยู่ในครอบครัวไหน',

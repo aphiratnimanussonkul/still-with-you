@@ -134,13 +134,13 @@ function TreePanel({ familyId }: { familyId: string }) {
     },
   });
 
-  if (people.isPending || focus.isPending) return <QueryLoading />;
+  if (people.isPending) return <QueryLoading />;
   if (people.isError) return <p className="text-body text-destructive">{messageForError(people.error)}</p>;
-  if (focus.isError) return <p className="text-body text-destructive">{messageForError(focus.error)}</p>;
 
   const items = people.data?.people ?? [];
-  const focusedIds = focus.data?.person_ids ?? [];
+  const focusedIds = focus.data?.items.map((item) => item.person.id) ?? [];
   const focused = new Set(focusedIds);
+  const focusUnavailable = focus.isError || focus.isPending;
 
   return (
     <div className="flex flex-col gap-4">
@@ -175,10 +175,12 @@ function TreePanel({ familyId }: { familyId: string }) {
                       id={`focus-${person.id}`}
                       checked={focused.has(person.id)}
                       disabled={
+                        focusUnavailable ||
                         toggleFocus.isPending ||
                         (!focused.has(person.id) && focusedIds.length >= FOCUS_MAX)
                       }
                       onCheckedChange={(value) => {
+                        if (focusUnavailable) return;
                         const next = focusedIds.filter((id) => id !== person.id);
                         if (value === true) {
                           if (next.length >= FOCUS_MAX) return;
@@ -192,6 +194,19 @@ function TreePanel({ familyId }: { familyId: string }) {
                         {copy['family.focus.toggle']}
                       </Label>
                       <p className="text-caption text-muted-foreground">{copy['family.focus.note']}</p>
+                      {focus.isError ? (
+                        <>
+                          <p className="text-caption text-destructive">{copy['family.focus.load_error']}</p>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => void focus.refetch()}
+                          >
+                            {copy['family.focus.load_error.action']}
+                          </Button>
+                        </>
+                      ) : null}
                     </div>
                   </div>
                   <PersonFactsSection personId={person.id} name={person.name} />
