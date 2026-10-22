@@ -13,8 +13,12 @@ const base: AccountResponse = {
 };
 
 describe('isFirstUse', () => {
-  it('is true only while consent_answered_at is null', () => {
+  it('requires consent only when consent_answered_at is null', () => {
     expect(isFirstUse(base)).toBe(true);
+    expect(isFirstUse({ ...base, consent_answered_at: '2026-10-22T00:00:00.000Z' })).toBe(false);
+  });
+
+  it('treats declined marketing as answered once consent_answered_at is set', () => {
     expect(
       isFirstUse({
         ...base,
@@ -23,5 +27,27 @@ describe('isFirstUse', () => {
         consent_answered_at: '2026-01-01T00:00:00.000Z',
       })
     ).toBe(false);
+  });
+
+  it('does not lock users out when the new field is omitted (old API)', () => {
+    const legacy = {
+      id: base.id,
+      email: base.email,
+      display_name: base.display_name,
+      marketing_consent: false,
+      marketing_consent_at: null,
+      created_at: base.created_at,
+    } as AccountResponse;
+    expect(isFirstUse(legacy)).toBe(false);
+    expect(isFirstUse({ ...legacy, marketing_consent: true })).toBe(false);
+  });
+
+  it('falls back to unanswered only when marketing_consent is null on a legacy payload', () => {
+    expect(
+      isFirstUse({
+        ...base,
+        marketing_consent: null as unknown as boolean,
+      })
+    ).toBe(true);
   });
 });
