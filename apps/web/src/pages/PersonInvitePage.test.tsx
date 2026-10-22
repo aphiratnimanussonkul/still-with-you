@@ -31,6 +31,7 @@ const invite = {
   id: inviteId,
   person_id: mockPeople[0].id,
   family_id: mockFamilies[0].id,
+  email: 'user@example.com',
   family_name: mockFamilies[0].name,
   inviter_display_name: mockAccount.display_name,
   person_display_name: mockPeople[0].display_name,

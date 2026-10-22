@@ -160,9 +160,12 @@ describe('PersonPage', () => {
       relationships: [
         {
           id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+          family_id: mockFamilies[0].id,
           person_id: mockPeople[1].id,
           related_person_id: mockPeople[0].id,
           type: 'parent',
+          created_by_account_id: mockAccount.id,
+          created_at: '2026-10-22T00:00:00.000Z',
         },
       ],
     });
