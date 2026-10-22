@@ -144,10 +144,9 @@ describe('FamilyPage', () => {
     vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
 
     renderPage();
-    expect(await screen.findByRole('link', { name: mockPeople[0].display_name })).toHaveAttribute(
-      'href',
-      `/family/people/${mockPeople[0].id}`
-    );
+    expect(
+      (await screen.findByRole('link', { name: mockPeople[0].display_name })).getAttribute('href')
+    ).toBe(`/family/people/${mockPeople[0].id}`);
     expect(screen.getByRole('link', { name: mockPeople[1].display_name }).getAttribute('href')).toBe(
       `/family/people/${mockPeople[1].id}`
     );

@@ -99,7 +99,9 @@ describe('PersonInvitePage', () => {
   it('sends a signed-out visitor to login', async () => {
     authState.session = null;
     renderInvite();
-    expect(await screen.findByRole('link', { name: copy['login.google'] })).toHaveAttribute('href', '/login');
+    expect((await screen.findByRole('link', { name: copy['login.google'] })).getAttribute('href')).toBe(
+      '/login'
+    );
   });
 
   it('accepts a valid invite', async () => {

@@ -120,7 +120,7 @@ describe('PersonFormPage', () => {
     expect(screen.getByLabelText(copy['person.gender.other'])).toBeTruthy();
     expect(screen.getByLabelText(copy['person.gender.unspecified'])).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'ล้างที่เลือก' })).toBeNull();
-    expect(screen.getByLabelText(copy['person.birth.label'])).toHaveAttribute('type', 'date');
+    expect(screen.getByLabelText(copy['person.birth.label']).getAttribute('type')).toBe('date');
     expect(screen.getByRole('switch', { name: copy['person.birth.mode.year'] })).toBeTruthy();
     expect(screen.getByText(interpolate(copy['person.bio.counter'], { count: '0' }))).toBeTruthy();
     expect(screen.getByPlaceholderText(copy['person.relation_label.placeholder'])).toBeTruthy();
@@ -218,7 +218,8 @@ describe('PersonFormPage', () => {
 
   it('prefills the related person from a tree-node query', async () => {
     renderAt(`/family/people/new?related=${mockPeople[0].id}`);
-    expect(await screen.findByLabelText(copy['person.relationship.label'])).toHaveValue(mockPeople[0].id);
+    const related = await screen.findByLabelText(copy['person.relationship.label']);
+    expect((related as HTMLSelectElement).value).toBe(mockPeople[0].id);
     expect(screen.getByLabelText(copy['person.relationship.parent'])).toBeTruthy();
   });
 
