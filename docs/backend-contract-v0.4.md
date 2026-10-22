@@ -48,7 +48,7 @@ alter table accounts add column marketing_consent_at timestamptz;
 - **No cookies** - Frontend sends `Authorization: Bearer <supabase_access_token>`
 - API verifies JWT via Supabase JWKS endpoint: `https://{SUPABASE_URL}/auth/v1/.well-known/jwks.json`
 - SUPABASE_URL is configurable via environment variable
-- CORS allowlist: only the web origin (env-configurable, dev: `http://localhost:5173`)
+- CORS allowlist: `WEB_ORIGIN` comma-separated browser origins (env-configurable, no `*`; dev default: `http://localhost:5173`)
 
 ### 2.4 Row Level Security
 
@@ -399,7 +399,7 @@ POST /v1/notifications/{id}/read
 - ✅ RLS enabled on all tables, no policies for anon/authenticated
 - ✅ API uses privileged service role only
 - ✅ Private storage bucket, no direct frontend access
-- ✅ CORS allowlist (only WEB_ORIGIN)
+- ✅ CORS allowlist (`WEB_ORIGIN` comma-separated origins, no `*`)
 - ✅ Encrypted backups, 30-day retention after purge
 
 ## 7. Permission Matrix (v0.4)
@@ -434,8 +434,8 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres
 # Tests — dedicated database only
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54322/swy_test
 
-# CORS
-WEB_ORIGIN=http://localhost:5173
+# CORS — comma-separated origin allowlist (no "*")
+WEB_ORIGIN=http://localhost:5173,https://stillwithyou.nimanussonkul.work,https://still-with-you-5b1.pages.dev
 
 # API
 API_PORT=3000
