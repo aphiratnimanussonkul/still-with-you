@@ -6,6 +6,7 @@ export const mockAccount: AccountResponse = {
   display_name: 'Atta',
   marketing_consent: false,
   marketing_consent_at: null,
+  consent_answered_at: null,
   created_at: '2026-10-01T00:00:00.000Z',
 };
 

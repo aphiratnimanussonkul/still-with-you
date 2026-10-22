@@ -25,6 +25,7 @@ vi.mock('@/hooks/use-me', () => ({
       email: 'atta@example.com',
       marketing_consent: false,
       marketing_consent_at: '2026-01-01T00:00:00.000Z',
+      consent_answered_at: '2026-01-01T00:00:00.000Z',
     },
   }),
 }));
