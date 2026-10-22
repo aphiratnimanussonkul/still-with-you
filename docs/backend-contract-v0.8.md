@@ -20,6 +20,8 @@ These override earlier drafts of this revision. Implementers must follow this ta
 | Age | Not stored. API returns a computed integer `age` in `Asia/Bangkok` (or `null` when there is no `birth_date`). Year-precision age is labelled approximate **in the web only**; the API still returns that integer. |
 | Invites | `POST /v1/people/{id}/invites` (steward only). Do **not** add `person_id` to family invite bodies. |
 | `birth_date_precision` | `'day'` \| `'year'`, default `'day'` (approved). Year-only dates are stored as `YYYY-01-01`. |
+| Same-family edges | `person_relationships` uses composite FKs `(person_id, family_id)` and `(related_person_id, family_id)` → `people(id, family_id)` (requires unique `(id, family_id)` on `people`). |
+| `avatar_media_id` | Must be `purpose = 'avatar'`, same family, and completed (`uploaded` or `ready`). Not completed → **409 `MEDIA_NOT_READY`**. Wrong purpose or family → **422 `UPLOAD_MISMATCH`** (existing media-mismatch 422; not a new code). |
 
 ## 1. Core Principles
 
@@ -153,17 +155,23 @@ create unique index people_family_account_live
   on people (family_id, account_id)
   where account_id is not null and deleted_at is null;
 
+-- Composite unique so other tables can FK both id and family_id (same pattern as focus_people / person_facts).
+create unique index people_id_family_id_key on people (id, family_id);
+
 -- Stored edges only. Children / siblings / grandparents are derived.
+-- Both ends must belong to the same family: composite FKs, not person-id-only FKs.
 create table person_relationships (
   id uuid primary key default gen_random_uuid(),
   family_id uuid not null references families(id),
-  person_id uuid not null references people(id),
-  related_person_id uuid not null references people(id),
+  person_id uuid not null,
+  related_person_id uuid not null,
   type relationship_type not null,
   created_by_account_id uuid not null references accounts(id),
   created_at timestamptz not null default now(),
   unique (person_id, related_person_id, type),
-  check (person_id <> related_person_id)
+  check (person_id <> related_person_id),
+  foreign key (person_id, family_id) references people(id, family_id),
+  foreign key (related_person_id, family_id) references people(id, family_id)
 );
 
 -- parent: person_id is a parent of related_person_id (directed)
@@ -297,8 +305,6 @@ create table idempotency_keys (
   created_at timestamptz default now(),
   primary key (account_id, key)
 );
-
-create unique index people_id_family_id_key on people (id, family_id);
 
 create table invites (
   id uuid primary key default gen_random_uuid(),
@@ -632,7 +638,10 @@ Validation:
 - `birth_date_precision` not `day` \| `year` → **400 `INVALID_INPUT`** `field: "birth_date_precision"`
 - Year-only: client may send `birth_date` as `YYYY-01-01` or `YYYY`; stored as `YYYY-01-01` with `birth_date_precision = 'year'`
 - `bio` longer than 2000 after trim → **400 `INVALID_INPUT`** `field: "bio"`
-- `avatar_media_id` must be same family, `purpose = 'avatar'`, status `uploaded` or `ready`, not attached to another person, uploader = caller (or already this person's avatar) → else **400 `INVALID_INPUT`** `field: "avatar_media_id"`. Limit **1** live avatar per person (replace detaches/soft-deletes the previous)
+- `avatar_media_id` (optional; `null` clears). The media row must have `purpose = 'avatar'`, belong to the same family, and be completed (`status` is `uploaded` or `ready`). Limit **1** live avatar per person (replace detaches/soft-deletes the previous). Errors reuse existing media codes:
+  - not completed (`pending` / `failed`) → **409 `MEDIA_NOT_READY`** with `details.media_ids: [avatar_media_id]`
+  - wrong `purpose` or different family → **422 `UPLOAD_MISMATCH`** `field: "avatar_media_id"`
+  - unknown / deleted / attached to another person → **400 `INVALID_INPUT`** `field: "avatar_media_id"`
 
 ### 4.3c Relationships (NEW in v0.8)
 
@@ -907,16 +916,16 @@ Canonical paths (no `/quick-question`, no `/persons/{id}/answers`):
 | 400 | `STORY_REQUIRED` | Story empty or whitespace only on create event or add-contribution (AC-27) |
 | 400 | `CONFIRM_TEXT_MISMATCH` | Confirmation text is not exactly `ลบเรื่องนี้` after trim |
 | 400 | `MIXED_ORIGIN_EVENTS` | Selected contributions from different origin events |
-| 400 | `INVALID_INPUT` | Validation failed. `person_ids` not in the family uses `field: "person_ids"`. Unknown/inactive question uses `field: "question_id"`. Invalid `gender`, `bio`, `birth_date_precision`, `avatar_media_id`, relationship `type`, or media `purpose` use the corresponding `field` |
+| 400 | `INVALID_INPUT` | Validation failed. `person_ids` not in the family uses `field: "person_ids"`. Unknown/inactive question uses `field: "question_id"`. Invalid `gender`, `bio`, `birth_date_precision`, relationship `type`, media `purpose`, or unknown `avatar_media_id` use the corresponding `field` |
 | 400 | `NAME_REQUIRED` | Person `display_name` (or v0.7 alias `name`) missing or whitespace-only. `field` is `display_name` or `name` |
 | 400 | `INVALID_BIRTH_DATE` | `birth_date` is in the future (Asia/Bangkok). `field: "birth_date"` |
 | 400 | `INVALID_RELATIONSHIP` | Self-link (`person_id` = `related_person_id`) **or** parent cycle (a person cannot be a parent of their own ancestor). **No** `SELF_RELATIONSHIP` code |
 | 400 | `ANSWER_REQUIRED` | Fact `answer_text` missing or whitespace-only. `field: "answer_text"` |
 | 400 | `FILE_TYPE_NOT_ALLOWED` | Legacy file validation |
-| 409 | `MEDIA_NOT_READY` | `media_ids` not yet `uploaded`/`ready`. `details.media_ids` lists them |
+| 409 | `MEDIA_NOT_READY` | `media_ids` or `avatar_media_id` not yet `uploaded`/`ready`. `details.media_ids` lists them |
 | 413 | `FILE_TOO_LARGE` | Declared `size_bytes` exceeds `MEDIA_MAX_BYTES` |
 | 415 | `UNSUPPORTED_TYPE` | `content_type` is not jpeg/png/webp/heic |
-| 422 | `UPLOAD_MISMATCH` | Object missing, size mismatch, or magic-bytes type mismatch |
+| 422 | `UPLOAD_MISMATCH` | Object missing, size mismatch, or magic-bytes type mismatch on complete. Also: `avatar_media_id` has the wrong `purpose` or belongs to another family (`field: "avatar_media_id"`) |
 | 422 | `TOO_MANY_PHOTOS` | More than `MEDIA_MAX_PER_CONTRIBUTION` photos on a story |
 | 422 | `TOO_MANY_FOCUS` | More than 10 focus people for this account in this family |
 | 401 | `UNAUTHENTICATED` | Token expired or invalid |
@@ -1025,7 +1034,8 @@ JWKS_URI=${SUPABASE_URL}/auth/v1/.well-known/jwks.json
 - `POST /v1/people/{id}/invites` (steward). Family invite body stays `{ email }` only
 - `GET /v1/families/{id}/people` returns `{ people, relationships }`
 - Media `purpose` `story` \| `avatar` (avatar limit 1 per person)
-- Error codes: **400 `NAME_REQUIRED`**, **400 `INVALID_BIRTH_DATE`**, **400 `INVALID_RELATIONSHIP`** (self-link and parent cycle; no `SELF_RELATIONSHIP`), **409 `RELATIONSHIP_EXISTS`**, **409 `PERSON_LINKED`**, **409 `PERSON_ALREADY_LINKED`**, **410 `INVITE_INVALID`**
+- `person_relationships` composite FKs onto `people(id, family_id)` so both ends are the same family
+- Error codes: **400 `NAME_REQUIRED`**, **400 `INVALID_BIRTH_DATE`**, **400 `INVALID_RELATIONSHIP`** (self-link and parent cycle; no `SELF_RELATIONSHIP`), **409 `RELATIONSHIP_EXISTS`**, **409 `PERSON_LINKED`**, **409 `PERSON_ALREADY_LINKED`**, **410 `INVITE_INVALID`**. Avatar attach reuses **409 `MEDIA_NOT_READY`** (not completed) and **422 `UPLOAD_MISMATCH`** (wrong purpose or family)
 
 ### Changed
 - Empty person name is **400 `NAME_REQUIRED`** (no longer `INVALID_INPUT` `field: "name"`)
