@@ -38,8 +38,6 @@ export function FamiliesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-h1 font-semibold">{copy['families.title']}</h1>
-
       {items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-6 text-center">
           <Illustration name="family-home" />

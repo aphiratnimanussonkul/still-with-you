@@ -37,6 +37,10 @@
   --shadow-e1: 0 1px 2px rgb(47 58 53 / .06), 0 1px 3px rgb(47 58 53 / .08);
   --shadow-e2: 0 4px 12px rgb(47 58 53 / .10);
   --shadow-e3: 0 12px 32px rgb(47 58 53 / .16);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --app-bar-height: 56px;
+  --bottom-nav-height: 64px;
 }
 
 @theme inline {
