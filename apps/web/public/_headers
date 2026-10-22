@@ -1,3 +1,6 @@
+/invites/*
+  Referrer-Policy: no-referrer
+
 /mockServiceWorker.js
   Content-Type: application/javascript; charset=utf-8
   Cache-Control: no-cache

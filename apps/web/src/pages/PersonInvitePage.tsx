@@ -91,7 +91,9 @@ export function PersonInvitePage() {
         </Button>
       ) : (
         <Button asChild>
-          <Link to="/login">{copy['invite.landing.login']}</Link>
+          <Link to="/login" referrerPolicy="no-referrer">
+            {copy['invite.landing.login']}
+          </Link>
         </Button>
       )}
     </main>

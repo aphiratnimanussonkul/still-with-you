@@ -6,6 +6,7 @@ import { QueryLoading } from '@/components/QueryLoading';
 import { IconProvider } from '@/components/ui/icon';
 import { useAuth } from '@/hooks/use-auth';
 import { AUTH_CALLBACK_PATH, hasAuthCallbackParams } from '@/lib/auth-callback';
+import { useInviteReferrerPolicy } from '@/lib/invite-privacy';
 import { rememberFamilyId } from '@/lib/last-family';
 import { AuthCallbackPage } from '@/pages/AuthCallbackPage';
 import { ConsentPage } from '@/pages/ConsentPage';
@@ -34,6 +35,7 @@ function LegacyFamilyMemoriesRedirect() {
 export function App() {
   const { session, loading } = useAuth();
   const location = useLocation();
+  useInviteReferrerPolicy(location.pathname);
 
   const signedOutTo = hasAuthCallbackParams(location)
     ? { pathname: AUTH_CALLBACK_PATH, search: location.search, hash: location.hash }

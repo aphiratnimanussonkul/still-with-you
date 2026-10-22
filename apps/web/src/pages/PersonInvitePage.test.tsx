@@ -161,9 +161,9 @@ describe('PersonInvitePage', () => {
   it('sends a signed-out visitor to login', async () => {
     authState.session = null;
     renderInvite();
-    expect(
-      (await screen.findByRole('link', { name: copy['invite.landing.login'] })).getAttribute('href')
-    ).toBe('/login');
+    const login = await screen.findByRole('link', { name: copy['invite.landing.login'] });
+    expect(login.getAttribute('href')).toBe('/login');
+    expect(login.getAttribute('referrerpolicy')).toBe('no-referrer');
   });
 
   it('accepts a valid invite', async () => {
