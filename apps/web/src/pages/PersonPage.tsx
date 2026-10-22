@@ -15,10 +15,10 @@ import { FOCUS_MAX, homeApi } from '@/lib/home-api';
 import { formatNodeYears, livingDeathWriteFields } from '@/lib/person-years';
 import { queryKeys } from '@/lib/query-client';
 
-function accountStatus(person: FamilyPerson, pendingPersonIds: Set<string>) {
+function inviteStatus(person: FamilyPerson) {
+  if (person.invite_status) return person.invite_status;
   if (person.account_id) return 'linked' as const;
-  if (pendingPersonIds.has(person.id)) return 'pending' as const;
-  return 'uninvited' as const;
+  return 'none' as const;
 }
 
 export function PersonPage() {

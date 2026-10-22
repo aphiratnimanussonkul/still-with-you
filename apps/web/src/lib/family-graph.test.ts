@@ -215,9 +215,9 @@ describe('family people contract v0.8', () => {
         display_name: 'ยาย',
         birth_date: '1948-01-01',
         birth_date_precision: 'year',
-        gender: 'other',
+        gender: 'female',
       })
-    ).toMatchObject({ birth_date_precision: 'year', gender: 'other' });
+    ).toMatchObject({ birth_date_precision: 'year', gender: 'female' });
     expect(
       personInviteSchema.parse({
         id: mockPeople[0].id,

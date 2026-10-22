@@ -216,11 +216,16 @@ function toContributionResponse(item: (typeof contributions)[number]) {
 }
 
 function toPersonResponse(person: FamilyPerson) {
+  const pending = invites.some(
+    (invite) => invite.person_id === person.id && invite.status === 'pending'
+  );
+  const invite_status = person.account_id ? 'linked' : pending ? 'pending' : person.invite_status ?? 'none';
   return familyPersonSchema.parse({
     ...person,
     display_name: person.display_name,
     name: person.display_name,
-    age: displayPersonAge(person),
+    age: person.age ?? computePersonAge(person),
+    invite_status,
   });
 }
 
@@ -571,6 +576,7 @@ export const handlers = [
       created_at: new Date().toISOString(),
     };
     created.url = `${origin}/invites/${created.id}`;
+    person.invite_status = 'pending';
     invites.push(created);
     const family = families.find((row) => row.id === person.family_id);
     return HttpResponse.json(
@@ -635,6 +641,7 @@ export const handlers = [
       );
     }
     person.account_id = account.id;
+    person.invite_status = 'linked';
     invite.status = 'accepted';
     const family = families.find((row) => row.id === invite.family_id);
     return HttpResponse.json({

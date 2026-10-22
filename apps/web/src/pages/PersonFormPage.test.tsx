@@ -105,7 +105,7 @@ describe('PersonFormPage', () => {
     });
   });
 
-  it('shows Eddy labels, gender including other, and a bio counter', async () => {
+  it('shows Eddy labels, Kret gender radios, and a bio counter', async () => {
     renderAt('/family/people/new');
     expect(await screen.findByLabelText(copy['person.display_name.label'])).toBeTruthy();
     expect(screen.getByLabelText(copy['person.family_name.label'])).toBeTruthy();
@@ -114,8 +114,10 @@ describe('PersonFormPage', () => {
     expect(screen.getByTestId('photo-attach').textContent).toBe(copy['person.avatar.label']);
     expect(screen.getByLabelText(copy['person.gender.female'])).toBeTruthy();
     expect(screen.getByLabelText(copy['person.gender.male'])).toBeTruthy();
-    expect(screen.getByLabelText(copy['person.gender.other'])).toBeTruthy();
+    expect(screen.queryByLabelText(copy['person.gender.other'])).toBeNull();
     expect(screen.getByLabelText(copy['person.gender.unspecified'])).toBeTruthy();
+    expect(screen.getByLabelText(copy['person.birth.mode.day'])).toBeTruthy();
+    expect(screen.getByLabelText(copy['person.birth.mode.year'])).toBeTruthy();
     expect(screen.getByText(interpolate(copy['person.bio.counter'], { count: '0' }))).toBeTruthy();
     expect(screen.getByPlaceholderText(copy['person.relation_label.placeholder'])).toBeTruthy();
   });
@@ -126,6 +128,7 @@ describe('PersonFormPage', () => {
       target: { value: 'น้องใหม่' },
     });
     fireEvent.click(screen.getByLabelText(copy['person.gender.male']));
+    fireEvent.click(screen.getByLabelText(copy['person.birth.mode.day']));
     fireEvent.change(screen.getByLabelText(copy['person.birth.label']), {
       target: { value: '2018-04-12' },
     });
@@ -173,13 +176,14 @@ describe('PersonFormPage', () => {
     );
   });
 
-  it('sends year-only birth as YYYY-01-01 with precision year', async () => {
+  it('sends year-only Buddhist-era birth as YYYY-01-01 with precision year', async () => {
     renderAt('/family/people/new');
     fireEvent.change(await screen.findByLabelText(copy['person.display_name.label']), {
       target: { value: 'น้องใหม่' },
     });
+    fireEvent.click(screen.getByLabelText(copy['person.birth.mode.year']));
     fireEvent.change(screen.getByLabelText(copy['person.birth.label']), {
-      target: { value: '2018' },
+      target: { value: '2561' },
     });
     fireEvent.click(screen.getByRole('button', { name: copy['person.save'] }));
 
@@ -223,6 +227,7 @@ describe('PersonFormPage', () => {
     fireEvent.change(await screen.findByLabelText(copy['person.display_name.label']), {
       target: { value: 'น้องใหม่' },
     });
+    fireEvent.click(screen.getByLabelText(copy['person.birth.mode.day']));
     fireEvent.change(screen.getByLabelText(copy['person.birth.label']), {
       target: { value: '2099-01-01' },
     });
@@ -238,11 +243,11 @@ describe('PersonFormPage', () => {
       target: { value: 'น้องใหม่' },
     });
     fireEvent.click(screen.getByRole('link', { name: 'leave-form' }));
-    expect(await screen.findByText(copy['unsaved.title'])).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: copy['unsaved.stay'] }));
+    expect(await screen.findByText(copy['person.unsaved.title'])).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: copy['person.unsaved.stay'] }));
     expect(screen.queryByText('family-page')).toBeNull();
     fireEvent.click(screen.getByRole('link', { name: 'leave-form' }));
-    fireEvent.click(await screen.findByRole('button', { name: copy['unsaved.leave'] }));
+    fireEvent.click(await screen.findByRole('button', { name: copy['person.unsaved.leave'] }));
     expect(await screen.findByText('family-page')).toBeTruthy();
   });
 
