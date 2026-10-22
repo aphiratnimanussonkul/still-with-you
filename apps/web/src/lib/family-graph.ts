@@ -81,7 +81,7 @@ export const personInviteSchema = z.object({
 export const personInvitePreviewSchema = z.object({
   family_name: z.string(),
   inviter_display_name: z.string(),
-  person_display_name: z.string(),
+  person_display_name: z.string().nullable(),
   expires_at: z.string().datetime(),
 });
 
@@ -224,6 +224,10 @@ export const familyGraph = {
       method: 'POST',
       body: {},
     });
+  },
+
+  revokePersonInvite(inviteId: string) {
+    return request(`/v1/invites/${inviteId}`, z.void(), { method: 'DELETE' });
   },
 
   getPerson(personId: string) {

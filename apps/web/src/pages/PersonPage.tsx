@@ -146,6 +146,9 @@ export function PersonPage() {
                 <Button type="button" variant="ghost" size="sm" onClick={() => void focus.refetch()}>
                   {copy['family.focus.load_error.action']}
                 </Button>
+                <Button type="button" variant="destructive" onClick={() => setConfirmRevoke(true)}>
+                  {copy['invite.action.revoke']}
+                </Button>
               </>
             ) : null}
           </div>

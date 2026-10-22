@@ -2,14 +2,19 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { copy, interpolate } from '@/copy';
+import { copy, interpolate, interpolateHeading } from '@/copy';
 import { ApiClientError } from '@/lib/api-errors';
+import { formatThaiDate } from '@/lib/dates';
 import { mockAccount, mockFamilies, mockPeople } from '@/mocks/data';
 
 const authState = { session: { access_token: 'tok' } as { access_token: string } | null };
 
 vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => authState,
+}));
+
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn() },
 }));
 
 vi.mock('@/lib/family-graph', async () => {
@@ -23,6 +28,7 @@ vi.mock('@/lib/family-graph', async () => {
   };
 });
 
+import { toast } from 'sonner';
 import { familyGraph } from '@/lib/family-graph';
 import { PersonInvitePage } from '@/pages/PersonInvitePage';
 
@@ -55,6 +61,62 @@ describe('PersonInvitePage', () => {
     vi.mocked(familyGraph.getPersonInvite).mockReset();
     vi.mocked(familyGraph.acceptPersonInvite).mockReset();
     vi.mocked(familyGraph.getPersonInvite).mockResolvedValue(invitePreview);
+    vi.mocked(toast.success).mockReset();
+  });
+
+  it('shows Eddy landing copy, expiry, and the signed-in accept button', async () => {
+    renderInvite();
+    expect(
+      await screen.findByRole('heading', {
+        name: interpolateHeading(copy['invite.landing.title'], {
+          inviter_display_name: mockAccount.display_name,
+          family_name: mockFamilies[0].name,
+        }),
+      })
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        interpolate(copy['invite.landing.body'], {
+          person_display_name: mockPeople[0].display_name,
+        })
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        interpolate(copy['invite.landing.expires'], { date: formatThaiDate(invitePreview.expires_at) })
+      )
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy['invite.landing.accept'] })).toBeTruthy();
+  });
+
+  it('hides the person-page body when person_display_name is missing', async () => {
+    vi.mocked(familyGraph.getPersonInvite).mockResolvedValue({
+      ...invitePreview,
+      person_display_name: null,
+    });
+    renderInvite();
+    expect(
+      await screen.findByRole('heading', {
+        name: interpolateHeading(copy['invite.landing.title'], {
+          inviter_display_name: mockAccount.display_name,
+          family_name: mockFamilies[0].name,
+        }),
+      })
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(
+        interpolate(copy['invite.landing.body'], { person_display_name: mockPeople[0].display_name })
+      )
+    ).toBeNull();
+    expect(screen.queryByText(/ในผังครอบครัวมีหน้าของ/)).toBeNull();
+  });
+
+  it('shows RATE_LIMITED invite copy on the landing', async () => {
+    vi.mocked(familyGraph.getPersonInvite).mockRejectedValue(
+      new ApiClientError('RATE_LIMITED', 'slow down', 429)
+    );
+    renderInvite();
+    expect(await screen.findByText(copy['error.RATE_LIMITED.invite'])).toBeTruthy();
   });
 
   it('shows INVITE_INVALID when the invite is gone', async () => {
@@ -99,9 +161,9 @@ describe('PersonInvitePage', () => {
   it('sends a signed-out visitor to login', async () => {
     authState.session = null;
     renderInvite();
-    expect((await screen.findByRole('link', { name: copy['login.google'] })).getAttribute('href')).toBe(
-      '/login'
-    );
+    expect(
+      (await screen.findByRole('link', { name: copy['invite.landing.login'] })).getAttribute('href')
+    ).toBe('/login');
   });
 
   it('accepts a valid invite', async () => {
@@ -112,6 +174,9 @@ describe('PersonInvitePage', () => {
     renderInvite();
     fireEvent.click(await screen.findByRole('button', { name: copy['invite.landing.accept'] }));
     await waitFor(() => expect(familyGraph.acceptPersonInvite).toHaveBeenCalledWith(inviteId));
+    expect(toast.success).toHaveBeenCalledWith(
+      interpolate(copy['invite.accepted.toast'], { family_name: mockFamilies[0].name })
+    );
     expect(await screen.findByText('person-page')).toBeTruthy();
   });
 });
