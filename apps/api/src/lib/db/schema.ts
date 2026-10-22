@@ -34,6 +34,7 @@ export const accounts = pgTable('accounts', {
   displayName: text('display_name').notNull(),
   marketingConsent: boolean('marketing_consent').notNull().default(false),
   marketingConsentAt: timestamp('marketing_consent_at', { withTimezone: true }),
+  consentAnsweredAt: timestamp('consent_answered_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

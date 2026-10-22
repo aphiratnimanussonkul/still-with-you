@@ -42,12 +42,46 @@ describe('Marketing Consent', () => {
       const body = JSON.parse(response.body);
       expect(body.marketing_consent).toBe(true);
       expect(body.marketing_consent_at).toBeTruthy();
+      expect(body.consent_answered_at).toBeTruthy();
 
       // Verify in database
       const [updated] = await db.select().from(accounts).where(eq(accounts.id, testAccount.id)).limit(1);
 
       expect(updated.marketingConsent).toBe(true);
       expect(updated.marketingConsentAt).toBeTruthy();
+      expect(updated.consentAnsweredAt).toBeTruthy();
+    });
+
+    it('records consent_answered_at when a new account declines marketing consent', async () => {
+      const response = await server.inject({
+        method: 'PATCH',
+        url: '/v1/me/consent',
+        headers: {
+          authorization: `Bearer ${testToken}`,
+        },
+        payload: {
+          marketing_consent: false,
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.marketing_consent).toBe(false);
+      expect(body.consent_answered_at).toBeTruthy();
+      expect(body.marketing_consent_at).toBeNull();
+
+      const me = await server.inject({
+        method: 'GET',
+        url: '/v1/me',
+        headers: {
+          authorization: `Bearer ${testToken}`,
+        },
+      });
+      expect(me.statusCode).toBe(200);
+      const meBody = JSON.parse(me.body);
+      expect(meBody.consent_answered_at).toBeTruthy();
+      expect(meBody.consent_answered_at).toBe(body.consent_answered_at);
+      expect(meBody.marketing_consent).toBe(false);
     });
 
     it('should update marketing consent to false', async () => {
@@ -171,6 +205,7 @@ describe('Marketing Consent', () => {
       const body = JSON.parse(response.body);
       expect(body.marketing_consent).toBe(true);
       expect(body.marketing_consent_at).toBeTruthy();
+      expect(body.consent_answered_at).toBeNull();
       expect(body.email).toBe(testAccount.email);
       expect(body.display_name).toBe(testAccount.displayName);
     });
@@ -188,6 +223,7 @@ describe('Marketing Consent', () => {
       const body = JSON.parse(response.body);
       expect(body.marketing_consent).toBe(false);
       expect(body.marketing_consent_at).toBeNull();
+      expect(body.consent_answered_at).toBeNull();
     });
   });
 });

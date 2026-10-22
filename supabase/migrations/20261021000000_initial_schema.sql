@@ -35,10 +35,14 @@ create table if not exists accounts (
   display_name text not null,
   marketing_consent boolean not null default false,
   marketing_consent_at timestamptz,
+  consent_answered_at timestamptz,
   created_at timestamptz not null default now()
 );
 
 alter table accounts enable row level security;
+
+-- Idempotent for databases created before consent_answered_at existed
+alter table accounts add column if not exists consent_answered_at timestamptz;
 
 -- Families table
 create table if not exists families (

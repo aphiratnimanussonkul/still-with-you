@@ -24,7 +24,10 @@ vi.mock('@/hooks/use-me', () => ({
   useMe: () => ({
     isPending: false,
     isError: false,
-    data: { marketing_consent_at: '2026-01-01T00:00:00.000Z' },
+    data: {
+      marketing_consent_at: '2026-01-01T00:00:00.000Z',
+      consent_answered_at: '2026-01-01T00:00:00.000Z',
+    },
   }),
   isFirstUse: () => false,
 }));

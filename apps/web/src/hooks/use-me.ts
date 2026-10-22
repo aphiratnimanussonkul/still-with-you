@@ -5,7 +5,7 @@ import { queryKeys } from '@/lib/query-client';
 import { useAuth } from '@/hooks/use-auth';
 
 export function isFirstUse(account: AccountResponse): boolean {
-  return account.marketing_consent_at === null;
+  return account.consent_answered_at === null;
 }
 
 export function useMe() {

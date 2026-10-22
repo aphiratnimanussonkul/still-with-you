@@ -44,10 +44,13 @@ export const handlers = [
     const denied = requireAuth(request);
     if (denied) return denied;
     const body = updateConsentSchema.parse(await request.json());
+    const now = new Date().toISOString();
     account = {
       ...account,
       marketing_consent: body.marketing_consent,
-      marketing_consent_at: new Date().toISOString(),
+      marketing_consent_at:
+        account.marketing_consent !== body.marketing_consent ? now : account.marketing_consent_at,
+      consent_answered_at: account.consent_answered_at ?? now,
     };
     return HttpResponse.json(accountResponseSchema.parse(account));
   }),

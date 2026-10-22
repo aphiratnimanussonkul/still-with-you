@@ -27,6 +27,7 @@ export const accountResponseSchema = z.object({
   display_name: z.string(),
   marketing_consent: z.boolean(),
   marketing_consent_at: z.string().datetime().nullable(),
+  consent_answered_at: z.string().datetime().nullable(),
   created_at: z.string().datetime(),
 });
 
