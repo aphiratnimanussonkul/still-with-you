@@ -1,9 +1,23 @@
 import { FastifyPluginAsync } from 'fastify';
 import { db, families, familyMembers, accounts, auditLog, invites, people } from '../lib/db/index.js';
 import { eq, and, isNull, sql } from 'drizzle-orm';
-import { createFamilySchema, inviteMemberSchema, updateMemberRoleSchema, AppError, ErrorCode } from '@still-with-you/contracts';
+import {
+  acceptInviteSchema,
+  createFamilySchema,
+  errorMessages,
+  inviteMemberSchema,
+  updateMemberRoleSchema,
+  AppError,
+  ErrorCode,
+} from '@still-with-you/contracts';
 import { findActiveMember } from '../lib/authz.js';
-import crypto from 'crypto';
+import { env } from '../lib/env.js';
+import {
+  hashInviteToken,
+  inviteExpiresAt,
+  mintInviteToken,
+  publicInviteUrl,
+} from '../lib/invites.js';
 
 /**
  * Family and member management routes
@@ -12,7 +26,8 @@ import crypto from 'crypto';
  * GET /v1/families/:fid - Get family
  * POST /v1/families/:fid/invites - Create invite (admin only)
  * GET /v1/families/:fid/invites - List pending invites (admin only)
- * POST /v1/invites/:token/accept - Accept invite
+ * GET /v1/invites/:token - Public invite preview (no login; per-IP rate limit)
+ * POST /v1/invites/:token/accept - Accept invite (login, body {})
  * DELETE /v1/invites/:id - Revoke invite (admin only)
  * PATCH /v1/families/:fid/members/:aid - Update role (family steward / admin only)
  * PATCH /v1/families/:fid/members/:aid/role - Same as above (AC-25)
@@ -156,11 +171,9 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
       throw new AppError(ErrorCode.FORBIDDEN, 'Invite already pending for this email', 403);
     }
 
-    // Generate secure token
-    const token = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const { token, tokenHash } = mintInviteToken();
 
-    // Create invite (expires in 7 days)
+    // Create invite (expires in 7 days). Store only the hash; return url once.
     const [invite] = await db
       .insert(invites)
       .values({
@@ -169,7 +182,7 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
         role: 'member',
         invitedBy: request.user!.id,
         tokenHash,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: inviteExpiresAt(),
       })
       .returning();
 
@@ -184,10 +197,57 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send({
       id: invite.id,
       email: invite.email,
-      token, // Only returned on creation
+      url: publicInviteUrl(token),
       expires_at: invite.expiresAt.toISOString(),
     });
   });
+
+  // Public invite preview — no login; secret is the token (never id).
+  fastify.get<{ Params: { token: string } }>(
+    '/invites/:token',
+    {
+      config: {
+        rateLimit: {
+          max: env.INVITE_PREVIEW_RATE_LIMIT_MAX,
+          timeWindow: env.RATE_LIMIT_WINDOW,
+        },
+      },
+    },
+    async (request, reply) => {
+      const tokenHash = hashInviteToken(request.params.token);
+      const [row] = await db
+        .select({
+          status: invites.status,
+          expiresAt: invites.expiresAt,
+          familyName: families.name,
+          inviterDisplayName: accounts.displayName,
+          personDisplayName: people.displayName,
+          personDeletedAt: people.deletedAt,
+        })
+        .from(invites)
+        .innerJoin(families, eq(families.id, invites.familyId))
+        .innerJoin(accounts, eq(accounts.id, invites.invitedBy))
+        .leftJoin(people, eq(people.id, invites.personId))
+        .where(eq(invites.tokenHash, tokenHash))
+        .limit(1);
+
+      if (
+        !row ||
+        row.status !== 'pending' ||
+        row.expiresAt <= new Date() ||
+        row.personDeletedAt
+      ) {
+        throw new AppError(ErrorCode.INVITE_INVALID, errorMessages[ErrorCode.INVITE_INVALID], 410);
+      }
+
+      return reply.send({
+        family_name: row.familyName,
+        inviter_display_name: row.inviterDisplayName,
+        person_display_name: row.personDisplayName ?? null,
+        expires_at: row.expiresAt.toISOString(),
+      });
+    }
+  );
 
   // List pending invites (admin only)
   fastify.get<{ Params: { fid: string } }>('/families/:fid/invites', async (request, reply) => {
@@ -217,10 +277,11 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
-  // Accept invite (concurrency-safe, fully transactional)
+  // Accept invite (concurrency-safe, fully transactional). Body {}. Login required.
   fastify.post<{ Params: { token: string } }>('/invites/:token/accept', async (request, reply) => {
+    acceptInviteSchema.parse(request.body ?? {});
     const { token } = request.params;
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const tokenHash = hashInviteToken(token);
     const userEmail = request.user!.email!;
 
     const result = await db.transaction(async (tx) => {
@@ -240,23 +301,7 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
         .returning();
 
       if (!invite) {
-        // Check why it failed
-        const [existingInvite] = await tx.select().from(invites).where(eq(invites.tokenHash, tokenHash)).limit(1);
-
-        if (!existingInvite) {
-          throw new AppError(ErrorCode.NOT_FOUND, 'Invite not found', 404);
-        }
-
-        if (existingInvite.status === 'expired' || existingInvite.expiresAt < new Date()) {
-          throw new AppError(ErrorCode.FORBIDDEN, 'Invite has expired', 403);
-        }
-
-        if (existingInvite.status !== 'pending') {
-          throw new AppError(ErrorCode.FORBIDDEN, 'Invite already used or revoked', 403);
-        }
-
-        // Email mismatch (citext comparison failed)
-        throw new AppError(ErrorCode.FORBIDDEN, 'This invite is for a different email address', 403);
+        throw new AppError(ErrorCode.INVITE_INVALID, errorMessages[ErrorCode.INVITE_INVALID], 410);
       }
 
       // Check if already a member
@@ -322,10 +367,10 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
         targetId: invite.id,
       });
 
-      return { familyId: invite.familyId };
+      return { familyId: invite.familyId, personId: invite.personId ?? null };
     });
 
-    return reply.send({ success: true, family_id: result.familyId });
+    return reply.send({ family_id: result.familyId, person_id: result.personId });
   });
 
   // Revoke invite (admin only)

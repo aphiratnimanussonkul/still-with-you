@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
 import { db, familyMembers } from '../lib/db/index.js';
 import { eq, and } from 'drizzle-orm';
+import { env } from '../lib/env.js';
+import { tokenFromInviteUrl } from '../lib/invites.js';
 
 /**
  * Family management tests
@@ -131,18 +133,22 @@ describe('Family Management', () => {
 
       expect(inviteResponse.statusCode).toBe(201);
       const inviteBody = JSON.parse(inviteResponse.body);
-      expect(inviteBody.token).toBeTruthy();
+      expect(inviteBody.url).toBe(`${env.WEB_ORIGIN[0]}/invites/${tokenFromInviteUrl(inviteBody.url)}`);
+      const token = tokenFromInviteUrl(inviteBody.url);
+      expect(token).toBeTruthy();
 
       // Accept invite
       const acceptResponse = await server.inject({
         method: 'POST',
-        url: `/v1/invites/${inviteBody.token}/accept`,
+        url: `/v1/invites/${token}/accept`,
         headers: {
           authorization: `Bearer ${memberToken}`,
         },
+        payload: {},
       });
 
       expect(acceptResponse.statusCode).toBe(200);
+      expect(JSON.parse(acceptResponse.body)).toEqual({ family_id: family.id, person_id: null });
 
       // Verify member was added
       const [member] = await db

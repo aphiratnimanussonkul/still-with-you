@@ -3,6 +3,7 @@ import { createTestServer, createTestAccount, generateTestToken, cleanupTestData
 import { db, familyMembers, media, people, personFacts, contributions, questionBank } from '../lib/db/index.js';
 import { eq } from 'drizzle-orm';
 import { computeAge } from '../lib/age.js';
+import { tokenFromInviteUrl } from '../lib/invites.js';
 
 const UNKNOWN_UUID = '00000000-0000-4000-a000-000000000099';
 
@@ -167,13 +168,15 @@ describe('Family tree (contract v0.8)', () => {
         payload: { email: other.email },
       });
       expect(invite.statusCode).toBe(201);
-      const token = JSON.parse(invite.body).token;
+      const token = tokenFromInviteUrl(JSON.parse(invite.body).url);
       const accepted = await server.inject({
         method: 'POST',
         url: `/v1/invites/${token}/accept`,
         headers: await auth(otherToken),
+        payload: {},
       });
       expect(accepted.statusCode).toBe(200);
+      expect(JSON.parse(accepted.body)).toEqual({ family_id: familyId, person_id: id });
 
       const linkedPatch = await server.inject({
         method: 'PATCH',
@@ -265,8 +268,9 @@ describe('Family tree (contract v0.8)', () => {
       });
       await server.inject({
         method: 'POST',
-        url: `/v1/invites/${JSON.parse(invite.body).token}/accept`,
+        url: `/v1/invites/${tokenFromInviteUrl(JSON.parse(invite.body).url)}/accept`,
         headers: await auth(otherToken),
+        payload: {},
       });
       const linkedDelete = await server.inject({
         method: 'DELETE',
@@ -394,6 +398,7 @@ describe('Family tree (contract v0.8)', () => {
       });
       expect(invite.statusCode).toBe(201);
       expect(JSON.parse(invite.body).person_id).toBe(id);
+      expect(JSON.parse(invite.body).url).toContain('/invites/');
 
       const pendingList = await server.inject({
         method: 'GET',
@@ -406,10 +411,12 @@ describe('Family tree (contract v0.8)', () => {
 
       const accepted = await server.inject({
         method: 'POST',
-        url: `/v1/invites/${JSON.parse(invite.body).token}/accept`,
+        url: `/v1/invites/${tokenFromInviteUrl(JSON.parse(invite.body).url)}/accept`,
         headers: await auth(otherToken),
+        payload: {},
       });
       expect(accepted.statusCode).toBe(200);
+      expect(JSON.parse(accepted.body)).toEqual({ family_id: familyId, person_id: id });
 
       const [row] = await db.select().from(people).where(eq(people.id, id));
       expect(row.accountId).toBe(other.id);
@@ -454,8 +461,9 @@ describe('Family tree (contract v0.8)', () => {
       });
       const acceptDeleted = await server.inject({
         method: 'POST',
-        url: `/v1/invites/${JSON.parse(pendingInvite.body).token}/accept`,
+        url: `/v1/invites/${tokenFromInviteUrl(JSON.parse(pendingInvite.body).url)}/accept`,
         headers: await auth(outsiderToken),
+        payload: {},
       });
       expect(acceptDeleted.statusCode).toBe(410);
       expect(JSON.parse(acceptDeleted.body).error.code).toBe('INVITE_INVALID');

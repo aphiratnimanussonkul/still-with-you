@@ -96,6 +96,15 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
       });
     }
 
+    if (error.statusCode === 429) {
+      return reply.status(429).send({
+        error: {
+          code: ErrorCode.RATE_LIMITED,
+          message: errorMessages[ErrorCode.RATE_LIMITED],
+        },
+      });
+    }
+
     // Handle Fastify validation errors
     if (error.validation) {
       const firstError = error.validation[0];
