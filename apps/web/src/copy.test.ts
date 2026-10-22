@@ -23,6 +23,14 @@ describe('copy v0.4', () => {
     expect(copy['error.unknown']).toBe('มีบางอย่างผิดพลาด ลองใหม่อีกครั้ง');
   });
 
+  it('uses specified photo-limit copy with placeholders', () => {
+    expect(copy['error.FILE_TOO_LARGE']).toBe('รูปนี้ใหญ่เกิน {max_mb}MB ลองเลือกรูปอื่น');
+    expect(copy['error.TOO_MANY_PHOTOS']).toBe('เพิ่มรูปได้สูงสุด {max} รูปต่อเรื่องเล่า');
+    expect(copy['photo.count']).toBe('{n}/{max} รูป');
+    expect(copy['photo.upload.wait']).toBe('รอรูปอัปโหลดให้เสร็จก่อน จึงจะบันทึกได้');
+    expect(copy['photo.label']).toBe('เพิ่มรูป (ถ้ามี)');
+  });
+
   it('includes Eddy aria-label keys for icon-only controls', () => {
     expect(copy['a11y.back']).toBe('ย้อนกลับ');
     expect(copy['a11y.more']).toBe('ตัวเลือกเพิ่มเติม');

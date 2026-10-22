@@ -7,6 +7,7 @@ import { PlusIcon } from '@phosphor-icons/react/Plus';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { Illustration } from '@/components/Illustration';
+import { PhotoAttach, type PhotoAttachState } from '@/components/PhotoAttach';
 import { QueryLoading } from '@/components/QueryLoading';
 import { Icon } from '@/components/ui/icon';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +28,8 @@ export function MemoriesPage() {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
   const [story, setStory] = useState('');
+  const [photos, setPhotos] = useState<PhotoAttachState>({ mediaIds: [], isBusy: false });
+  const [photoKey, setPhotoKey] = useState(0);
 
   useEffect(() => {
     if (familyId) rememberFamilyId(familyId);
@@ -45,10 +48,13 @@ export function MemoriesPage() {
   });
 
   const create = useMutation({
-    mutationFn: () => api.createEvent(familyId, { title, story, person_ids: [] }),
+    mutationFn: () =>
+      api.createEvent(familyId, { title, story, person_ids: [], media_ids: photos.mediaIds }),
     onSuccess: async () => {
       setTitle('');
       setStory('');
+      setPhotos({ mediaIds: [], isBusy: false });
+      setPhotoKey((value) => value + 1);
       await queryClient.invalidateQueries({ queryKey: queryKeys.events(familyId) });
     },
   });
@@ -147,10 +153,17 @@ export function MemoriesPage() {
                 placeholder={copy['story.placeholder']}
               />
             </div>
+            <PhotoAttach key={photoKey} familyId={familyId} onStateChange={setPhotos} />
+            {photos.isBusy ? (
+              <p className="text-caption text-muted-foreground">{copy['photo.upload.wait']}</p>
+            ) : null}
             {create.isError ? (
               <p className="text-caption text-destructive">{messageForError(create.error)}</p>
             ) : null}
-            <Button type="submit" disabled={create.isPending || !title.trim() || !story.trim()}>
+            <Button
+              type="submit"
+              disabled={create.isPending || photos.isBusy || !title.trim() || !story.trim()}
+            >
               <Icon as={PlusIcon} size={20} />
               {copy['memory.create.submit']}
             </Button>
