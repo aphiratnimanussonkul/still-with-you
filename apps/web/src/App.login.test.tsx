@@ -49,4 +49,18 @@ describe('login route', () => {
     renderAt('/invites/dddddddd-dddd-4ddd-8ddd-dddddddddddd');
     expect(screen.getByRole('heading', { name: 'invite-landing' })).toBeTruthy();
   });
+
+  it('sets a no-referrer meta tag while on the invite route', () => {
+    const { unmount } = renderAt('/invites/dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+    expect(document.querySelector('meta[name="referrer"]')?.getAttribute('content')).toBe(
+      'no-referrer'
+    );
+    unmount();
+    expect(document.querySelector('meta[name="referrer"]')).toBeNull();
+  });
+
+  it('does not set no-referrer on other routes', () => {
+    renderAt('/login');
+    expect(document.querySelector('meta[name="referrer"]')).toBeNull();
+  });
 });
