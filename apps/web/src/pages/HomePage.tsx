@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ErrorCode } from '@still-with-you/contracts';
+import { toast } from 'sonner';
 import { FamilySwitcher } from '@/components/FamilySwitcher';
 import { Illustration } from '@/components/Illustration';
 import { QueryLoading } from '@/components/QueryLoading';
@@ -13,7 +15,7 @@ import { copy, interpolate } from '@/copy';
 import { useMe } from '@/hooks/use-me';
 import { useSelectedFamily } from '@/hooks/use-selected-family';
 import { api } from '@/lib/api-client';
-import { messageForError } from '@/lib/api-errors';
+import { ApiClientError, messageForError } from '@/lib/api-errors';
 import { formatThaiDate } from '@/lib/dates';
 import { homeApi } from '@/lib/home-api';
 import { queryKeys } from '@/lib/query-client';
@@ -87,6 +89,7 @@ export function HomePage() {
           <Card>
             <CardHeader>
               <CardTitle>{copy['home.focus.invite.title']}</CardTitle>
+              <CardDescription>{copy['home.focus.invite.body']}</CardDescription>
             </CardHeader>
             <CardContent>
               <Button asChild>
@@ -179,15 +182,26 @@ function QuickQuestionCard({
       }),
     onSuccess: async () => {
       setAnswer('');
+      toast.success(copy['home.question.saved.toast']);
       await queryClient.invalidateQueries({ queryKey: queryKeys.home(familyId) });
     },
   });
   const skip = useMutation({
     mutationFn: () => homeApi.skipFact(question.person_id, question.question_id),
     onSuccess: async () => {
+      toast(copy['home.question.skipped.toast']);
       await queryClient.invalidateQueries({ queryKey: queryKeys.home(familyId) });
     },
   });
+  const edit = useMutation({
+    mutationFn: (factId: string) => homeApi.updateFact(factId, answer.trim()),
+    onSuccess: async () => {
+      setAnswer('');
+      toast.success(copy['home.question.saved.toast']);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.home(familyId) });
+    },
+  });
+  const alreadyAnsweredFactId = factIdFromAlreadyAnswered(save.error);
 
   return (
     <Card>
@@ -209,6 +223,19 @@ function QuickQuestionCard({
         {save.isError ? (
           <p className="text-caption text-destructive">{messageForError(save.error)}</p>
         ) : null}
+        {edit.isError ? (
+          <p className="text-caption text-destructive">{messageForError(edit.error)}</p>
+        ) : null}
+        {alreadyAnsweredFactId ? (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={edit.isPending || !answer.trim()}
+            onClick={() => edit.mutate(alreadyAnsweredFactId)}
+          >
+            {copy['home.question.already_answered.action']}
+          </Button>
+        ) : null}
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
@@ -224,4 +251,12 @@ function QuickQuestionCard({
       </CardContent>
     </Card>
   );
+}
+
+function factIdFromAlreadyAnswered(error: unknown): string | null {
+  if (!(error instanceof ApiClientError) || error.code !== ErrorCode.ALREADY_ANSWERED) {
+    return null;
+  }
+  const factId = error.details?.fact_id;
+  return typeof factId === 'string' && factId.length > 0 ? factId : null;
 }

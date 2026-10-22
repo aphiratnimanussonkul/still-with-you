@@ -46,8 +46,36 @@ export const personFactSchema = createFactSchema.extend({
   question_text: z.string().optional(),
 });
 
+export const updateFactSchema = z.object({
+  answer_text: z.string().trim().min(1),
+});
+
+const factAuthorSchema = z.object({
+  account_id: z.string(),
+  display_name: z.string(),
+});
+
+const factAnswerSchema = z.object({
+  id: z.string(),
+  answer_text: z.string(),
+  author: factAuthorSchema.optional(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
+});
+
 export const personFactsSchema = z.object({
-  facts: z.array(personFactSchema),
+  groups: z
+    .array(
+      z.object({
+        question: z.object({
+          id: z.string(),
+          key: z.string().optional(),
+          text: z.string(),
+        }),
+        answers: z.array(factAnswerSchema),
+      })
+    )
+    .default([]),
 });
 
 export type FamilyHome = z.infer<typeof familyHomeSchema>;
@@ -87,5 +115,12 @@ export const homeApi = {
 
   listFacts(personId: string): Promise<PersonFacts> {
     return request(`/v1/people/${personId}/facts`, personFactsSchema);
+  },
+
+  updateFact(factId: string, answerText: string) {
+    return request(`/v1/facts/${factId}`, personFactSchema.passthrough(), {
+      method: 'PATCH',
+      body: updateFactSchema.parse({ answer_text: answerText }),
+    });
   },
 };

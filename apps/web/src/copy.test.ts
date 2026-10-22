@@ -23,10 +23,24 @@ describe('copy v0.4', () => {
     expect(copy['error.unknown']).toBe('มีบางอย่างผิดพลาด ลองใหม่อีกครั้ง');
     expect(copy['error.generic']).toBe('มีบางอย่างผิดพลาด ลองใหม่อีกครั้ง');
     expect(copy['error.ANSWER_REQUIRED']).toBe('พิมพ์คำตอบสักนิดก่อนบันทึก');
+    expect(copy['error.TOO_MANY_FOCUS']).toBe('เลือกได้สูงสุด 10 คน เอาบางคนออกก่อนแล้วค่อยเพิ่ม');
+    expect(copy['error.ALREADY_ANSWERED']).toBe('คุณเคยตอบคำถามนี้แล้ว แก้คำตอบเดิมได้เลย');
+    expect(copy['home.question.already_answered.action']).toBe('แก้คำตอบเดิม');
+    expect(copy['home.question.saved.toast']).toBe('บันทึกคำตอบแล้ว');
+    expect(copy['home.question.skipped.toast']).toBe('ข้ามไปก่อน คำถามนี้จะกลับมาอีกในภายหลัง');
     expect(copy['memory.stories.load_error']).toBe('โหลดเรื่องเล่าไม่สำเร็จ ลองใหม่อีกครั้ง');
     expect(copy['memory.stories.retry']).toBe('ลองอีกครั้ง');
     expect(copy['home.focus.invite.title']).toBe('อยากระลึกถึงใครเป็นพิเศษ');
+    expect(copy['home.focus.invite.body']).toBe(
+      'เลือกคนในครอบครัวมาไว้บนหน้านี้ แล้วจะมีคำถามเล็กๆ ช่วยให้รู้จักเขามากขึ้น เห็นเฉพาะคุณ'
+    );
     expect(copy['home.focus.invite.action']).toBe('เลือกคน');
+    expect(copy['person.facts.title']).toBe('เรื่องที่รู้เกี่ยวกับ{name}');
+    expect(copy['person.facts.empty.title']).toBe('ยังไม่มีใครเล่าเรื่องเกี่ยวกับ{name}');
+    expect(copy['person.facts.empty.body']).toBe(
+      'คำตอบจากคำถามเล็กๆ ของทุกคนในครอบครัวจะมาอยู่ที่นี่'
+    );
+    expect(copy['person.facts.answer.meta']).toBe('ตอบโดย {ผู้ตอบ} · {วันที่}');
   });
 
   it('uses specified photo-limit copy with placeholders', () => {

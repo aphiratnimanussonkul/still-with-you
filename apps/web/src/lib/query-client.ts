@@ -22,5 +22,6 @@ export const queryKeys = {
   people: (familyId: string) => ['families', familyId, 'people'] as const,
   home: (familyId: string) => ['families', familyId, 'home'] as const,
   focus: (familyId: string) => ['families', familyId, 'focus'] as const,
+  facts: (personId: string) => ['people', personId, 'facts'] as const,
   trash: ['trash'] as const,
 };

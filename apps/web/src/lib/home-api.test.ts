@@ -6,7 +6,9 @@ import {
   createFactSchema,
   familyFocusSchema,
   familyHomeSchema,
+  personFactsSchema,
   skipFactSchema,
+  updateFactSchema,
 } from '@/lib/home-api';
 
 describe('home draft contract', () => {
@@ -60,5 +62,26 @@ describe('home draft contract', () => {
     expect(createFactSchema.safeParse({ question_id: 'q-1' }).success).toBe(false);
     expect(skipFactSchema.safeParse({ question_id: 'q-1' }).success).toBe(true);
     expect(skipFactSchema.safeParse({}).success).toBe(false);
+    expect(updateFactSchema.safeParse({ answer_text: 'อยุธยา' }).success).toBe(true);
+    expect(updateFactSchema.safeParse({ answer_text: '   ' }).success).toBe(false);
+  });
+
+  it('parses GET /people/{id}/facts as grouped answers', () => {
+    const facts = personFactsSchema.parse({
+      groups: [
+        {
+          question: { id: 'q-1', text: 'ยายสมศรี เกิดที่ไหน' },
+          answers: [
+            {
+              id: 'fact-1',
+              answer_text: 'อยุธยา',
+              author: { account_id: '11111111-1111-4111-8111-111111111111', display_name: 'Atta' },
+              created_at: '2026-10-22T00:00:00.000Z',
+            },
+          ],
+        },
+      ],
+    });
+    expect(facts.groups[0]?.answers[0]?.answer_text).toBe('อยุธยา');
   });
 });

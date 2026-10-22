@@ -117,4 +117,9 @@ describe('messageForError', () => {
   it('maps ANSWER_REQUIRED by code', () => {
     expect(messageForError(apiError('ANSWER_REQUIRED'))).toBe(copy['error.ANSWER_REQUIRED']);
   });
+
+  it('maps TOO_MANY_FOCUS and ALREADY_ANSWERED by code', () => {
+    expect(messageForError(apiError(ErrorCode.TOO_MANY_FOCUS))).toBe(copy['error.TOO_MANY_FOCUS']);
+    expect(messageForError(apiError(ErrorCode.ALREADY_ANSWERED))).toBe(copy['error.ALREADY_ANSWERED']);
+  });
 });

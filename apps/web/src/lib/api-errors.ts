@@ -100,6 +100,14 @@ export function messageForError(error: unknown): string {
       return copy['error.ANSWER_REQUIRED'];
     }
 
+    if (error.code === ErrorCode.TOO_MANY_FOCUS) {
+      return copy['error.TOO_MANY_FOCUS'];
+    }
+
+    if (error.code === ErrorCode.ALREADY_ANSWERED) {
+      return copy['error.ALREADY_ANSWERED'];
+    }
+
     if (error.code === ErrorCode.INTERNAL_ERROR || error.status >= 500) {
       return copy['error.INTERNAL_ERROR'];
     }

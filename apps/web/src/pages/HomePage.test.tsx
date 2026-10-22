@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ErrorCode } from '@still-with-you/contracts';
 import { copy, interpolate } from '@/copy';
 import { ApiClientError } from '@/lib/api-errors';
 import { mockEvents, mockFamilies, mockPeople } from '@/mocks/data';
@@ -13,12 +14,18 @@ vi.mock('@/lib/api-client', () => ({
   },
 }));
 
+vi.mock('sonner', () => {
+  const toast = Object.assign(vi.fn(), { success: vi.fn() });
+  return { toast };
+});
+
 vi.mock('@/lib/home-api', () => ({
   FOCUS_MAX: 10,
   homeApi: {
     getHome: vi.fn(),
     answerFact: vi.fn(),
     skipFact: vi.fn(),
+    updateFact: vi.fn(),
   },
 }));
 
@@ -32,6 +39,7 @@ vi.mock('@/components/Illustration', () => ({
   Illustration: () => <div data-testid="illustration" />,
 }));
 
+import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import { homeApi } from '@/lib/home-api';
 import { HomePage } from '@/pages/HomePage';
@@ -71,6 +79,8 @@ const homePayload = {
 describe('HomePage', () => {
   beforeEach(() => {
     sessionStorage.clear();
+    vi.mocked(toast).mockClear();
+    vi.mocked(toast.success).mockClear();
   });
 
   it('shows greeting, focus photos, question, recent memories, and start-new-memory', async () => {
@@ -122,6 +132,7 @@ describe('HomePage', () => {
 
     renderPage();
     expect(await screen.findByText(copy['home.focus.invite.title'])).toBeTruthy();
+    expect(screen.getByText(copy['home.focus.invite.body'])).toBeTruthy();
     expect(screen.getByRole('link', { name: copy['home.focus.invite.action'] }).getAttribute('href')).toBe(
       '/family'
     );
@@ -150,5 +161,41 @@ describe('HomePage', () => {
         answer_text: 'อยุธยา',
       })
     );
+    expect(toast.success).toHaveBeenCalledWith(copy['home.question.saved.toast']);
+  });
+
+  it('toasts after skipping a question', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(api.listEvents).mockResolvedValue({ events: mockEvents });
+    vi.mocked(homeApi.getHome).mockResolvedValue(homePayload);
+    vi.mocked(homeApi.skipFact).mockResolvedValue({ skipped: true });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: copy['home.question.skip'] }));
+    await waitFor(() => expect(homeApi.skipFact).toHaveBeenCalledWith(mockPeople[0].id, 'q-1'));
+    expect(toast).toHaveBeenCalledWith(copy['home.question.skipped.toast']);
+  });
+
+  it('offers to edit the existing answer when ALREADY_ANSWERED', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(api.listEvents).mockResolvedValue({ events: mockEvents });
+    vi.mocked(homeApi.getHome).mockResolvedValue(homePayload);
+    vi.mocked(homeApi.answerFact).mockRejectedValue(
+      new ApiClientError(ErrorCode.ALREADY_ANSWERED, 'already', 409, undefined, { fact_id: 'fact-1' })
+    );
+    vi.mocked(homeApi.updateFact).mockResolvedValue({
+      question_id: 'q-1',
+      answer_text: 'อยุธยา',
+    });
+
+    renderPage();
+    const input = await screen.findByLabelText('ยายสมศรี เกิดที่ไหน');
+    fireEvent.change(input, { target: { value: 'อยุธยา' } });
+    fireEvent.click(screen.getByRole('button', { name: copy['home.question.save'] }));
+
+    expect(await screen.findByText(copy['error.ALREADY_ANSWERED'])).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: copy['home.question.already_answered.action'] }));
+    await waitFor(() => expect(homeApi.updateFact).toHaveBeenCalledWith('fact-1', 'อยุธยา'));
+    expect(toast.success).toHaveBeenCalledWith(copy['home.question.saved.toast']);
   });
 });
