@@ -58,6 +58,35 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_TODq1gSkK5bu8InyIJRtVQ_vB7u8zsZ
           VITE_USE_MSW: 'false'
 
+  build-web-msw:
+    name: Build web (MSW / Pages)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Production MSW build
+        run: pnpm --filter "./packages/*" build && pnpm --filter @still-with-you/web build
+        env:
+          VITE_API_URL: http://localhost:3000
+          VITE_SUPABASE_URL: https://hazkqphgdkklsvkrhubg.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_TODq1gSkK5bu8InyIJRtVQ_vB7u8zsZ
+          VITE_USE_MSW: 'true'
+
   test:
     name: Test
     runs-on: ubuntu-latest
