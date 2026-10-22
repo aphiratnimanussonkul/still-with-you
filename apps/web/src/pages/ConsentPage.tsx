@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Illustration } from '@/components/Illustration';
@@ -21,7 +21,8 @@ export function ConsentPage() {
 
   const mutation = useMutation({
     mutationFn: () => api.updateConsent({ marketing_consent: checked }),
-    onSuccess: async () => {
+    onSuccess: async (account) => {
+      queryClient.setQueryData(queryKeys.me, account);
       await queryClient.invalidateQueries({ queryKey: queryKeys.me });
       navigate('/families', { replace: true });
     },
@@ -33,6 +34,17 @@ export function ConsentPage() {
   if (!me.data) return <Navigate to="/login" replace />;
   if (!isFirstUse(me.data)) return <Navigate to="/families" replace />;
 
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (mutation.isPending) return;
+    setError(null);
+    try {
+      await mutation.mutateAsync();
+    } catch {
+      // onError already mapped the copy
+    }
+  }
+
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6">
       <Illustration name="onboarding-door" />
@@ -40,23 +52,25 @@ export function ConsentPage() {
         {interpolateHeading(copy['welcome.title'], { ชื่อ: me.data.display_name || me.data.email || '' })}
       </h1>
       <p className="text-body text-muted-foreground">{copy['welcome.body']}</p>
-      <div className="flex min-h-11 items-start gap-3">
-        <Checkbox
-          id="marketing-consent"
-          checked={checked}
-          onCheckedChange={(value) => setChecked(value === true)}
-        />
-        <Label htmlFor="marketing-consent" className="text-body font-normal leading-relaxed">
-          {copy['consent.checkbox']}
-        </Label>
-      </div>
-      <p className="text-caption text-muted-foreground">
-        {interpolate(copy['consent.helper'], { อีเมล: me.data.email ?? '' })}
-      </p>
-      {error ? <p className="text-caption text-destructive">{error}</p> : null}
-      <Button type="button" disabled={mutation.isPending} onClick={() => mutation.mutate()}>
-        {copy['consent.continue']}
-      </Button>
+      <form className="flex flex-col gap-6" onSubmit={(event) => void handleSubmit(event)}>
+        <div className="flex min-h-11 items-start gap-3">
+          <Checkbox
+            id="marketing-consent"
+            checked={checked}
+            onCheckedChange={(value) => setChecked(value === true)}
+          />
+          <Label htmlFor="marketing-consent" className="text-body font-normal leading-relaxed">
+            {copy['consent.checkbox']}
+          </Label>
+        </div>
+        <p className="text-caption text-muted-foreground">
+          {interpolate(copy['consent.helper'], { อีเมล: me.data.email ?? '' })}
+        </p>
+        {error ? <p className="text-caption text-destructive">{error}</p> : null}
+        <Button type="submit" disabled={mutation.isPending}>
+          {copy['consent.continue']}
+        </Button>
+      </form>
     </main>
   );
 }

@@ -50,7 +50,8 @@ export const handlers = [
       marketing_consent: body.marketing_consent,
       marketing_consent_at:
         account.marketing_consent !== body.marketing_consent ? now : account.marketing_consent_at,
-      consent_answered_at: account.consent_answered_at ?? now,
+      consent_answered_at: now,
+
     };
     return HttpResponse.json(accountResponseSchema.parse(account));
   }),
