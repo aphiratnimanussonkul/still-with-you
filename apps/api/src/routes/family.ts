@@ -1,5 +1,5 @@
 import { FastifyPluginAsync } from 'fastify';
-import { db, families, familyMembers, accounts, auditLog, invites } from '../lib/db/index.js';
+import { db, families, familyMembers, accounts, auditLog, invites, people } from '../lib/db/index.js';
 import { eq, and, isNull, sql } from 'drizzle-orm';
 import { createFamilySchema, inviteMemberSchema, updateMemberRoleSchema, AppError, ErrorCode } from '@still-with-you/contracts';
 import { findActiveMember } from '../lib/authz.js';
@@ -266,17 +266,47 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
         .where(and(eq(familyMembers.familyId, invite.familyId), eq(familyMembers.accountId, request.user!.id)))
         .limit(1);
 
-      if (existing && !existing.leftAt) {
+      if (existing && !existing.leftAt && !invite.personId) {
         throw new AppError(ErrorCode.FORBIDDEN, 'You are already a member', 403);
       }
 
-      // Add as member (or rejoin)
+      if (invite.personId) {
+        const [person] = await tx.select().from(people).where(eq(people.id, invite.personId)).limit(1);
+        if (!person || person.deletedAt) {
+          throw new AppError(ErrorCode.INVITE_INVALID, 'This invite is no longer valid', 410);
+        }
+        if (person.accountId && person.accountId !== request.user!.id) {
+          throw new AppError(ErrorCode.PERSON_ALREADY_LINKED, 'This person is already linked to an account', 409);
+        }
+        const [linked] = await tx
+          .select()
+          .from(people)
+          .where(
+            and(
+              eq(people.familyId, invite.familyId),
+              eq(people.accountId, request.user!.id),
+              isNull(people.deletedAt)
+            )
+          )
+          .limit(1);
+        if (linked && linked.id !== person.id) {
+          throw new AppError(ErrorCode.PERSON_ALREADY_LINKED, 'This person is already linked to an account', 409);
+        }
+        if (!person.accountId) {
+          await tx
+            .update(people)
+            .set({ accountId: request.user!.id, updatedAt: new Date() })
+            .where(eq(people.id, person.id));
+        }
+      }
+
+      // Add as member (or rejoin). Person invites may target an existing member.
       if (existing && existing.leftAt) {
         await tx
           .update(familyMembers)
           .set({ leftAt: null, joinedAt: new Date(), role: invite.role })
           .where(and(eq(familyMembers.familyId, invite.familyId), eq(familyMembers.accountId, request.user!.id)));
-      } else {
+      } else if (!existing) {
         await tx.insert(familyMembers).values({
           familyId: invite.familyId,
           accountId: request.user!.id,

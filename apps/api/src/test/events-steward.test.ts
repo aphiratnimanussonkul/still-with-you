@@ -106,7 +106,7 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
         .returning();
       const [outsider] = await db
         .insert(people)
-        .values({ familyId: otherFamily.id, displayName: 'คนนอก' })
+        .values({ familyId: otherFamily.id, displayName: 'คนนอก', createdByAccountId: otherMember.id })
         .returning();
 
       const response = await server.inject({
@@ -390,11 +390,11 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
     it('lets a steward (not creator) replace event people', async () => {
       const [personA] = await db
         .insert(people)
-        .values({ familyId, displayName: 'ยาย' })
+        .values({ familyId, displayName: 'ยาย', createdByAccountId: creator.id })
         .returning();
       const [personB] = await db
         .insert(people)
-        .values({ familyId, displayName: 'ตา' })
+        .values({ familyId, displayName: 'ตา', createdByAccountId: creator.id })
         .returning();
 
       const created = await server.inject({
@@ -426,7 +426,7 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
         .returning();
       const [outsider] = await db
         .insert(people)
-        .values({ familyId: otherFamily.id, displayName: 'คนนอก' })
+        .values({ familyId: otherFamily.id, displayName: 'คนนอก', createdByAccountId: otherMember.id })
         .returning();
 
       const created = await createEvent(creatorToken);

@@ -39,6 +39,7 @@ const mediaRoutes: FastifyPluginAsync = async (fastify) => {
       contentType: body.content_type,
       sizeBytes: body.size_bytes,
       status: 'pending',
+      purpose: body.purpose ?? 'story',
     });
 
     return reply.status(201).send({

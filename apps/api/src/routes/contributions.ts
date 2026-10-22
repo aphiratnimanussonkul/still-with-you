@@ -19,13 +19,22 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
     return contrib;
   }
 
-  async function toContributionResponse(contrib: typeof contributions.$inferSelect, accountId: string) {
-    const [owner] = await db.select().from(accounts).where(eq(accounts.id, contrib.ownerAccountId)).limit(1);
+  async function toContributionResponse(
+    contrib: typeof contributions.$inferSelect,
+    accountId: string,
+    ownerDisplayName?: string
+  ) {
+    const ownerName =
+      ownerDisplayName ??
+      (
+        await db.select({ displayName: accounts.displayName }).from(accounts).where(eq(accounts.id, contrib.ownerAccountId)).limit(1)
+      )[0]?.displayName ??
+      '';
     return {
       id: contrib.id,
       family_id: contrib.familyId,
       owner_account_id: contrib.ownerAccountId,
-      owner_display_name: owner?.displayName ?? '',
+      owner_display_name: ownerName,
       narrator_person_id: contrib.narratorPersonId,
       event_id: contrib.eventId,
       origin_event_id: contrib.originEventId,
@@ -63,13 +72,19 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const rows = await db
-      .select()
+      .select({
+        contribution: contributions,
+        ownerDisplayName: accounts.displayName,
+      })
       .from(contributions)
+      .innerJoin(accounts, eq(accounts.id, contributions.ownerAccountId))
       .where(and(eq(contributions.eventId, event.id), eq(contributions.status, 'published')))
       .orderBy(asc(contributions.createdAt));
 
     return reply.send({
-      contributions: await Promise.all(rows.map((row) => toContributionResponse(row, request.user!.id))),
+      contributions: await Promise.all(
+        rows.map((row) => toContributionResponse(row.contribution, request.user!.id, row.ownerDisplayName))
+      ),
     });
   });
 

@@ -152,15 +152,18 @@ describe('Web-compat routes (contributions list, people, envelope, api-client)',
         headers: await auth(memberToken),
       });
       expect(listed.statusCode).toBe(200);
-      expect(JSON.parse(listed.body).people).toEqual([
-        {
-          id: person.id,
-          family_id: familyId,
-          name: 'ยายสมศรี',
-          relation_label: 'ยาย',
-          account_id: null,
-        },
-      ]);
+      const listedBody = JSON.parse(listed.body);
+      expect(listedBody.people).toHaveLength(1);
+      expect(listedBody.people[0]).toMatchObject({
+        id: person.id,
+        family_id: familyId,
+        name: 'ยายสมศรี',
+        display_name: 'ยายสมศรี',
+        relation_label: 'ยาย',
+        account_id: null,
+        invite_status: 'none',
+      });
+      expect(listedBody.relationships).toEqual([]);
 
       const one = await server.inject({
         method: 'GET',

@@ -70,6 +70,7 @@ export async function cleanupOrphanMedia(olderThanHours = MEDIA_ORPHAN_TTL_HOURS
       and(
         isNull(media.deletedAt),
         isNull(media.storyId),
+        isNull(media.personId),
         inArray(media.status, ['pending', 'uploaded']),
         lte(media.createdAt, cutoff)
       )

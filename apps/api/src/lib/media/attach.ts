@@ -44,6 +44,14 @@ export async function attachMediaToStory(
 
     for (const id of unique) {
       const row = byId.get(id)!;
+      if (row.purpose !== 'story') {
+        throw new AppError(
+          ErrorCode.INVALID_INPUT,
+          'Story media_ids cannot include avatars',
+          400,
+          'media_ids'
+        );
+      }
       if (row.familyId !== opts.familyId || row.uploaderAccountId !== opts.authorId) {
         throw new AppError(
           ErrorCode.INVALID_INPUT,

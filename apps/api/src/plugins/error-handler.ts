@@ -25,6 +25,26 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
       });
     }
 
+    if (error.code === '23505') {
+      const constraint = String(error.constraint_name || error.constraint || error.message || '');
+      if (constraint.includes('person_relationships') || constraint.includes('person_id_related_person_id')) {
+        return reply.status(409).send({
+          error: {
+            code: ErrorCode.RELATIONSHIP_EXISTS,
+            message: errorMessages[ErrorCode.RELATIONSHIP_EXISTS],
+          },
+        });
+      }
+      if (constraint.includes('people_family_account') || constraint.includes('invites_person_pending')) {
+        return reply.status(409).send({
+          error: {
+            code: ErrorCode.PERSON_ALREADY_LINKED,
+            message: errorMessages[ErrorCode.PERSON_ALREADY_LINKED],
+          },
+        });
+      }
+    }
+
     // Handle database custom error codes
     if (error.code === 'P0L01') {
       // Last admin constraint violation
@@ -55,6 +75,15 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
             code: ErrorCode.ANSWER_REQUIRED,
             message: errorMessages[ErrorCode.ANSWER_REQUIRED],
             field: 'answer_text',
+          },
+        });
+      }
+      if (field === 'display_name' || field === 'name') {
+        return reply.status(400).send({
+          error: {
+            code: ErrorCode.NAME_REQUIRED,
+            message: errorMessages[ErrorCode.NAME_REQUIRED],
+            field,
           },
         });
       }

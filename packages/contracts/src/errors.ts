@@ -1,6 +1,6 @@
 /**
  * Error codes for Still With You API
- * Based on backend-contract-v0.7.md
+ * Based on backend-contract-v0.8.md
  */
 
 export const ErrorCode = {
@@ -13,6 +13,9 @@ export const ErrorCode = {
   TOO_MANY_PHOTOS: 'TOO_MANY_PHOTOS',
   INVALID_INPUT: 'INVALID_INPUT',
   ANSWER_REQUIRED: 'ANSWER_REQUIRED',
+  NAME_REQUIRED: 'NAME_REQUIRED',
+  INVALID_BIRTH_DATE: 'INVALID_BIRTH_DATE',
+  INVALID_RELATIONSHIP: 'INVALID_RELATIONSHIP',
   UPLOAD_MISMATCH: 'UPLOAD_MISMATCH',
   MEDIA_NOT_READY: 'MEDIA_NOT_READY',
 
@@ -30,6 +33,12 @@ export const ErrorCode = {
   // 409 Conflict
   LAST_ADMIN: 'LAST_ADMIN',
   ALREADY_ANSWERED: 'ALREADY_ANSWERED',
+  RELATIONSHIP_EXISTS: 'RELATIONSHIP_EXISTS',
+  PERSON_LINKED: 'PERSON_LINKED',
+  PERSON_ALREADY_LINKED: 'PERSON_ALREADY_LINKED',
+
+  // 410 Gone
+  INVITE_INVALID: 'INVITE_INVALID',
 
   // 404 Not Found
   NOT_FOUND: 'NOT_FOUND',
@@ -95,6 +104,9 @@ export const errorMessages: Record<ErrorCode, string> = {
   TOO_MANY_FOCUS: 'Too many focus people',
   INVALID_INPUT: 'Invalid input provided',
   ANSWER_REQUIRED: 'Answer text is required',
+  NAME_REQUIRED: 'Display name is required',
+  INVALID_BIRTH_DATE: 'Birth date cannot be in the future',
+  INVALID_RELATIONSHIP: 'This relationship is not allowed',
   UPLOAD_MISMATCH: 'Uploaded object does not match the declared type or size',
   MEDIA_NOT_READY: 'One or more photos are not ready to attach',
   UNAUTHENTICATED: 'Authentication required',
@@ -103,6 +115,10 @@ export const errorMessages: Record<ErrorCode, string> = {
   NOT_YET_DELETABLE: 'Event is not yet permanently deletable',
   LAST_ADMIN: 'Cannot remove or demote the last admin when other members exist',
   ALREADY_ANSWERED: 'You have already answered this question for this person',
+  RELATIONSHIP_EXISTS: 'This relationship already exists',
+  PERSON_LINKED: 'A linked person cannot be deleted',
+  PERSON_ALREADY_LINKED: 'This person is already linked to an account',
+  INVITE_INVALID: 'This invite is no longer valid',
   NOT_FOUND: 'Resource not found',
   EVENT_NOT_ACTIVE: 'Event must be active for this operation',
   EVENT_NOT_ARCHIVED: 'Event must be archived before deletion',
