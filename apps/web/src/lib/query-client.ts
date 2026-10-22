@@ -21,6 +21,7 @@ export const queryKeys = {
   invites: (familyId: string) => ['families', familyId, 'invites'] as const,
   people: (familyId: string) => ['families', familyId, 'people'] as const,
   person: (personId: string) => ['people', personId] as const,
+  personEvents: (personId: string) => ['people', personId, 'events'] as const,
   home: (familyId: string) => ['families', familyId, 'home'] as const,
   focus: (familyId: string) => ['families', familyId, 'focus'] as const,
   facts: (personId: string) => ['people', personId, 'facts'] as const,

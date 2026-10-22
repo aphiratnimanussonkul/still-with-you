@@ -7,17 +7,19 @@ describe('copy v0.4', () => {
       .filter(([, value]) => value.startsWith('TODO:'))
       .map(([key]) => key);
     expect(leftovers).toEqual([
-      'error.INVALID_BIRTH_DATE',
-      'error.PERSON_LINKED',
+      'error.NAME_REQUIRED',
       'person.family_name.label',
       'person.gender.label',
       'person.birth.label',
       'person.bio.label',
       'person.avatar.label',
       'person.relationship.label',
-      'person.relationship.parent',
-      'person.relationship.spouse',
+      'person.relationship.child',
       'person.relationship.related',
+      'person.status.uninvited',
+      'person.status.pending',
+      'person.status.linked',
+      'person.invite.share',
       'person.edit.title',
       'person.edit.action',
       'person.delete.action',
@@ -31,11 +33,27 @@ describe('copy v0.4', () => {
     expect(copy['person.age']).toBe('อายุ {age} ปี');
     expect(copy['person.invite.action']).toBe('ชวน {name} เข้าครอบครัว');
     expect(copy['person.delete.confirm.title']).toBe('ลบ {name} ออกจากผังไหม');
-    expect(copy['person.delete.confirm.body']).toBe('ข้อมูลของ {name} ในผังจะหายไปและกู้คืนไม่ได้');
+    expect(copy['person.delete.confirm.body']).toBe(
+      '{name} จะหายไปจากผัง และกู้คืนเองไม่ได้ ส่วนเรื่องเล่าที่พูดถึง {name} ยังอยู่ครบ'
+    );
     expect(copy['person.unjoined']).toBe('ยังไม่ได้เข้าร่วม');
     expect(copy['person.gender.male']).toBe('ชาย');
     expect(copy['person.gender.female']).toBe('หญิง');
+    expect(copy['person.gender.other']).toBe('อื่นๆ');
     expect(copy['person.gender.unspecified']).toBe('ไม่ระบุ');
+    expect(copy['person.relationship.parent']).toBe('เป็นพ่อหรือแม่ของ');
+    expect(copy['person.relationship.spouse']).toBe('เป็นคู่ชีวิตของ');
+    expect(copy['person.relation_label.label']).toBe('ชื่อที่ครอบครัวเรียก (ไม่บังคับ)');
+    expect(copy['person.relation_label.placeholder']).toBe('เช่น ยาย ลุงหนึ่ง');
+    expect(copy['person.bio.counter']).toBe('{count}/2000');
+    expect(copy['error.INVALID_BIRTH_DATE']).toBe('วันเกิดต้องไม่เกินวันนี้');
+    expect(copy['error.PERSON_LINKED']).toBe(
+      'ลบ {name} ไม่ได้ เพราะ {name} เป็นสมาชิกครอบครัวแล้ว ต้องเอาออกจากสมาชิกก่อน'
+    );
+    expect(copy['error.PERSON_ALREADY_LINKED']).toBe(
+      '{name} ในผังนี้ผูกกับบัญชีอื่นไปแล้ว ขอคำเชิญใหม่จากผู้ดูแลครอบครัว'
+    );
+    expect(copy['error.INVITE_INVALID']).toBe('คำเชิญนี้ใช้ไม่ได้แล้ว ขอคำเชิญใหม่จากผู้ดูแลครอบครัว');
   });
 
   it('uses locked v0.4 wording for create, tree, cancel, and admin confirm split', () => {

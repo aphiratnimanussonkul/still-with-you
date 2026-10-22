@@ -51,7 +51,7 @@ import {
   skipFactSchema,
   updateFactSchema,
 } from '@/lib/home-api';
-import { isFutureBirthDate } from '@/lib/person-age';
+import { displayPersonAge, isFutureBirthDate } from '@/lib/person-age';
 import { HOME_QUESTION_TEMPLATES, fillQuestionText, homeQuestionId } from '@/mocks/home-questions';
 
 const api = env.apiUrl.replace(/\/$/, '');
@@ -93,10 +93,14 @@ const invites: {
   family_id: string;
   email: string;
   person_id?: string | null;
-  status: 'pending';
+  url?: string;
+  status: 'pending' | 'accepted' | 'revoked' | 'expired';
   expires_at: string;
   created_at: string;
 }[] = [];
+const eventPeople: Record<string, string[]> = {
+  [mockEvents[0].id]: [mockPeople[0].id],
+};
 const focusByFamily: Record<string, string[]> = { ...mockFocusIds };
 const skippedQuestions = new Set<string>();
 const answeredQuestions = new Set<string>();
@@ -202,6 +206,7 @@ function toPersonResponse(person: FamilyPerson) {
     ...person,
     display_name: person.display_name,
     name: person.display_name,
+    age: displayPersonAge(person),
   });
 }
 
@@ -526,6 +531,122 @@ export const handlers = [
     );
   }),
 
+  http.post(`${api}/v1/people/:id/invites`, ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const person = people.find((row) => row.id === params.id);
+    if (!person) {
+      return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, { status: 404 });
+    }
+    const member = members.find((row) => row.family_id === person.family_id && row.account_id === account.id);
+    if (member?.role !== 'admin') {
+      return HttpResponse.json({ error: { code: 'FORBIDDEN', message: 'Admin required' } }, { status: 403 });
+    }
+    const origin = request.headers.get('origin') ?? 'http://localhost:5173';
+    const created = {
+      id: crypto.randomUUID(),
+      family_id: person.family_id,
+      email: '',
+      person_id: person.id,
+      url: '',
+      status: 'pending' as const,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      created_at: new Date().toISOString(),
+    };
+    created.url = `${origin}/invites/${created.id}`;
+    invites.push(created);
+    const family = families.find((row) => row.id === person.family_id);
+    return HttpResponse.json(
+      {
+        id: created.id,
+        person_id: person.id,
+        family_id: person.family_id,
+        family_name: family?.name ?? '',
+        inviter_display_name: account.display_name,
+        person_display_name: person.display_name,
+        url: created.url,
+        status: created.status,
+        expires_at: created.expires_at,
+        created_at: created.created_at,
+      },
+      { status: 201 }
+    );
+  }),
+
+  http.get(`${api}/v1/people-invites/:id`, ({ params }) => {
+    const invite = invites.find((row) => row.id === params.id);
+    if (!invite || invite.status !== 'pending' || new Date(invite.expires_at).getTime() < Date.now()) {
+      return HttpResponse.json(
+        { error: { code: 'INVITE_INVALID', message: 'Invite invalid' } },
+        { status: 410 }
+      );
+    }
+    const person = people.find((row) => row.id === invite.person_id);
+    const family = families.find((row) => row.id === invite.family_id);
+    return HttpResponse.json({
+      id: invite.id,
+      person_id: invite.person_id,
+      family_id: invite.family_id,
+      family_name: family?.name ?? '',
+      inviter_display_name: account.display_name,
+      person_display_name: person?.display_name ?? '',
+      url: invite.url || `http://localhost:5173/invites/${invite.id}`,
+      status: invite.status,
+      expires_at: invite.expires_at,
+      created_at: invite.created_at,
+    });
+  }),
+
+  http.post(`${api}/v1/people-invites/:id/accept`, ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const invite = invites.find((row) => row.id === params.id);
+    if (!invite || invite.status !== 'pending' || new Date(invite.expires_at).getTime() < Date.now()) {
+      return HttpResponse.json(
+        { error: { code: 'INVITE_INVALID', message: 'Invite invalid' } },
+        { status: 410 }
+      );
+    }
+    const person = people.find((row) => row.id === invite.person_id);
+    if (!person) {
+      return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, { status: 404 });
+    }
+    if (person.account_id && person.account_id !== account.id) {
+      return HttpResponse.json(
+        { error: { code: 'PERSON_ALREADY_LINKED', message: 'Person already linked' } },
+        { status: 409 }
+      );
+    }
+    person.account_id = account.id;
+    invite.status = 'accepted';
+    const family = families.find((row) => row.id === invite.family_id);
+    return HttpResponse.json({
+      id: invite.id,
+      person_id: person.id,
+      family_id: person.family_id,
+      family_name: family?.name ?? '',
+      inviter_display_name: account.display_name,
+      person_display_name: person.display_name,
+      url: invite.url ?? '',
+      status: invite.status,
+      expires_at: invite.expires_at,
+      created_at: invite.created_at,
+    });
+  }),
+
+  http.get(`${api}/v1/people/:id/events`, ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const ids = new Set(
+      Object.entries(eventPeople)
+        .filter(([, personIds]) => personIds.includes(String(params.id)))
+        .map(([eventId]) => eventId)
+    );
+    return HttpResponse.json({
+      events: events.filter((event) => ids.has(event.id)),
+    });
+  }),
+
   http.get(`${api}/v1/families/:fid/people`, ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
@@ -550,16 +671,28 @@ export const handlers = [
   http.post(`${api}/v1/families/:fid/people`, async ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    const parsed = createPersonSchema.safeParse(await request.json());
-    if (!parsed.success) {
+    const raw = (await request.json()) as { display_name?: string };
+    if (!raw.display_name?.trim()) {
       return HttpResponse.json(
-        { error: { code: 'INVALID_INPUT', message: 'display_name required' } },
+        { error: { code: 'NAME_REQUIRED', message: 'display_name required', field: 'display_name' } },
         { status: 400 }
       );
     }
-    if (parsed.data.birth_date && isFutureBirthDate(parsed.data.birth_date)) {
+    const parsed = createPersonSchema.safeParse(raw);
+    if (!parsed.success) {
       return HttpResponse.json(
-        { error: { code: 'INVALID_BIRTH_DATE', message: 'birth_date is in the future' } },
+        { error: { code: 'INVALID_INPUT', message: 'invalid person' } },
+        { status: 400 }
+      );
+    }
+    if (
+      parsed.data.birth_date &&
+      isFutureBirthDate(parsed.data.birth_date, parsed.data.birth_date_precision)
+    ) {
+      return HttpResponse.json(
+        {
+          error: { code: 'INVALID_BIRTH_DATE', message: 'birth_date is in the future', field: 'birth_date' },
+        },
         { status: 400 }
       );
     }
@@ -572,6 +705,7 @@ export const handlers = [
       family_name: parsed.data.family_name ?? null,
       gender: parsed.data.gender ?? null,
       birth_date: parsed.data.birth_date ?? null,
+      birth_date_precision: parsed.data.birth_date_precision ?? (parsed.data.birth_date ? 'day' : null),
       bio: parsed.data.bio ?? null,
       avatar_media_id: parsed.data.avatar_media_id ?? null,
       avatar_url: parsed.data.avatar_media_id
@@ -593,16 +727,28 @@ export const handlers = [
     if (!person) {
       return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, { status: 404 });
     }
-    const parsed = updatePersonSchema.safeParse(await request.json());
+    const raw = (await request.json()) as { display_name?: string };
+    if (raw.display_name !== undefined && !raw.display_name.trim()) {
+      return HttpResponse.json(
+        { error: { code: 'NAME_REQUIRED', message: 'display_name required', field: 'display_name' } },
+        { status: 400 }
+      );
+    }
+    const parsed = updatePersonSchema.safeParse(raw);
     if (!parsed.success) {
       return HttpResponse.json(
         { error: { code: 'INVALID_INPUT', message: 'invalid person' } },
         { status: 400 }
       );
     }
-    if (parsed.data.birth_date && isFutureBirthDate(parsed.data.birth_date)) {
+    if (
+      parsed.data.birth_date &&
+      isFutureBirthDate(parsed.data.birth_date, parsed.data.birth_date_precision)
+    ) {
       return HttpResponse.json(
-        { error: { code: 'INVALID_BIRTH_DATE', message: 'birth_date is in the future' } },
+        {
+          error: { code: 'INVALID_BIRTH_DATE', message: 'birth_date is in the future', field: 'birth_date' },
+        },
         { status: 400 }
       );
     }

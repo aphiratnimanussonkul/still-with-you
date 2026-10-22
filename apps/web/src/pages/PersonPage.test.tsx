@@ -4,8 +4,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { copy, interpolate, interpolateHeading } from '@/copy';
 import { ApiClientError } from '@/lib/api-errors';
-import { ageYearsFromBirthDate } from '@/lib/person-age';
-import { mockAccount, mockFamilies, mockMembers, mockPeople } from '@/mocks/data';
+import { displayPersonAge } from '@/lib/person-age';
+import { mockAccount, mockEvents, mockFamilies, mockMembers, mockPeople } from '@/mocks/data';
 
 const meState = { id: mockAccount.id };
 
@@ -22,7 +22,9 @@ vi.mock('@/lib/family-graph', async () => {
     familyGraph: {
       listPeople: vi.fn(),
       listMembers: vi.fn(),
-      createInvite: vi.fn(),
+      listInvites: vi.fn(),
+      listPersonEvents: vi.fn(),
+      createPersonInvite: vi.fn(),
       deletePerson: vi.fn(),
     },
   };
@@ -66,48 +68,72 @@ describe('PersonPage', () => {
     meState.id = mockAccount.id;
     vi.mocked(familyGraph.listPeople).mockReset();
     vi.mocked(familyGraph.listMembers).mockReset();
-    vi.mocked(familyGraph.createInvite).mockReset();
+    vi.mocked(familyGraph.listInvites).mockReset();
+    vi.mocked(familyGraph.listPersonEvents).mockReset();
+    vi.mocked(familyGraph.createPersonInvite).mockReset();
     vi.mocked(familyGraph.deletePerson).mockReset();
     vi.mocked(homeApi.listFacts).mockReset();
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
     vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
     vi.mocked(familyGraph.listMembers).mockResolvedValue({ members: mockMembers });
+    vi.mocked(familyGraph.listInvites).mockResolvedValue({ invites: [] });
+    vi.mocked(familyGraph.listPersonEvents).mockResolvedValue({ events: [] });
     vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
-    vi.mocked(familyGraph.createInvite).mockResolvedValue({
+    vi.mocked(familyGraph.createPersonInvite).mockResolvedValue({
       id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
-      email: '',
       person_id: mockPeople[0].id,
+      family_id: mockFamilies[0].id,
+      family_name: mockFamilies[0].name,
+      inviter_display_name: mockAccount.display_name,
+      person_display_name: mockPeople[0].display_name,
+      url: 'http://localhost:5173/invites/dddddddd-dddd-4ddd-8ddd-dddddddddddd',
       status: 'pending',
       expires_at: '2026-10-29T00:00:00.000Z',
       created_at: '2026-10-22T00:00:00.000Z',
     });
   });
 
-  it('shows age, unjoined badge, invite, and edit/delete for a steward', async () => {
+  it('shows API age, uninvited badge, invite, and edit/delete in the more menu', async () => {
     renderPerson();
     const name = mockPeople[0].display_name;
     expect(await screen.findByRole('heading', { name })).toBeTruthy();
     expect(
       screen.getByText(
         interpolate(copy['person.age'], {
-          age: String(ageYearsFromBirthDate(mockPeople[0].birth_date!)),
+          age: String(displayPersonAge(mockPeople[0])),
         })
       )
     ).toBeTruthy();
-    expect(screen.getByText(copy['person.unjoined'])).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: interpolate(copy['person.invite.action'], { name }) })
-    ).toBeTruthy();
-    expect(screen.getByRole('link', { name: copy['person.edit.action'] }).getAttribute('href')).toBe(
-      `/family/people/${mockPeople[0].id}/edit`
-    );
+    expect(screen.getByText(copy['person.status.uninvited'])).toBeTruthy();
+    const inviteButton = screen.getByRole('button', {
+      name: interpolate(copy['person.invite.action'], { name }),
+    });
+    fireEvent.click(inviteButton);
+    await waitFor(() => expect(familyGraph.createPersonInvite).toHaveBeenCalledWith(mockPeople[0].id));
+    expect(await screen.findByText(copy['invite.copy_link'])).toBeTruthy();
+    expect(screen.getByText(copy['person.invite.share'])).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: copy['common.cancel'] }));
 
-    fireEvent.click(screen.getByRole('button', { name: interpolate(copy['person.invite.action'], { name }) }));
-    await waitFor(() =>
-      expect(familyGraph.createInvite).toHaveBeenCalledWith(mockFamilies[0].id, {
-        person_id: mockPeople[0].id,
-      })
-    );
+    fireEvent.click(screen.getByRole('button', { name: copy['a11y.more'] }));
+    expect(await screen.findByRole('menuitem', { name: copy['person.edit.action'] })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: copy['person.delete.action'] })).toBeTruthy();
+  });
+
+  it('shows a pending invite badge', async () => {
+    vi.mocked(familyGraph.listInvites).mockResolvedValue({
+      invites: [
+        {
+          id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+          email: '',
+          person_id: mockPeople[0].id,
+          status: 'pending',
+          expires_at: '2026-10-29T00:00:00.000Z',
+          created_at: '2026-10-22T00:00:00.000Z',
+        },
+      ],
+    });
+    renderPerson();
+    expect(await screen.findByText(copy['person.status.pending'])).toBeTruthy();
   });
 
   it('hides age when birth_date is missing', async () => {
@@ -116,7 +142,7 @@ describe('PersonPage', () => {
     expect(screen.queryByText(/อายุ/)).toBeNull();
   });
 
-  it('hides invite and edit when the viewer is not creator, linked self, or steward', async () => {
+  it('hides invite and the more menu when the viewer cannot edit', async () => {
     meState.id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
     vi.mocked(familyGraph.listMembers).mockResolvedValue({ members: [] });
     renderPerson();
@@ -126,8 +152,25 @@ describe('PersonPage', () => {
         name: interpolate(copy['person.invite.action'], { name: mockPeople[0].display_name }),
       })
     ).toBeNull();
-    expect(screen.queryByRole('link', { name: copy['person.edit.action'] })).toBeNull();
-    expect(screen.queryByRole('button', { name: copy['person.delete.action'] })).toBeNull();
+    expect(screen.queryByRole('button', { name: copy['a11y.more'] })).toBeNull();
+  });
+
+  it('hides delete and invite when linked and shows PERSON_LINKED', async () => {
+    const linked = {
+      ...mockPeople[0],
+      account_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    };
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: [linked, mockPeople[1]], relationships: [] });
+    renderPerson();
+    const name = linked.display_name;
+    expect(await screen.findByText(copy['person.status.linked'])).toBeTruthy();
+    expect(screen.getByText(interpolate(copy['error.PERSON_LINKED'], { name }))).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: interpolate(copy['person.invite.action'], { name }) })
+    ).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: copy['a11y.more'] }));
+    expect(await screen.findByRole('menuitem', { name: copy['person.edit.action'] })).toBeTruthy();
+    expect(screen.queryByRole('menuitem', { name: copy['person.delete.action'] })).toBeNull();
   });
 
   it('confirms delete with Eddy copy and maps PERSON_LINKED', async () => {
@@ -135,7 +178,8 @@ describe('PersonPage', () => {
       new ApiClientError('PERSON_LINKED', 'linked', 409)
     );
     renderPerson();
-    fireEvent.click(await screen.findByRole('button', { name: copy['person.delete.action'] }));
+    fireEvent.click(await screen.findByRole('button', { name: copy['a11y.more'] }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: copy['person.delete.action'] }));
     expect(
       screen.getByRole('heading', {
         name: interpolateHeading(copy['person.delete.confirm.title'], {
@@ -149,15 +193,27 @@ describe('PersonPage', () => {
       )
     ).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: copy['person.delete.confirm.primary'] }));
-    expect(await screen.findByText(copy['error.PERSON_LINKED'])).toBeTruthy();
+    expect(
+      await screen.findByText(interpolate(copy['error.PERSON_LINKED'], { name: mockPeople[0].display_name }))
+    ).toBeTruthy();
   });
 
   it('navigates home after a successful delete', async () => {
     vi.mocked(familyGraph.deletePerson).mockResolvedValue(undefined);
     renderPerson();
-    fireEvent.click(await screen.findByRole('button', { name: copy['person.delete.action'] }));
+    fireEvent.click(await screen.findByRole('button', { name: copy['a11y.more'] }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: copy['person.delete.action'] }));
     fireEvent.click(screen.getByRole('button', { name: copy['person.delete.confirm.primary'] }));
     await waitFor(() => expect(familyGraph.deletePerson).toHaveBeenCalledWith(mockPeople[0].id));
     expect(await screen.findByText('family-page')).toBeTruthy();
+  });
+
+  it('lists memories that feature this person', async () => {
+    vi.mocked(familyGraph.listPersonEvents).mockResolvedValue({ events: [mockEvents[0]] });
+    renderPerson();
+    expect(await screen.findByRole('link', { name: mockEvents[0].title ?? '' })).toHaveAttribute(
+      'href',
+      `/memories/${mockEvents[0].id}`
+    );
   });
 });

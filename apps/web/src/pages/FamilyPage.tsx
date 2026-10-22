@@ -222,6 +222,9 @@ function TreePanel({ familyId }: { familyId: string }) {
                       </div>
                     </div>
                     <PersonFactsSection personId={person.id} name={name} />
+                    <Button asChild variant="ghost" size="sm">
+                      <Link to={`/family/people/new?related=${person.id}`}>{copy['person.add.action']}</Link>
+                    </Button>
                   </CardContent>
                 </Card>
               </li>

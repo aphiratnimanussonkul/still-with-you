@@ -225,8 +225,13 @@ describe('FamilyPage', () => {
     expect(screen.getByRole('link', { name: mockPeople[1].display_name }).getAttribute('href')).toBe(
       `/family/people/${mockPeople[1].id}`
     );
-    expect(screen.getByRole('link', { name: copy['person.add.action'] }).getAttribute('href')).toBe(
-      '/family/people/new'
+    const addLinks = screen.getAllByRole('link', { name: copy['person.add.action'] });
+    expect(addLinks.map((link) => link.getAttribute('href'))).toEqual(
+      expect.arrayContaining([
+        '/family/people/new',
+        `/family/people/new?related=${mockPeople[0].id}`,
+        `/family/people/new?related=${mockPeople[1].id}`,
+      ])
     );
     expect(screen.getAllByText(copy['person.unjoined']).length).toBe(2);
   });

@@ -44,6 +44,10 @@ vi.mock('@/pages/TrashPage', () => ({
   TrashPage: () => <p>{copy['trash.empty.title']}</p>,
 }));
 
+vi.mock('@/pages/PersonInvitePage', () => ({
+  PersonInvitePage: () => <h1>invite-landing</h1>,
+}));
+
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>

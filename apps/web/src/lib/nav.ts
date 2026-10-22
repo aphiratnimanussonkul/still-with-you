@@ -50,6 +50,9 @@ export function appBarForPath(pathname: string): AppBarState {
   if (/^\/family\/people\/[^/]+$/.test(pathname)) {
     return { titleKey: 'nav.family', backTo: '/family' };
   }
+  if (/^\/invites\/[^/]+$/.test(pathname)) {
+    return { titleKey: 'invite.landing.accept', backTo: null };
+  }
   if (pathname === '/me') return { titleKey: 'nav.me', backTo: null };
   if (pathname === '/me/trash' || pathname === '/trash' || pathname.startsWith('/trash/')) {
     return { titleKey: 'trash.title', backTo: '/me' };

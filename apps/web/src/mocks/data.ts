@@ -74,6 +74,8 @@ export const mockPeople: FamilyPerson[] = [
     family_name: null,
     gender: 'female',
     birth_date: '1948-08-01',
+    birth_date_precision: 'day',
+    age: 78,
     bio: null,
     avatar_media_id: null,
     avatar_url: null,

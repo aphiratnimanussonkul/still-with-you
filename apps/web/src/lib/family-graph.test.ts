@@ -10,6 +10,7 @@ import {
   familyPeopleSchema,
   familyPersonSchema,
   personDisplayName,
+  personInviteSchema,
   updatePersonSchema,
 } from '@/lib/family-graph';
 
@@ -142,5 +143,30 @@ describe('family people contract v0.8', () => {
     );
     expect(personDisplayName(mockPeople[0])).toBe('ยายสมศรี');
     expect(personDisplayName({ display_name: '', name: 'ปู่สมชาย' })).toBe('ปู่สมชาย');
+  });
+
+  it('accepts birth_date_precision and person invite payloads', () => {
+    expect(
+      createPersonSchema.parse({
+        display_name: 'ยาย',
+        birth_date: '1948-01-01',
+        birth_date_precision: 'year',
+        gender: 'other',
+      })
+    ).toMatchObject({ birth_date_precision: 'year', gender: 'other' });
+    expect(
+      personInviteSchema.parse({
+        id: mockPeople[0].id,
+        person_id: mockPeople[0].id,
+        family_id: mockPeople[0].family_id,
+        family_name: 'บ้านเรา',
+        inviter_display_name: 'Atta',
+        person_display_name: 'ยายสมศรี',
+        url: 'http://localhost:5173/invites/dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        status: 'pending',
+        expires_at: '2026-10-29T00:00:00.000Z',
+        created_at: '2026-10-22T00:00:00.000Z',
+      }).url
+    ).toContain('/invites/');
   });
 });

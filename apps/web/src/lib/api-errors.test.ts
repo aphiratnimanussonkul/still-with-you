@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ErrorCode } from '@still-with-you/contracts';
 import { copy, interpolate } from '@/copy';
-import { ApiClientError, NetworkError, messageForError } from '@/lib/api-errors';
+import { ApiClientError, NetworkError, fieldForError, messageForError } from '@/lib/api-errors';
 import { formatThaiDate } from '@/lib/dates';
 
 function apiError(
@@ -123,8 +123,23 @@ describe('messageForError', () => {
     expect(messageForError(apiError(ErrorCode.ALREADY_ANSWERED))).toBe(copy['error.ALREADY_ANSWERED']);
   });
 
-  it('maps INVALID_BIRTH_DATE and PERSON_LINKED by code', () => {
-    expect(messageForError(apiError('INVALID_BIRTH_DATE'))).toBe(copy['error.INVALID_BIRTH_DATE']);
-    expect(messageForError(apiError('PERSON_LINKED'))).toBe(copy['error.PERSON_LINKED']);
+  it('maps people-CRUD codes, interpolates {name}, and keeps TBD codes generic', () => {
+    expect(messageForError(apiError('NAME_REQUIRED', undefined, 'display_name'))).toBe(
+      copy['error.NAME_REQUIRED']
+    );
+    expect(messageForError(apiError('INVALID_BIRTH_DATE', undefined, 'birth_date'))).toBe(
+      copy['error.INVALID_BIRTH_DATE']
+    );
+    expect(messageForError(apiError('PERSON_LINKED'), { name: 'ยายสมศรี' })).toBe(
+      interpolate(copy['error.PERSON_LINKED'], { name: 'ยายสมศรี' })
+    );
+    expect(messageForError(apiError('PERSON_ALREADY_LINKED'), { name: 'ยายสมศรี' })).toBe(
+      interpolate(copy['error.PERSON_ALREADY_LINKED'], { name: 'ยายสมศรี' })
+    );
+    expect(messageForError(apiError('INVITE_INVALID'))).toBe(copy['error.INVITE_INVALID']);
+    expect(messageForError(apiError('PERSON_SELF_LINK'))).toBe(copy['error.generic']);
+    expect(messageForError(apiError('DUPLICATE_RELATIONSHIP'))).toBe(copy['error.generic']);
+    expect(fieldForError(apiError('NAME_REQUIRED', undefined, 'display_name'))).toBe('display_name');
+    expect(fieldForError(apiError('INVALID_BIRTH_DATE', undefined, 'birth_date'))).toBe('birth_date');
   });
 });
