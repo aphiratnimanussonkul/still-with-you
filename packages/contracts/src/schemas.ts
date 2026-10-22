@@ -41,6 +41,20 @@ export const inviteMemberSchema = z.object({
   email: emailSchema,
 });
 
+export const acceptInviteSchema = z.object({}).strict();
+
+export const invitePreviewResponseSchema = z.object({
+  family_name: z.string(),
+  inviter_display_name: z.string(),
+  person_display_name: z.string().nullable(),
+  expires_at: z.string().datetime(),
+});
+
+export const acceptInviteResponseSchema = z.object({
+  family_id: uuidSchema,
+  person_id: uuidSchema.nullable(),
+});
+
 export const updateMemberRoleSchema = z.object({
   role: memberRoleSchema,
 });
@@ -144,6 +158,7 @@ export const eventResponseSchema = z.object({
 
 export const eventListResponseSchema = z.object({
   events: z.array(eventResponseSchema),
+  next_cursor: z.string().nullable().optional(),
 });
 
 export const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'] as const;
@@ -439,8 +454,8 @@ export const personFactsResponseSchema = z.object({
 
 // Pagination
 export const paginationQuerySchema = z.object({
-  cursor: z.string().optional(),
-  limit: z.number().int().min(1).max(100).default(20),
+  cursor: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 // Export type helpers
@@ -448,6 +463,9 @@ export type UpdateConsent = z.infer<typeof updateConsentSchema>;
 export type AccountResponse = z.infer<typeof accountResponseSchema>;
 export type CreateFamily = z.infer<typeof createFamilySchema>;
 export type InviteMember = z.infer<typeof inviteMemberSchema>;
+export type AcceptInvite = z.infer<typeof acceptInviteSchema>;
+export type InvitePreviewResponse = z.infer<typeof invitePreviewResponseSchema>;
+export type AcceptInviteResponse = z.infer<typeof acceptInviteResponseSchema>;
 export type UpdateMemberRole = z.infer<typeof updateMemberRoleSchema>;
 export type FamilyResponse = z.infer<typeof familyResponseSchema>;
 export type FamilyListResponse = z.infer<typeof familyListResponseSchema>;

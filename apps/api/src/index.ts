@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
+import { AppError, ErrorCode, errorMessages } from '@still-with-you/contracts';
 import { env } from './lib/env.js';
 import authPlugin from './plugins/auth.js';
 import errorHandlerPlugin from './plugins/error-handler.js';
@@ -36,6 +37,8 @@ async function buildServer() {
   await fastify.register(rateLimit, {
     max: env.RATE_LIMIT_MAX,
     timeWindow: env.RATE_LIMIT_WINDOW,
+    errorResponseBuilder: () =>
+      new AppError(ErrorCode.RATE_LIMITED, errorMessages[ErrorCode.RATE_LIMITED], 429),
   });
 
   // Register error handler

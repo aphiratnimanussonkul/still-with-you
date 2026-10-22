@@ -72,6 +72,8 @@ export const env = {
   // Rate limiting
   RATE_LIMIT_MAX: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
   RATE_LIMIT_WINDOW: parseInt(process.env.RATE_LIMIT_WINDOW || '60000', 10),
+  // GET /v1/invites/{token} — per IP, stricter than the global cap
+  INVITE_PREVIEW_RATE_LIMIT_MAX: parseInt(process.env.INVITE_PREVIEW_RATE_LIMIT_MAX || '20', 10),
 
   // JWT
   get JWT_ISSUER() {

@@ -6,12 +6,15 @@ import {
   createRelationshipSchema,
   errorMessages,
   inviteMemberSchema,
+  paginationQuerySchema,
   updatePersonSchema,
 } from '@still-with-you/contracts';
-import { and, asc, eq, isNull, or } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, ne, or, sql } from 'drizzle-orm';
 import {
   accounts,
   db,
+  eventPeople,
+  events,
   families,
   focusPeople,
   invites,
@@ -22,6 +25,9 @@ import {
   questionSkips,
 } from '../lib/db/index.js';
 import { findActiveMember, isFamilySteward } from '../lib/authz.js';
+import { decodeEventCursor, encodeEventCursor } from '../lib/cursor.js';
+import { toEventResponse } from '../lib/event-response.js';
+import { inviteExpiresAt, mintInviteToken, publicInviteUrl } from '../lib/invites.js';
 import {
   attachAvatar,
   inviteStatusFor,
@@ -30,7 +36,6 @@ import {
   toPersonResponse,
   wouldCreateParentCycle,
 } from '../lib/people.js';
-import crypto from 'crypto';
 
 async function requireFamilyMember(familyId: string, accountId: string) {
   const [family] = await db.select().from(families).where(eq(families.id, familyId)).limit(1);
@@ -392,8 +397,7 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
       throw new AppError(ErrorCode.FORBIDDEN, 'Invite already pending for this email', 403);
     }
 
-    const token = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const { token, tokenHash } = mintInviteToken();
     const [invite] = await db
       .insert(invites)
       .values({
@@ -403,7 +407,7 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
         invitedBy: request.user!.id,
         personId: person.id,
         tokenHash,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: inviteExpiresAt(),
       })
       .returning();
 
@@ -413,9 +417,49 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
       person_id: invite.personId,
       email: invite.email,
       status: invite.status,
-      token,
+      url: publicInviteUrl(token),
       expires_at: invite.expiresAt.toISOString(),
       created_at: invite.createdAt.toISOString(),
+    });
+  });
+
+  // Family members only. Archived events follow /families/{id}/events: creator or steward.
+  fastify.get<{ Params: { id: string } }>('/people/:id/events', async (request, reply) => {
+    const person = await loadLivePerson(request.params.id);
+    const member = await requirePersonFamilyMember(person, request.user!.id);
+    const query = paginationQuerySchema.parse(request.query);
+    const steward = isFamilySteward(member.role);
+
+    const filters = [
+      eq(eventPeople.personId, person.id),
+      eq(events.familyId, person.familyId),
+      ne(events.status, 'deleted'),
+    ];
+    if (!steward) {
+      filters.push(or(eq(events.status, 'active'), eq(events.creatorAccountId, request.user!.id))!);
+    }
+    if (query.cursor) {
+      const cursor = decodeEventCursor(query.cursor);
+      // Truncate to milliseconds so JS Date cursors match timestamptz values.
+      filters.push(
+        sql`(date_trunc('milliseconds', ${events.createdAt}), ${events.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`
+      );
+    }
+
+    const rows = await db
+      .select({ event: events })
+      .from(events)
+      .innerJoin(eventPeople, eq(eventPeople.eventId, events.id))
+      .where(and(...filters))
+      .orderBy(desc(events.createdAt), desc(events.id))
+      .limit(query.limit + 1);
+
+    const page = rows.slice(0, query.limit);
+    const last = page[page.length - 1];
+    return reply.send({
+      events: page.map((row) => toEventResponse(row.event)),
+      next_cursor:
+        rows.length > query.limit && last ? encodeEventCursor(last.event.createdAt, last.event.id) : null,
     });
   });
 };

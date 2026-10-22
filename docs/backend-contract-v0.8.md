@@ -1,9 +1,9 @@
 # Still With You — Backend Contract v0.8
 
 **Updated:** Oct 22, 2026  
-**Status:** Canonical spec. Family-tree additions in this revision are **not deployed yet**. Until those routes ship, the live API matches [v0.7](./backend-contract-v0.7.md).  
+**Status:** Canonical spec.  
 **Supersedes:** [v0.7](./backend-contract-v0.7.md). **[v0.6](./backend-contract-v0.6.md) is cancelled** (never deployed; do not use `/quick-question` or `/persons/{id}/answers`).  
-**Changes from v0.7:** family-tree people profile (gender, birth date + precision, computed age, bio, avatar); `person_relationships`; person PATCH/DELETE; steward person invites; GET people returns `{ people, relationships }`  
+**Changes from v0.7:** family-tree people profile (gender, birth date + precision, computed age, bio, avatar); `person_relationships`; person PATCH/DELETE; steward person invites; GET people returns `{ people, relationships }`; public invite preview; invite create `url`; people events list  
 **Requirements v1.2 (AC-19..AC-27):** family steward, `archived_at` / `deletable_at`, 7-day permanent delete, `canManageEvent`, owner-only stories  
 **References:** Domain Model v0.4 (Kret), Requirements v1.1 / v1.2, Kret media contract v0.5, Kret focus + quick questions spec, Kret family-tree decisions (locked 22 Oct 2026)
 
@@ -18,7 +18,8 @@ These override earlier drafts of this revision. Implementers must follow this ta
 | Parent cycle | **400 `INVALID_RELATIONSHIP`** (same code as self-link). A person cannot be a parent of their own ancestor. |
 | Duplicate relationship | **409 `RELATIONSHIP_EXISTS`**. |
 | Age | Not stored. API returns a computed integer `age` in `Asia/Bangkok` (or `null` when there is no `birth_date`). Year-precision age is labelled approximate **in the web only**; the API still returns that integer. |
-| Invites | `POST /v1/people/{id}/invites` (steward only). Do **not** add `person_id` to family invite bodies. |
+| Invites | `POST /v1/people/{id}/invites` (steward only). Do **not** add `person_id` to family invite bodies. Create **201** includes `url = {first WEB_ORIGIN}/invites/{token}`. Store only a hash of the token; return the url once. `GET /v1/invites/{token}` is public (secret token, never id). `POST /v1/invites/{token}/accept` body `{}`, login required, single use, 7-day expiry; **200** `{ family_id, person_id }`. Expired, used, revoked, or unknown → **410 `INVITE_INVALID`**. Already-linked person → **409 `PERSON_ALREADY_LINKED`**. |
+| People events | `GET /v1/people/{id}/events?cursor=` — family members only. Same visibility as `GET /v1/families/{id}/events` (archived visible only to the creator and the steward). |
 | `birth_date_precision` | `'day'` \| `'year'`, default `'day'` (approved). Year-only dates are stored as `YYYY-01-01`. |
 | Same-family edges | `person_relationships` uses composite FKs `(person_id, family_id)` and `(related_person_id, family_id)` → `people(id, family_id)` (requires unique `(id, family_id)` on `people`). |
 | `avatar_media_id` | Must be `purpose = 'avatar'`, same family, and completed (`uploaded` or `ready`). Not completed → **409 `MEDIA_NOT_READY`**. Wrong purpose or family → **422 `UPLOAD_MISMATCH`** (existing media-mismatch 422; not a new code). |
@@ -27,7 +28,7 @@ These override earlier drafts of this revision. Implementers must follow this ta
 
 - PostgreSQL with UUID v7 for IDs, `timestamptz` (UTC) for timestamps
 - Use `story` field naming throughout DB and API (D5)
-- Authorization checked at backend for every request: must be active FamilyMember first, then check permission matrix and role
+- Authorization checked at backend for every request: must be active FamilyMember first, then check permission matrix and role. Exception: `GET /v1/invites/{token}` is unauthenticated (the token is the secret) and is rate-limited per IP
 - Row Level Security (RLS) enabled on all tables with NO policies for anon/authenticated (deny all) - API uses privileged role
 - Private storage bucket with signed URLs (5 min expiry)
 - 404 for cross-family or archived event access; 403 FORBIDDEN when resource exists but action not permitted
@@ -69,7 +70,7 @@ alter table accounts add column if not exists consent_answered_at timestamptz;
 - **No cookies** - Frontend sends `Authorization: Bearer <supabase_access_token>`
 - API verifies JWT via Supabase JWKS endpoint: `https://{SUPABASE_URL}/auth/v1/.well-known/jwks.json`
 - SUPABASE_URL is configurable via environment variable
-- CORS allowlist: `WEB_ORIGIN` comma-separated browser origins (env-configurable, no `*`; dev default: `http://localhost:5173`)
+- CORS allowlist: `WEB_ORIGIN` comma-separated browser origins (env-configurable, no `*`; dev default: `http://localhost:5173`). The **first** origin is also used for invite URLs: `{WEB_ORIGIN}/invites/{token}`
 
 ### 2.4 Row Level Security
 
@@ -382,8 +383,6 @@ v0.6 paths **`/quick-question`** and **`/persons/{id}/answers`** are not impleme
 
 ### 4.0 Route catalog
 
-Rows marked **†** are new in v0.8 and are **not deployed** until the family-tree implementation ships.
-
 | Method | Path | Notes |
 |--------|------|-------|
 | GET | `/health` | No auth |
@@ -399,18 +398,20 @@ Rows marked **†** are new in v0.8 and are **not deployed** until the family-tr
 | PATCH | `/v1/families/{id}/members/{accountId}/role` | Same as above |
 | DELETE | `/v1/families/{id}/members/{accountId}` | Remove member |
 | POST | `/v1/families/{id}/leave` | Leave family |
-| POST | `/v1/families/{id}/invites` | Steward family invite `{ email }` only — no `person_id` |
+| POST | `/v1/families/{id}/invites` | Steward family invite `{ email }` only — no `person_id`. **201** includes `url` |
 | GET | `/v1/families/{id}/invites` | Pending invites (steward) |
-| POST | `/v1/invites/{token}/accept` | Accept invite (person invites also link `people.account_id`) |
+| GET | `/v1/invites/{token}` | Public preview (no login). Secret token, never id |
+| POST | `/v1/invites/{token}/accept` | Accept invite. Body `{}`. Login required. **200** `{ family_id, person_id }` |
 | DELETE | `/v1/invites/{id}` | Revoke invite |
 | GET | `/v1/families/{id}/people` | `{ people: […], relationships: […] }` (v0.8 adds `relationships`) |
 | POST | `/v1/families/{id}/people` | Create person |
 | GET | `/v1/people/{id}` | One person (member of that family) |
-| PATCH | `/v1/people/{id}` | **†** Update person |
-| DELETE | `/v1/people/{id}` | **†** Soft-delete person |
-| POST | `/v1/people/{id}/invites` | **†** Steward person invite |
-| POST | `/v1/families/{id}/relationships` | **†** Create `parent` or `spouse` |
-| DELETE | `/v1/relationships/{id}` | **†** Delete a stored edge |
+| PATCH | `/v1/people/{id}` | Update person |
+| DELETE | `/v1/people/{id}` | Soft-delete person |
+| POST | `/v1/people/{id}/invites` | Steward person invite. **201** includes `url` |
+| GET | `/v1/people/{id}/events` | Events linked to this person (`?cursor=`). Family members only |
+| POST | `/v1/families/{id}/relationships` | Create `parent` or `spouse` |
+| DELETE | `/v1/relationships/{id}` | Delete a stored edge |
 | POST | `/v1/families/{id}/events` | Create event + first story |
 | GET | `/v1/families/{id}/events` | List events |
 | GET | `/v1/events/{id}` | Event |
@@ -425,7 +426,7 @@ Rows marked **†** are new in v0.8 and are **not deployed** until the family-tr
 | POST | `/v1/contributions/{id}/trash` | Owner only |
 | POST | `/v1/contributions/{id}/restore` | Owner only |
 | DELETE | `/v1/contributions/{id}` | Purge (owner only) |
-| POST | `/v1/families/{id}/media/uploads` | Signed upload; optional `purpose: "avatar"` **†** |
+| POST | `/v1/families/{id}/media/uploads` | Signed upload; optional `purpose: "avatar"` |
 | POST | `/v1/media/{id}/complete` | Complete upload |
 | GET | `/v1/families/{id}/focus` | `{ items: […] }` |
 | PUT | `/v1/families/{id}/focus` | `{ person_ids: [] }` |
@@ -436,7 +437,7 @@ Rows marked **†** are new in v0.8 and are **not deployed** until the family-tr
 | PATCH | `/v1/facts/{id}` | Author only |
 | DELETE | `/v1/facts/{id}` | Author or steward |
 
-Not yet implemented (do not call): `GET /v1/me/notifications`, `POST /v1/notifications/{id}/read`. Family-tree rows marked **†** are specified here and not yet deployed.
+Not yet implemented (do not call): `GET /v1/me/notifications`, `POST /v1/notifications/{id}/read`.
 
 ### 4.1 Account & Consent (NEW in v0.4)
 
@@ -471,8 +472,10 @@ Not yet implemented (do not call): `GET /v1/me/notifications`, `POST /v1/notific
 | POST | `/v1/families` | Authenticated | Create family (creator becomes first admin) |
 | GET | `/v1/families/{fid}` | Family member | Get family details |
 | GET | `/v1/families/{fid}/members` | Family member | `{ members: [{ account_id, family_id, role, display_name, joined_at }] }`. Non-member → **404 NOT_FOUND** |
-| POST | `/v1/families/{fid}/invites` | Admin only | Invite new member (403 if not admin). Body `{ email }` only — do **not** send `person_id`. To invite someone onto a tree person, use `POST /v1/people/{id}/invites` |
+| POST | `/v1/families/{fid}/invites` | Admin only | Invite new member (403 if not admin). Body `{ email }` only — do **not** send `person_id`. To invite someone onto a tree person, use `POST /v1/people/{id}/invites`. **201** includes `url = {first WEB_ORIGIN}/invites/{token}`. Store only `token_hash`. 7-day expiry |
 | GET | `/v1/families/{fid}/invites` | Admin only | Pending invites |
+| GET | `/v1/invites/{token}` | **No login** | Public preview. Path uses the secret token, never the invite id. Response `{ family_name, inviter_display_name, person_display_name, expires_at }` only (`person_display_name` is `null` for family invites). Per-IP rate limit (`INVITE_PREVIEW_RATE_LIMIT_MAX`). Expired, used, revoked, or unknown → **410 `INVITE_INVALID`** |
+| POST | `/v1/invites/{token}/accept` | Invitee (login, email match) | Body `{}`. Single use, 7-day expiry. **200** `{ family_id, person_id }` (`person_id` is `null` for family invites). Expired, used, revoked, unknown, or email mismatch → **410 `INVITE_INVALID`**. Already-linked person → **409 `PERSON_ALREADY_LINKED`** |
 | PATCH | `/v1/families/{fid}/members/{aid}` | Steward only | Same as `/role` |
 | PATCH | `/v1/families/{id}/members/{accountId}/role` | Steward only | Change role (AC-25). Self-demote allowed |
 | DELETE | `/v1/families/{fid}/members/{aid}` | Steward only | Remove member (cannot remove last admin) |
@@ -482,6 +485,31 @@ Not yet implemented (do not call): `GET /v1/me/notifications`, `POST /v1/notific
 // POST /v1/families/{fid}/invites
 {
   "email": "user@example.com"
+}
+
+// 201
+{
+  "id": "…",
+  "email": "user@example.com",
+  "url": "http://localhost:5173/invites/…",
+  "expires_at": "2026-10-29T00:00:00.000Z"
+}
+
+// GET /v1/invites/{token} — 200 (no Authorization)
+{
+  "family_name": "บ้านเรา",
+  "inviter_display_name": "Steward",
+  "person_display_name": null,
+  "expires_at": "2026-10-29T00:00:00.000Z"
+}
+
+// POST /v1/invites/{token}/accept
+{}
+
+// 200
+{
+  "family_id": "…",
+  "person_id": null
 }
 
 // PATCH /v1/families/{id}/members/{accountId}/role
@@ -505,6 +533,7 @@ Role-change errors: **403 FORBIDDEN** (caller is not an admin/steward), **404 NO
 |--------|------|------------|-------|
 | POST | `/families/{fid}/events` | Member | Atomic create: event + first contribution + `event_people` + audit. **`story` required**. Optional `media_ids`. `person_ids` must belong to the family |
 | GET | `/families/{fid}/events?cursor=` | Member | Active for all members; archived only for creator or steward |
+| GET | `/people/{id}/events?cursor=` | Member of that person's family | Events linked via `event_people`. Same archived visibility as family events. `{ events, next_cursor }` |
 | GET | `/events/{id}` | Per matrix | Archived: 404 unless creator or steward |
 | PATCH | `/events/{id}` | `canManageEvent` | Core fields and `person_ids` (replace `event_people` in the same transaction). Every `person_id` must belong to the event's family |
 | POST | `/events/{id}/archive` | `canManageEvent` | Sets `archived_at = now()` (re-archive overwrites). No auto-delete job |
@@ -599,6 +628,7 @@ Any **active family member** may create a person. The **creator** (`created_by_a
 | GET | `/v1/families/{id}/people` | Member | `{ "people": […], "relationships": […] }`. Live people only, `display_name` ascending. Non-member or missing family → **404 NOT_FOUND** |
 | POST | `/v1/families/{id}/people` | Member | Create. **201** person |
 | GET | `/v1/people/{id}` | Member of that family | Same person object. Missing, other family, or soft-deleted → **404 NOT_FOUND** |
+| GET | `/v1/people/{id}/events?cursor=` | Member of that family | Events linked via `event_people`. Active for all members; archived only for the event creator or steward (same as `GET /v1/families/{id}/events`). `{ events, next_cursor }`. Missing / other family / soft-deleted person → **404 NOT_FOUND** |
 | PATCH | `/v1/people/{id}` | Creator, steward, or linked account | Partial update. **200** person |
 | DELETE | `/v1/people/{id}` | Creator or steward | Soft-delete (`deleted_at = now()`). **204**. Linked person (`account_id` not null) → **409 PERSON_LINKED** |
 
@@ -724,8 +754,9 @@ Family invites stay `POST /v1/families/{id}/invites` `{ "email" }` — **no** `p
 
 | Method | Path | Permission | Notes |
 |--------|------|------------|-------|
-| POST | `/v1/people/{id}/invites` | Steward | Body `{ "email" }`. Person must be live and unlinked. **201** invite including `person_id` |
-| POST | `/v1/invites/{token}/accept` | Invitee (email match) | Unchanged path. When `invites.person_id` is set, the same transaction sets `people.account_id` if it is still null |
+| POST | `/v1/people/{id}/invites` | Steward | Body `{ "email" }`. Person must be live and unlinked. **201** includes `person_id` and `url = {first WEB_ORIGIN}/invites/{token}`. Store only `token_hash`; return the url once. 7-day expiry |
+| GET | `/v1/invites/{token}` | **No login** | Same public preview as family invites. `person_display_name` is the tree person's `display_name` |
+| POST | `/v1/invites/{token}/accept` | Invitee (login, email match) | Body `{}`. Single use. When `invites.person_id` is set, the same transaction sets `people.account_id` if it is still null. **200** `{ family_id, person_id }` |
 
 ```json
 // POST /v1/people/{id}/invites
@@ -738,16 +769,35 @@ Family invites stay `POST /v1/families/{id}/invites` `{ "email" }` — **no** `p
   "person_id": "…",
   "email": "user@example.com",
   "status": "pending",
+  "url": "http://localhost:5173/invites/…",
   "expires_at": "2026-11-05T00:00:00.000Z",
   "created_at": "2026-10-22T00:00:00.000Z"
+}
+
+// GET /v1/invites/{token} — 200 (no Authorization)
+{
+  "family_name": "บ้านเรา",
+  "inviter_display_name": "Steward",
+  "person_display_name": "ยาย",
+  "expires_at": "2026-11-05T00:00:00.000Z"
+}
+
+// POST /v1/invites/{token}/accept
+{}
+
+// 200
+{
+  "family_id": "…",
+  "person_id": "…"
 }
 ```
 
 Accept (one transaction):
 
-1. Mark the invite accepted (same rules as family invite: email match, pending, not expired)
+1. Mark the invite accepted (email match, pending, not expired). Otherwise **410 `INVITE_INVALID`**
 2. If `person_id` is set and that person is live with `account_id` null → set `people.account_id` to the accepting account (partial unique `(family_id, account_id)` must hold)
 3. Add the account as a family member if not already an active member
+4. Return `{ family_id, person_id }` (`person_id` is `null` for family invites)
 
 Person-invite errors:
 
@@ -755,7 +805,8 @@ Person-invite errors:
 |------|------|------|
 | Caller is not a steward | **403** | `FORBIDDEN` |
 | Person missing / other family | **404** | `NOT_FOUND` |
-| Person is soft-deleted (invite create or accept) | **410** | `INVITE_INVALID` |
+| Expired, used, revoked, unknown token, or email mismatch (preview or accept) | **410** | `INVITE_INVALID` |
+| Person is soft-deleted (invite create, preview, or accept) | **410** | `INVITE_INVALID` |
 | Person already has `account_id` (create, or accept when already linked to this or another account) | **409** | `PERSON_ALREADY_LINKED` |
 | Accept would attach a second live person in this family to the same account | **409** | `PERSON_ALREADY_LINKED` |
 
@@ -937,7 +988,7 @@ Canonical paths (no `/quick-question`, no `/persons/{id}/answers`):
 | 409 | `RELATIONSHIP_EXISTS` | Duplicate stored edge (including the reverse spouse pair) |
 | 409 | `PERSON_LINKED` | Soft-delete refused because `people.account_id` is set |
 | 409 | `PERSON_ALREADY_LINKED` | Person already has an account, or accept would link a second live person in this family to the same account |
-| 410 | `INVITE_INVALID` | Person invite create/accept when the person is soft-deleted |
+| 410 | `INVITE_INVALID` | Invite expired, used, revoked, unknown, email mismatch, or person is soft-deleted (preview, create, or accept) |
 | 409 | `EVENT_NOT_ACTIVE` | Event must be active for this operation |
 | 409 | `EVENT_NOT_ARCHIVED` | Event must be archived before deletion |
 | 409 | `SOURCE_ARCHIVED` | Cannot restore when origin is archived |
@@ -960,7 +1011,7 @@ Canonical paths (no `/quick-question`, no `/persons/{id}/answers`):
 
 ## 7. Permission Matrix (v0.8)
 
-All requests must be from an active FamilyMember.
+All requests must be from an active FamilyMember, except `GET /v1/invites/{token}` (public; the token is the secret; rate-limited per IP).
 
 `canManageEvent` = event creator **OR** family steward (`family_members.role = 'admin'`). Used for editing core fields, archive, restore, and permanent delete (AC-23, AC-26).
 
@@ -981,6 +1032,7 @@ All requests must be from an active FamilyMember.
 | Create relationship | ✅ | ✅ | ✅ | ✅ |
 | Delete relationship | creator of the edge, or steward | ✅ | if creator of the edge | ❌ |
 | Invite onto a person | if steward | ✅ `POST /v1/people/{id}/invites` | N/A | 403 |
+| List a person's events | family member; archived only if event creator or steward | ✅ same | ✅ if member | ✅ if member |
 | Set own focus people | ✅ | ✅ | ✅ | ✅ (own set only) |
 | Answer / skip / edit own fact | ✅ | ✅ | own only | own only |
 | Delete someone else's fact | ❌ | ✅ steward | own only | ❌ |
@@ -999,7 +1051,7 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres
 # Tests — dedicated database only
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54322/swy_test
 
-# CORS
+# CORS — first origin is also used for invite URLs: {WEB_ORIGIN}/invites/{token}
 WEB_ORIGIN=http://localhost:5173,https://stillwithyou.nimanussonkul.work,https://still-with-you-5b1.pages.dev
 
 # API
@@ -1015,6 +1067,7 @@ MEDIA_MAX_PER_CONTRIBUTION=20
 # Rate Limiting
 RATE_LIMIT_MAX=100
 RATE_LIMIT_WINDOW=60000
+INVITE_PREVIEW_RATE_LIMIT_MAX=20
 
 # Session/JWT
 JWT_ISSUER=${SUPABASE_URL}/auth/v1
@@ -1031,7 +1084,10 @@ JWKS_URI=${SUPABASE_URL}/auth/v1/.well-known/jwks.json
 - `person_relationships` (`parent` \| `spouse`). Children, siblings, grandparents are derived
 - `PATCH` / `DELETE /v1/people/{id}`
 - `POST /v1/families/{id}/relationships`, `DELETE /v1/relationships/{id}`
-- `POST /v1/people/{id}/invites` (steward). Family invite body stays `{ email }` only
+- `POST /v1/people/{id}/invites` (steward). Family invite body stays `{ email }` only. Create **201** includes `url = {first WEB_ORIGIN}/invites/{token}`; store only `token_hash`
+- `GET /v1/invites/{token}` public preview `{ family_name, inviter_display_name, person_display_name, expires_at }`, per-IP rate limit
+- `POST /v1/invites/{token}/accept` body `{}` → **200** `{ family_id, person_id }`
+- `GET /v1/people/{id}/events?cursor=` (family members; archived visibility matches family events)
 - `GET /v1/families/{id}/people` returns `{ people, relationships }`
 - Media `purpose` `story` \| `avatar` (avatar limit 1 per person)
 - `person_relationships` composite FKs onto `people(id, family_id)` so both ends are the same family
@@ -1043,7 +1099,7 @@ JWKS_URI=${SUPABASE_URL}/auth/v1/.well-known/jwks.json
 - The unused v0.7 generic `relationships` table is replaced by `person_relationships`
 
 ### Unchanged
-- Family invites, members, events, contributions, trash, focus, facts
+- Members, events (except people-events list), contributions, trash, focus, facts
 - v0.6 remains cancelled
 
 ## 9b. Changes Summary (v0.5 → v0.7)

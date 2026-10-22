@@ -38,8 +38,9 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
         JWKS = createRemoteJWKSet(new URL(env.JWKS_URI));
       }
     }
-    // Skip auth for health check
-    if (request.url === '/health') {
+    // Skip auth for health check and public invite preview (token is the secret).
+    // POST /v1/invites/:token/accept still requires login.
+    if (isPublicUnauthenticated(request.method, request.url)) {
       return;
     }
 
@@ -108,6 +109,14 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
     }
   });
 };
+
+function isPublicUnauthenticated(method: string, url: string): boolean {
+  const pathname = url.split('?')[0] ?? '';
+  if (pathname === '/health') {
+    return true;
+  }
+  return method === 'GET' && /^\/v1\/invites\/[^/]+$/.test(pathname);
+}
 
 export default fp(authPlugin, {
   name: 'auth',
