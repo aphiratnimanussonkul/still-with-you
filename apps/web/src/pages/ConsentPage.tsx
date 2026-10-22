@@ -6,7 +6,7 @@ import { QueryLoading } from '@/components/QueryLoading';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { copy, interpolate } from '@/copy';
+import { copy, interpolate, interpolateHeading, pageHeadingClassName } from '@/copy';
 import { isFirstUse, useMe } from '@/hooks/use-me';
 import { api } from '@/lib/api-client';
 import { messageForError } from '@/lib/api-errors';
@@ -36,8 +36,8 @@ export function ConsentPage() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6">
       <Illustration name="onboarding-door" />
-      <h1 className="text-h1 font-semibold">
-        {interpolate(copy['welcome.title'], { ชื่อ: me.data.display_name || me.data.email || '' })}
+      <h1 className={`text-h1 font-semibold ${pageHeadingClassName}`}>
+        {interpolateHeading(copy['welcome.title'], { ชื่อ: me.data.display_name || me.data.email || '' })}
       </h1>
       <p className="text-body text-muted-foreground">{copy['welcome.body']}</p>
       <div className="flex min-h-11 items-start gap-3">

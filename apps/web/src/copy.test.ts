@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { copy, familyItemMeta, interpolate, truncateName } from '@/copy';
+import { copy, familyItemMeta, interpolate, interpolateHeading, truncateName } from '@/copy';
 
 describe('copy v0.4', () => {
   it('has no remaining TODO placeholders', () => {
@@ -34,15 +34,26 @@ describe('copy v0.4', () => {
     expect(copy['a11y.memory_more']).toBe('ตัวเลือกของความทรงจำ {ชื่อความทรงจำ}');
   });
 
-  it('truncates long names in interpolate and titles', () => {
+  it('truncates long names in interpolate for list titles, meta, and toasts', () => {
     expect(truncateName('สั้น')).toBe('สั้น');
     expect(truncateName('ชื่อที่ยาวเกินยี่สิบตัวอักษรแน่นอน')).toBe('ชื่อที่ยาวเกินยี่สิ…');
     expect(
-      interpolate(copy['welcome.title'], { ชื่อ: 'ชื่อที่ยาวเกินยี่สิบตัวอักษรแน่นอน' })
-    ).toBe('ยินดีต้อนรับ ชื่อที่ยาวเกินยี่สิ…');
+      interpolate(copy['family.create.success'], { ชื่อครอบครัว: 'ชื่อที่ยาวเกินยี่สิบตัวอักษรแน่นอน' })
+    ).toBe('เริ่มครอบครัว ชื่อที่ยาวเกินยี่สิ… แล้ว');
     expect(interpolate(copy['family.create.success'], { ชื่อครอบครัว: 'บ้านเรา' })).toBe(
       'เริ่มครอบครัว บ้านเรา แล้ว'
     );
+  });
+
+  it('keeps the full name in page headings', () => {
+    expect(
+      interpolateHeading(copy['welcome.title'], { ชื่อ: 'Aphirat Nimanussonkul' })
+    ).toBe('ยินดีต้อนรับ Aphirat Nimanussonkul');
+    expect(
+      interpolateHeading(copy['memory.delete.confirm.title'], {
+        ชื่อความทรงจำ: 'ทริปหัวหินปี 2539 กับครอบครัวทั้งหมด',
+      })
+    ).toBe('ลบ "ทริปหัวหินปี 2539 กับครอบครัวทั้งหมด" ถาวรใช่ไหม');
   });
 
   it('hides the family list role unless the viewer is an admin', () => {
