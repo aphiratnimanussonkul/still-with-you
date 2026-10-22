@@ -31,6 +31,7 @@ import {
   mockFocusIds,
   mockMembers,
   mockPeople,
+  mockPersonOther,
   mockTrash,
 } from '@/mocks/data';
 import {
@@ -84,7 +85,7 @@ function focusListPayload(familyId: string) {
 let account = { ...mockAccount };
 const families = [...mockFamilies];
 const events = [...mockEvents];
-const people: FamilyPerson[] = mockPeople.map((person) => ({ ...person }));
+const people: FamilyPerson[] = [...mockPeople, mockPersonOther].map((person) => ({ ...person }));
 const relationships: FamilyRelationship[] = [];
 const members = [...mockMembers];
 const trash = [...mockTrash];

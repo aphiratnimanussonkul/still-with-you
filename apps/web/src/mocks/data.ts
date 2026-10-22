@@ -104,6 +104,24 @@ export const mockPeople: FamilyPerson[] = [
   },
 ];
 
+export const mockPersonOther: FamilyPerson = {
+  id: '97979797-9797-4979-8979-979797979797',
+  family_id: mockFamilies[0].id,
+  display_name: 'น้องเอ',
+  name: 'น้องเอ',
+  family_name: null,
+  gender: 'other',
+  birth_date: null,
+  bio: null,
+  avatar_media_id: null,
+  avatar_url: null,
+  relation_label: null,
+  account_id: null,
+  invite_status: 'none',
+  created_by_account_id: mockAccount.id,
+  updated_at: '2026-10-03T00:00:00.000Z',
+};
+
 export const mockMembers: FamilyMember[] = [
   {
     account_id: mockAccount.id,
