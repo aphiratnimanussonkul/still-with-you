@@ -53,9 +53,9 @@ const factsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Params: { id: string } }>('/people/:id/facts', async (request, reply) => {
     const person = await loadPersonInFamily(request.params.id, request.user!.id);
     const body = createFactSchema.parse(request.body);
-    const answerText = body.answer_text.trim();
+    const answerText = body.answer_text?.trim() ?? '';
     if (!answerText) {
-      throw new AppError(ErrorCode.INVALID_INPUT, 'answer_text is required', 400, 'answer_text');
+      throw new AppError(ErrorCode.ANSWER_REQUIRED, 'answer_text is required', 400, 'answer_text');
     }
 
     const [question] = await db
@@ -204,9 +204,9 @@ const factsRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const body = updateFactSchema.parse(request.body);
-    const answerText = body.answer_text.trim();
+    const answerText = body.answer_text?.trim() ?? '';
     if (!answerText) {
-      throw new AppError(ErrorCode.INVALID_INPUT, 'answer_text is required', 400, 'answer_text');
+      throw new AppError(ErrorCode.ANSWER_REQUIRED, 'answer_text is required', 400, 'answer_text');
     }
 
     const [updated] = await db

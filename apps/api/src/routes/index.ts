@@ -8,6 +8,7 @@ import contributionRoutes from './contributions.js';
 import mediaRoutes from './media.js';
 import focusRoutes from './focus.js';
 import factsRoutes from './facts.js';
+import peopleRoutes from './people.js';
 
 /**
  * Register all API routes
@@ -27,9 +28,9 @@ const routes: FastifyPluginAsync = async (fastify) => {
       await fastify.register(mediaRoutes);
       await fastify.register(focusRoutes);
       await fastify.register(factsRoutes);
+      await fastify.register(peopleRoutes);
 
       // TODO: Add routes for:
-      // - /me/trash
       // - /me/notifications
       // - /notifications/:id/read
     },

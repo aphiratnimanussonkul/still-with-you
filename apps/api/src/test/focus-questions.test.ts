@@ -291,7 +291,7 @@ describe('Focus people + quick questions', () => {
       payload: { question_id: q01.id, answer_text: '   ' },
     });
     expect(empty.statusCode).toBe(400);
-    expect(JSON.parse(empty.body).error.code).toBe('INVALID_INPUT');
+    expect(JSON.parse(empty.body).error.code).toBe('ANSWER_REQUIRED');
     expect(JSON.parse(empty.body).error.field).toBe('answer_text');
 
     const missing = await server.inject({
@@ -301,7 +301,7 @@ describe('Focus people + quick questions', () => {
       payload: { question_id: q01.id },
     });
     expect(missing.statusCode).toBe(400);
-    expect(JSON.parse(missing.body).error.code).toBe('INVALID_INPUT');
+    expect(JSON.parse(missing.body).error.code).toBe('ANSWER_REQUIRED');
     expect(JSON.parse(missing.body).error.field).toBe('answer_text');
   });
 
@@ -407,6 +407,15 @@ describe('Focus people + quick questions', () => {
     });
     expect(asAuthor.statusCode).toBe(200);
     expect(JSON.parse(asAuthor.body).answer_text).toBe('แกงเขียวหวาน');
+
+    const emptyPatch = await server.inject({
+      method: 'PATCH',
+      url: `/v1/facts/${factId}`,
+      headers: await auth(memberToken),
+      payload: { answer_text: '   ' },
+    });
+    expect(emptyPatch.statusCode).toBe(400);
+    expect(JSON.parse(emptyPatch.body).error.code).toBe('ANSWER_REQUIRED');
   });
 
   it('lets the author or steward soft-delete, but not another member', async () => {

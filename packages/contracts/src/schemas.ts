@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * Shared Zod schemas for API contracts
- * Based on backend-contract-v0.5.md
+ * Based on backend-contract-v0.7.md
  */
 
 // Base types
@@ -181,6 +181,7 @@ export const contributionResponseSchema = z.object({
   id: uuidSchema,
   family_id: uuidSchema,
   owner_account_id: uuidSchema,
+  owner_display_name: z.string().optional(),
   narrator_person_id: uuidSchema.nullable(),
   event_id: uuidSchema.nullable(),
   origin_event_id: uuidSchema,
@@ -194,6 +195,10 @@ export const contributionResponseSchema = z.object({
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
   media: z.array(storyMediaItemSchema).default([]),
+});
+
+export const contributionListResponseSchema = z.object({
+  contributions: z.array(contributionResponseSchema),
 });
 
 export const createUploadSchema = createMediaUploadSchema;
@@ -238,6 +243,20 @@ export const trashResponseSchema = z.object({
   next_cursor: z.string().nullable(),
 });
 
+/** Deployed GET /v1/me/trash — matches apps/web family-graph + MSW. */
+export const meTrashItemSchema = z.object({
+  id: uuidSchema,
+  story: z.string().nullable(),
+  origin_event_title: z.string().nullable(),
+  family_name: z.string(),
+  family_id: uuidSchema,
+  trashed_at: z.string().datetime(),
+});
+
+export const meTrashListResponseSchema = z.object({
+  items: z.array(meTrashItemSchema),
+});
+
 // Notification schemas
 export const notificationResponseSchema = z.object({
   id: uuidSchema,
@@ -256,9 +275,26 @@ export const updateFocusSchema = z.object({
   person_ids: z.array(uuidSchema),
 });
 
+export const createPersonSchema = z.object({
+  name: nonEmptyStringSchema,
+  relation_label: z.string().trim().min(1).nullable().optional(),
+});
+
+export const personResponseSchema = z.object({
+  id: uuidSchema,
+  family_id: uuidSchema,
+  name: z.string(),
+  relation_label: z.string().nullable().optional(),
+  account_id: uuidSchema.nullable().optional(),
+});
+
+export const personListResponseSchema = z.object({
+  people: z.array(personResponseSchema),
+});
+
 export const createFactSchema = z.object({
   question_id: uuidSchema,
-  answer_text: z.string(),
+  answer_text: z.string().optional(),
 });
 
 export const skipFactSchema = z.object({
@@ -266,7 +302,7 @@ export const skipFactSchema = z.object({
 });
 
 export const updateFactSchema = z.object({
-  answer_text: z.string(),
+  answer_text: z.string().optional(),
 });
 
 export const focusPersonSchema = z.object({
@@ -358,6 +394,10 @@ export type EventListResponse = z.infer<typeof eventListResponseSchema>;
 export type CreateContribution = z.input<typeof createContributionSchema>;
 export type UpdateContribution = z.infer<typeof updateContributionSchema>;
 export type ContributionResponse = z.infer<typeof contributionResponseSchema>;
+export type ContributionListResponse = z.infer<typeof contributionListResponseSchema>;
+export type CreatePerson = z.infer<typeof createPersonSchema>;
+export type PersonResponse = z.infer<typeof personResponseSchema>;
+export type PersonListResponse = z.infer<typeof personListResponseSchema>;
 export type CreateUpload = z.infer<typeof createUploadSchema>;
 export type CreateMediaUpload = z.infer<typeof createMediaUploadSchema>;
 export type UploadResponse = z.infer<typeof uploadResponseSchema>;
@@ -368,6 +408,8 @@ export type MediaItem = z.infer<typeof mediaItemSchema>;
 export type MediaResponse = z.infer<typeof mediaResponseSchema>;
 export type TrashItemResponse = z.infer<typeof trashItemResponseSchema>;
 export type TrashResponse = z.infer<typeof trashResponseSchema>;
+export type MeTrashItem = z.infer<typeof meTrashItemSchema>;
+export type MeTrashListResponse = z.infer<typeof meTrashListResponseSchema>;
 export type NotificationResponse = z.infer<typeof notificationResponseSchema>;
 export type UpdateFocus = z.infer<typeof updateFocusSchema>;
 export type CreateFact = z.infer<typeof createFactSchema>;

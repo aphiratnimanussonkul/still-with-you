@@ -18,7 +18,7 @@ import {
 
 /**
  * Drizzle schema matching Supabase migrations
- * Based on backend-contract-v0.5.md
+ * Based on backend-contract-v0.7.md
  */
 
 // Enums
@@ -71,6 +71,7 @@ export const people = pgTable('people', {
   id: uuid('id').primaryKey().defaultRandom(),
   familyId: uuid('family_id').notNull().references(() => families.id),
   displayName: text('display_name').notNull(),
+  relationLabel: text('relation_label'),
   birthDate: date('birth_date'),
   deathDate: date('death_date'),
   accountId: uuid('account_id').unique().references(() => accounts.id),

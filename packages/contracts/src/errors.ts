@@ -1,6 +1,6 @@
 /**
  * Error codes for Still With You API
- * Based on backend-contract-v0.5.md
+ * Based on backend-contract-v0.7.md
  */
 
 export const ErrorCode = {
@@ -11,10 +11,13 @@ export const ErrorCode = {
   FILE_TYPE_NOT_ALLOWED: 'FILE_TYPE_NOT_ALLOWED',
   UNSUPPORTED_TYPE: 'UNSUPPORTED_TYPE',
   TOO_MANY_PHOTOS: 'TOO_MANY_PHOTOS',
-  TOO_MANY_FOCUS: 'TOO_MANY_FOCUS',
   INVALID_INPUT: 'INVALID_INPUT',
+  ANSWER_REQUIRED: 'ANSWER_REQUIRED',
   UPLOAD_MISMATCH: 'UPLOAD_MISMATCH',
   MEDIA_NOT_READY: 'MEDIA_NOT_READY',
+
+  // 422 Unprocessable
+  TOO_MANY_FOCUS: 'TOO_MANY_FOCUS',
 
   // 401 Unauthorized
   UNAUTHENTICATED: 'UNAUTHENTICATED',
@@ -91,6 +94,7 @@ export const errorMessages: Record<ErrorCode, string> = {
   TOO_MANY_PHOTOS: 'Too many photos attached',
   TOO_MANY_FOCUS: 'Too many focus people',
   INVALID_INPUT: 'Invalid input provided',
+  ANSWER_REQUIRED: 'Answer text is required',
   UPLOAD_MISMATCH: 'Uploaded object does not match the declared type or size',
   MEDIA_NOT_READY: 'One or more photos are not ready to attach',
   UNAUTHENTICATED: 'Authentication required',

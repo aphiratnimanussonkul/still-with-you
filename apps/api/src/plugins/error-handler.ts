@@ -49,6 +49,15 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
           },
         });
       }
+      if (field === 'answer_text') {
+        return reply.status(400).send({
+          error: {
+            code: ErrorCode.ANSWER_REQUIRED,
+            message: errorMessages[ErrorCode.ANSWER_REQUIRED],
+            field: 'answer_text',
+          },
+        });
+      }
       return reply.status(400).send({
         error: {
           code: ErrorCode.INVALID_INPUT,
@@ -78,6 +87,15 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
       error: {
         code: ErrorCode.INTERNAL_ERROR,
         message: process.env.NODE_ENV === 'development' ? error.message : errorMessages[ErrorCode.INTERNAL_ERROR],
+      },
+    });
+  });
+
+  fastify.setNotFoundHandler((_request, reply) => {
+    return reply.status(404).send({
+      error: {
+        code: ErrorCode.NOT_FOUND,
+        message: 'Route not found',
       },
     });
   });
