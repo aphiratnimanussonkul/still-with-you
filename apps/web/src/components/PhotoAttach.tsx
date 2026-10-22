@@ -28,7 +28,7 @@ type PhotoDraft = {
 type PhotoAttachProps = {
   familyId: string;
   onStateChange: (state: PhotoAttachState) => void;
-  hint?: string;
+  label?: string;
 };
 
 function emit(photos: PhotoDraft[], onStateChange: (state: PhotoAttachState) => void) {
@@ -38,7 +38,7 @@ function emit(photos: PhotoDraft[], onStateChange: (state: PhotoAttachState) => 
   });
 }
 
-export function PhotoAttach({ familyId, onStateChange, hint }: PhotoAttachProps) {
+export function PhotoAttach({ familyId, onStateChange, label }: PhotoAttachProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [photos, setPhotos] = useState<PhotoDraft[]>([]);
@@ -128,7 +128,7 @@ export function PhotoAttach({ familyId, onStateChange, hint }: PhotoAttachProps)
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-label font-medium">{copy['photo.label']}</p>
+        <p className="text-label font-medium">{label ?? copy['photo.label']}</p>
         <p className="text-caption text-muted-foreground">
           {interpolate(copy['photo.count'], {
             n: String(photos.length),
@@ -178,7 +178,6 @@ export function PhotoAttach({ familyId, onStateChange, hint }: PhotoAttachProps)
           </label>
         ) : null}
       </div>
-      {hint ? <p className="text-caption text-muted-foreground">{hint}</p> : null}
 
       <input
         id={inputId}

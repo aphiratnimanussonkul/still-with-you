@@ -67,15 +67,16 @@ describe('PhotoAttach', () => {
     expect(input.hasAttribute('multiple')).toBe(true);
   });
 
-  it('shows an optional hint under the add-photo control', () => {
+  it('can override the field label', () => {
     render(
       <PhotoAttach
         familyId={familyId}
         onStateChange={vi.fn()}
-        hint={copy['contribution.photos.hint']}
+        label={copy['contribution.photos.label']}
       />
     );
-    expect(screen.getByText(copy['contribution.photos.hint'])).toBeTruthy();
+    expect(screen.getByText(copy['contribution.photos.label'])).toBeTruthy();
+    expect(screen.queryByText(copy['photo.label'])).toBeNull();
   });
 
   it('uploads a photo then reports the ready media id', async () => {

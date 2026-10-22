@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PhotoAttachState } from '@/components/PhotoAttach';
-import { copy } from '@/copy';
+import { copy, interpolate } from '@/copy';
 import { ApiClientError } from '@/lib/api-errors';
 import { mockContributions, mockEvents } from '@/mocks/data';
 
@@ -25,14 +25,14 @@ vi.mock('@/lib/family-graph', () => ({
 
 vi.mock('@/components/PhotoAttach', () => ({
   PhotoAttach: ({
-    hint,
+    label,
     onStateChange,
   }: {
-    hint?: string;
+    label?: string;
     onStateChange: (state: PhotoAttachState) => void;
   }) => {
     latestOnStateChange = onStateChange;
-    return <div data-testid="photo-attach">{hint}</div>;
+    return <div data-testid="photo-attach">{label}</div>;
   },
 }));
 
@@ -70,7 +70,7 @@ describe('MemoryDetailPage stories isolation', () => {
     expect(screen.getByText(copy['memory.stories.load_error'])).toBeTruthy();
     expect(screen.getByRole('button', { name: copy['memory.stories.retry'] })).toBeTruthy();
     expect(screen.getByLabelText(copy['story.label.required'])).toBeTruthy();
-    expect(screen.getByText(copy['contribution.photos.hint'])).toBeTruthy();
+    expect(screen.getByText(copy['contribution.photos.label'])).toBeTruthy();
     expect(screen.queryByText(copy['error.INTERNAL_ERROR'])).toBeNull();
   });
 });
@@ -97,7 +97,15 @@ describe('MemoryDetailPage contribution photos', () => {
 
     renderPage();
     expect(await screen.findByText('จำได้ว่าทะเลเงียบ')).toBeTruthy();
-    expect(screen.getByAltText(copy['contribution.photos.alt'])).toBeTruthy();
+    expect(
+      screen.getByAltText(
+        interpolate(copy['contribution.photo.alt'], {
+          ชื่อผู้เล่า: mockContributions[0].owner_display_name ?? 'Atta',
+          i: '1',
+          n: '1',
+        })
+      )
+    ).toBeTruthy();
     expect(screen.getByText('ไม่มีรูป')).toBeTruthy();
   });
 

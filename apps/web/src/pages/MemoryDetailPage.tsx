@@ -104,7 +104,10 @@ export function MemoryDetailPage() {
                   {item.story || item.media?.length ? (
                     <CardContent className="flex flex-col gap-3">
                       {item.story ? <p className="text-body">{item.story}</p> : null}
-                      <ContributionPhotos media={item.media} />
+                      <ContributionPhotos
+                        media={item.media}
+                        ownerName={item.owner_display_name ?? copy['glossary.event_creator_fallback']}
+                      />
                     </CardContent>
                   ) : null}
                 </Card>
@@ -144,7 +147,7 @@ export function MemoryDetailPage() {
               key={photoKey}
               familyId={event.data.family_id}
               onStateChange={setPhotos}
-              hint={copy['contribution.photos.hint']}
+              label={copy['contribution.photos.label']}
             />
             {photos.isBusy ? (
               <p className="text-caption text-muted-foreground">{copy['photo.upload.wait']}</p>
