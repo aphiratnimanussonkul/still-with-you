@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
-import { db, familyMembers, contributions } from '../lib/db/index.js';
+import { db, familyMembers, contributions, sql as pgSql } from '../lib/db/index.js';
 import { eq } from 'drizzle-orm';
 import { contributionResponseSchema, meTrashListResponseSchema } from '@still-with-you/contracts';
 
@@ -378,6 +378,44 @@ describe('Web-compat routes (contributions list, people, envelope, api-client)',
         headers: await auth(memberToken),
       });
       expect(JSON.parse(afterLeave.body).items).toEqual([]);
+    });
+
+    it('falls back to created_at when trashed_at is null', async () => {
+      const created = await server.inject({
+        method: 'POST',
+        url: `/v1/families/${familyId}/events`,
+        headers: await auth(stewardToken),
+        payload: { title: 'เรื่องเก่า', story: 'ต้น' },
+      });
+      const extra = await server.inject({
+        method: 'POST',
+        url: `/v1/events/${JSON.parse(created.body).id}/contributions`,
+        headers: await auth(memberToken),
+        payload: { story: 'legacy trash' },
+      });
+      const extraId = JSON.parse(extra.body).id;
+      const [row] = await db.select().from(contributions).where(eq(contributions.id, extraId));
+
+      await pgSql`ALTER TABLE contributions DISABLE TRIGGER validate_contribution_state`;
+      try {
+        await db
+          .update(contributions)
+          .set({ status: 'trashed', trashReason: 'owner', trashedAt: null })
+          .where(eq(contributions.id, extraId));
+
+        const listed = await server.inject({
+          method: 'GET',
+          url: '/v1/me/trash',
+          headers: await auth(memberToken),
+        });
+        expect(listed.statusCode).toBe(200);
+        const body = meTrashListResponseSchema.parse(JSON.parse(listed.body));
+        expect(body.items).toHaveLength(1);
+        expect(body.items[0].id).toBe(extraId);
+        expect(body.items[0].trashed_at).toBe(row.createdAt.toISOString());
+      } finally {
+        await pgSql`ALTER TABLE contributions ENABLE TRIGGER validate_contribution_state`;
+      }
     });
   });
 

@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { db, accounts, auditLog, contributions, events, families, familyMembers } from '../lib/db/index.js';
-import { and, desc, eq, isNull, ne } from 'drizzle-orm';
+import { and, desc, eq, isNull, ne, sql } from 'drizzle-orm';
 import { updateConsentSchema } from '@still-with-you/contracts';
 
 function toAccountResponse(userAccount: typeof accounts.$inferSelect) {
@@ -86,6 +86,7 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
         familyName: families.name,
         familyId: families.id,
         trashedAt: contributions.trashedAt,
+        createdAt: contributions.createdAt,
       })
       .from(contributions)
       .innerJoin(families, eq(families.id, contributions.familyId))
@@ -105,7 +106,10 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
           ne(events.status, 'archived')
         )
       )
-      .orderBy(desc(contributions.trashedAt), desc(contributions.createdAt));
+      .orderBy(
+        desc(sql`coalesce(${contributions.trashedAt}, ${contributions.createdAt})`),
+        desc(contributions.createdAt)
+      );
 
     return reply.send({
       items: rows.map((row) => ({
@@ -114,7 +118,7 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
         origin_event_title: row.originEventTitle,
         family_name: row.familyName,
         family_id: row.familyId,
-        trashed_at: row.trashedAt!.toISOString(),
+        trashed_at: (row.trashedAt ?? row.createdAt).toISOString(),
       })),
     });
   });
