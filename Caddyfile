@@ -1,0 +1,27 @@
+{
+    # Global options
+    email {$CADDY_EMAIL}
+    # Automatic HTTPS
+}
+
+{$DOMAIN:localhost} {
+    # Reverse proxy to API
+    reverse_proxy api:3000
+
+    # Security headers
+    header {
+        # Enable HSTS (without preload for flexibility)
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        # Prevent clickjacking
+        X-Frame-Options "DENY"
+        # Prevent MIME sniffing
+        X-Content-Type-Options "nosniff"
+        # Referrer policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/access.log
+    }
+}

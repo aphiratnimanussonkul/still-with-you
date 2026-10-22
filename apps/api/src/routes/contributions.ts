@@ -1,0 +1,191 @@
+import { FastifyPluginAsync } from 'fastify';
+import { AppError, ErrorCode, createContributionSchema, updateContributionSchema } from '@still-with-you/contracts';
+import { eq } from 'drizzle-orm';
+import { db, events, contributions, auditLog } from '../lib/db/index.js';
+import { findActiveMember, getActiveMember, assertContributionOwner } from '../lib/authz.js';
+
+/**
+ * Contribution routes — owner-only for edit/trash/restore/purge (AC-24).
+ * Family stewards cannot edit or delete other members' stories or media.
+ */
+const contributionRoutes: FastifyPluginAsync = async (fastify) => {
+  async function loadContribution(id: string) {
+    const [contrib] = await db.select().from(contributions).where(eq(contributions.id, id)).limit(1);
+    if (!contrib || contrib.status === 'purged') {
+      throw new AppError(ErrorCode.NOT_FOUND, 'Contribution not found', 404);
+    }
+    return contrib;
+  }
+
+  function toContributionResponse(contrib: typeof contributions.$inferSelect) {
+    return {
+      id: contrib.id,
+      family_id: contrib.familyId,
+      owner_account_id: contrib.ownerAccountId,
+      narrator_person_id: contrib.narratorPersonId,
+      event_id: contrib.eventId,
+      origin_event_id: contrib.originEventId,
+      origin_event_title_snapshot: contrib.originEventTitleSnapshot,
+      story: contrib.story,
+      status: contrib.status,
+      trashed_at: contrib.trashedAt ? contrib.trashedAt.toISOString() : null,
+      trash_reason: contrib.trashReason,
+      derived_from_contribution_id: contrib.derivedFromContributionId,
+      version: contrib.version,
+      created_at: contrib.createdAt.toISOString(),
+      updated_at: contrib.updatedAt.toISOString(),
+    };
+  }
+
+  // Add contribution — story required (AC-27)
+  fastify.post<{ Params: { id: string } }>('/events/:id/contributions', async (request, reply) => {
+    const [event] = await db.select().from(events).where(eq(events.id, request.params.id)).limit(1);
+    if (!event || event.status === 'deleted') {
+      throw new AppError(ErrorCode.NOT_FOUND, 'Event not found', 404);
+    }
+
+    await getActiveMember(event.familyId, request.user!.id);
+
+    if (event.status !== 'active') {
+      throw new AppError(ErrorCode.EVENT_NOT_ACTIVE, 'Event must be active to add a contribution', 409);
+    }
+
+    const body = createContributionSchema.parse(request.body);
+
+    const [created] = await db
+      .insert(contributions)
+      .values({
+        familyId: event.familyId,
+        ownerAccountId: request.user!.id,
+        narratorPersonId: body.narrator_person_id,
+        eventId: event.id,
+        originEventId: event.id,
+        originEventTitleSnapshot: event.title,
+        story: body.story.trim(),
+        status: 'published',
+      })
+      .returning();
+
+    await db.insert(auditLog).values({
+      actorAccountId: request.user!.id,
+      action: 'contribution_create',
+      targetType: 'contribution',
+      targetId: created.id,
+    });
+
+    return reply.status(201).send(toContributionResponse(created));
+  });
+
+  fastify.patch<{ Params: { id: string } }>('/contributions/:id', async (request, reply) => {
+    const contrib = await loadContribution(request.params.id);
+    const member = await findActiveMember(contrib.familyId, request.user!.id);
+    if (!member) {
+      throw new AppError(ErrorCode.NOT_FOUND, 'Contribution not found', 404);
+    }
+
+    assertContributionOwner(contrib.ownerAccountId, request.user!.id);
+
+    const body = updateContributionSchema.parse(request.body);
+
+    const [updated] = await db
+      .update(contributions)
+      .set({
+        ...(body.story !== undefined && { story: body.story.trim() }),
+        updatedAt: new Date(),
+        version: contrib.version + 1,
+      })
+      .where(eq(contributions.id, contrib.id))
+      .returning();
+
+    await db.insert(auditLog).values({
+      actorAccountId: request.user!.id,
+      action: 'contribution_update',
+      targetType: 'contribution',
+      targetId: contrib.id,
+    });
+
+    return reply.send(toContributionResponse(updated));
+  });
+
+  fastify.post<{ Params: { id: string } }>('/contributions/:id/trash', async (request, reply) => {
+    const contrib = await loadContribution(request.params.id);
+    const member = await findActiveMember(contrib.familyId, request.user!.id);
+    if (!member) {
+      throw new AppError(ErrorCode.NOT_FOUND, 'Contribution not found', 404);
+    }
+
+    assertContributionOwner(contrib.ownerAccountId, request.user!.id);
+
+    const [updated] = await db
+      .update(contributions)
+      .set({
+        status: 'trashed',
+        trashedAt: new Date(),
+        trashReason: 'owner',
+        updatedAt: new Date(),
+      })
+      .where(eq(contributions.id, contrib.id))
+      .returning();
+
+    return reply.send(toContributionResponse(updated));
+  });
+
+  fastify.post<{ Params: { id: string } }>('/contributions/:id/restore', async (request, reply) => {
+    const contrib = await loadContribution(request.params.id);
+    const member = await findActiveMember(contrib.familyId, request.user!.id);
+    if (!member) {
+      throw new AppError(ErrorCode.NOT_FOUND, 'Contribution not found', 404);
+    }
+
+    assertContributionOwner(contrib.ownerAccountId, request.user!.id);
+
+    const [origin] = await db.select().from(events).where(eq(events.id, contrib.originEventId)).limit(1);
+    if (origin?.status === 'archived') {
+      throw new AppError(ErrorCode.SOURCE_ARCHIVED, 'Cannot restore contribution when origin event is archived', 409);
+    }
+
+    const [updated] = await db
+      .update(contributions)
+      .set({
+        status: 'published',
+        trashedAt: null,
+        trashReason: null,
+        eventId: origin && origin.status === 'active' ? origin.id : contrib.eventId,
+        updatedAt: new Date(),
+      })
+      .where(eq(contributions.id, contrib.id))
+      .returning();
+
+    return reply.send(toContributionResponse(updated));
+  });
+
+  fastify.delete<{ Params: { id: string } }>('/contributions/:id', async (request, reply) => {
+    const contrib = await loadContribution(request.params.id);
+    const member = await findActiveMember(contrib.familyId, request.user!.id);
+    if (!member) {
+      throw new AppError(ErrorCode.NOT_FOUND, 'Contribution not found', 404);
+    }
+
+    assertContributionOwner(contrib.ownerAccountId, request.user!.id);
+
+    await db
+      .update(contributions)
+      .set({
+        status: 'purged',
+        story: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(contributions.id, contrib.id));
+
+    await db.insert(auditLog).values({
+      actorAccountId: request.user!.id,
+      action: 'contribution_purge',
+      targetType: 'contribution',
+      targetId: contrib.id,
+    });
+
+    return reply.status(204).send();
+  });
+};
+
+export default contributionRoutes;
