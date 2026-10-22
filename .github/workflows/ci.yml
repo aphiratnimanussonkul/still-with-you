@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -69,7 +69,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -112,7 +112,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -152,6 +152,101 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: test-key
           SUPABASE_ANON_KEY: test-anon-key
           WEB_ORIGIN: https://stillwithyou.nimanussonkul.work,https://still-with-you-5b1.pages.dev,http://localhost:5173
+
+  docker-smoke:
+    name: Docker smoke (api + worker)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          load: true
+          tags: swy-api:smoke
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build worker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/worker/Dockerfile
+          load: true
+          tags: swy-worker:smoke
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify Node 22, supabase-js import, worker start, API /health
+        run: |
+          set -euo pipefail
+
+          docker run --rm swy-worker:smoke node -e "
+            import { createClient } from '@supabase/supabase-js';
+            console.log('node', process.version);
+            if (!process.version.startsWith('v22.')) {
+              throw new Error('expected Node 22, got ' + process.version);
+            }
+            const client = createClient('https://example.supabase.co', 'test-service-role', {
+              auth: { persistSession: false, autoRefreshToken: false },
+            });
+            console.log('supabase-js import ok', typeof client.from);
+          "
+
+          docker rm -f swy-worker-smoke swy-api-smoke >/dev/null 2>&1 || true
+          docker run -d --name swy-worker-smoke \
+            -e NODE_ENV=production \
+            -e DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:1/postgres \
+            -e SUPABASE_URL=https://example.supabase.co \
+            -e SUPABASE_SERVICE_ROLE_KEY=test-service-role \
+            swy-worker:smoke
+          trap 'docker logs swy-worker-smoke || true; docker logs swy-api-smoke || true; docker rm -f swy-worker-smoke swy-api-smoke || true' EXIT
+          started=0
+          for i in $(seq 1 15); do
+            docker logs swy-worker-smoke > /tmp/worker.log 2>&1 || true
+            if grep -q 'Worker started' /tmp/worker.log; then
+              started=1
+              break
+            fi
+            if grep -q 'native WebSocket not found' /tmp/worker.log; then
+              echo 'worker still crashing on supabase-js WebSocket'
+              cat /tmp/worker.log
+              exit 1
+            fi
+            sleep 1
+          done
+          cat /tmp/worker.log
+          test "$started" = 1
+          docker inspect -f '{{.State.Running}}' swy-worker-smoke | grep -qx true
+          echo 'worker stayed up on node:22-alpine'
+
+          docker run -d --name swy-api-smoke \
+            -p 3000:3000 \
+            -e NODE_ENV=production \
+            -e DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:1/postgres \
+            -e SUPABASE_URL=https://example.supabase.co \
+            -e SUPABASE_SERVICE_ROLE_KEY=test-service-role \
+            -e SUPABASE_ANON_KEY=test-anon \
+            -e WEB_ORIGIN=http://localhost:5173 \
+            swy-api:smoke
+          ok=0
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3000/health; then
+              ok=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ok" = 1
+          curl -sf http://127.0.0.1:3000/health | tee /tmp/health.json
+          grep -Eq '"status": ?"ok"' /tmp/health.json
+          docker exec swy-api-smoke node -p 'process.version'
 
   build-images:
     name: Build Docker Images

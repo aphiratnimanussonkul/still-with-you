@@ -1,8 +1,9 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
-# Install pnpm
-RUN npm install -g pnpm@10
+# libc6-compat: native addons (sharp, etc.) on musl/alpine
+RUN apk add --no-cache libc6-compat \
+  && npm install -g pnpm@10
 
 WORKDIR /app
 
@@ -19,10 +20,10 @@ RUN pnpm --filter "@still-with-you/contracts" build
 RUN pnpm --filter "@still-with-you/api" build
 
 # Production stage
-FROM node:20-alpine
+FROM node:22-alpine
 
-# Install pnpm
-RUN npm install -g pnpm@10
+RUN apk add --no-cache libc6-compat \
+  && npm install -g pnpm@10
 
 WORKDIR /app
 

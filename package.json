@@ -14,7 +14,7 @@
     "db:reset": "cd supabase && supabase db reset"
   },
   "engines": {
-    "node": ">=20.0.0",
+    "node": ">=22",
     "pnpm": ">=8.0.0"
   },
   "devDependencies": {

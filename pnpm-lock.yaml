@@ -30,7 +30,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/contracts
       '@supabase/supabase-js':
-        specifier: ^2.39.3
+        specifier: 2.118.0
         version: 2.118.0
       drizzle-orm:
         specifier: ^0.29.3
@@ -94,7 +94,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/contracts
       '@supabase/supabase-js':
-        specifier: ^2.49.4
+        specifier: 2.118.0
         version: 2.118.0
       '@tanstack/react-query':
         specifier: ^5.75.5
@@ -173,7 +173,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/contracts
       '@supabase/supabase-js':
-        specifier: ^2.39.3
+        specifier: 2.118.0
         version: 2.118.0
       drizzle-orm:
         specifier: ^0.29.3
