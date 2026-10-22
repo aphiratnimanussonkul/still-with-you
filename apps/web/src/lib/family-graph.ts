@@ -1,6 +1,11 @@
 /**
  * Isolated members / invites / people client (tree + invite are not in api-client).
  */
+import {
+  personListResponseSchema,
+  personResponseSchema,
+  type PersonResponse,
+} from '@still-with-you/contracts';
 import { z } from 'zod';
 import { request } from '@/lib/api-client';
 
@@ -16,29 +21,27 @@ export const familyMembersSchema = z.object({
   members: z.array(familyMemberSchema),
 });
 
+/**
+ * GET /v1/families/{id}/invites returns pending rows without `status`.
+ * POST returns `{ id, email, url, expires_at }` — no status or created_at.
+ */
 export const familyInviteSchema = z.object({
   id: z.string().uuid(),
-  email: z.string().email(),
-  status: z.enum(['pending', 'accepted', 'revoked', 'expired']),
+  email: z.string(),
+  role: z.enum(['member', 'admin']).optional(),
+  invited_by: z.string().uuid().optional(),
+  url: z.string().url().optional(),
+  status: z.enum(['pending', 'accepted', 'revoked', 'expired']).optional(),
   expires_at: z.string().datetime(),
-  created_at: z.string().datetime(),
+  created_at: z.string().datetime().optional(),
 });
 
 export const familyInvitesSchema = z.object({
   invites: z.array(familyInviteSchema),
 });
 
-export const familyPersonSchema = z.object({
-  id: z.string().uuid(),
-  family_id: z.string().uuid(),
-  name: z.string(),
-  relation_label: z.string().nullable().optional(),
-  account_id: z.string().uuid().nullable().optional(),
-});
-
-export const familyPeopleSchema = z.object({
-  people: z.array(familyPersonSchema),
-});
+export const familyPersonSchema = personResponseSchema;
+export const familyPeopleSchema = personListResponseSchema;
 
 export const contributionItemSchema = z.object({
   id: z.string().uuid(),
@@ -67,7 +70,7 @@ export const trashListSchema = z.object({
 });
 
 export type FamilyMember = z.infer<typeof familyMemberSchema>;
-export type FamilyPerson = z.infer<typeof familyPersonSchema>;
+export type FamilyPerson = PersonResponse;
 export type ContributionItem = z.infer<typeof contributionItemSchema>;
 export type TrashItem = z.infer<typeof trashItemSchema>;
 

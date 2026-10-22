@@ -29,3 +29,7 @@ export const HOME_QUESTION_TEMPLATES = [
 export function fillQuestionText(template: string, name: string): string {
   return template.replace(/\{ชื่อ\}/g, name);
 }
+
+export function homeQuestionId(index: number): string {
+  return `aaaaaaaa-aaaa-4aaa-8aaa-${String(index + 1).padStart(12, '0')}`;
+}

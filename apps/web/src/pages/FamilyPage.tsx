@@ -16,9 +16,13 @@ import { useMe } from '@/hooks/use-me';
 import { useSelectedFamily } from '@/hooks/use-selected-family';
 import { api } from '@/lib/api-client';
 import { messageForError } from '@/lib/api-errors';
-import { familyGraph } from '@/lib/family-graph';
+import { familyGraph, type FamilyPerson } from '@/lib/family-graph';
 import { FOCUS_MAX, homeApi } from '@/lib/home-api';
 import { queryKeys } from '@/lib/query-client';
+
+function displayPersonName(person: Pick<FamilyPerson, 'name' | 'display_name'>) {
+  return person.display_name || person.name;
+}
 
 export function FamilyPage() {
   const queryClient = useQueryClient();
@@ -135,7 +139,6 @@ function TreePanel({ familyId }: { familyId: string }) {
   });
 
   if (people.isPending) return <QueryLoading />;
-  if (people.isError) return <p className="text-body text-destructive">{messageForError(people.error)}</p>;
 
   const items = people.data?.people ?? [];
   const focusedIds = focus.data?.items.map((item) => item.person.id) ?? [];
@@ -144,25 +147,33 @@ function TreePanel({ familyId }: { familyId: string }) {
 
   return (
     <div className="flex flex-col gap-4">
+      {people.isError ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-body text-destructive">{messageForError(people.error)}</p>
+          <Button type="button" variant="ghost" size="sm" onClick={() => void people.refetch()}>
+            {copy['family.focus.load_error.action']}
+          </Button>
+        </div>
+      ) : null}
       {toggleFocus.isError ? (
         <p className="text-body text-destructive">{messageForError(toggleFocus.error)}</p>
       ) : null}
       {focusedIds.length >= FOCUS_MAX ? (
         <p className="text-caption text-muted-foreground">{copy['error.TOO_MANY_FOCUS']}</p>
       ) : null}
-      {items.length === 0 ? (
+      {items.length === 0 && !people.isError ? (
         <div className="flex flex-col items-center gap-3 py-6 text-center">
           <Illustration name="family-tree" />
           <p className="text-h3 font-semibold">{copy['tree.empty.title']}</p>
           <p className="text-body text-muted-foreground">{copy['tree.empty.body']}</p>
         </div>
-      ) : (
+      ) : items.length > 0 ? (
         <ul className="flex flex-col gap-3">
           {items.map((person) => (
             <li key={person.id}>
               <Card>
                 <CardHeader>
-                  <CardTitle className="truncate">{truncateName(person.name)}</CardTitle>
+                  <CardTitle className="truncate">{truncateName(displayPersonName(person))}</CardTitle>
                   {person.relation_label ? (
                     <CardDescription>
                       {interpolate(copy['person.relation.meta'], { ความสัมพันธ์: person.relation_label })}
@@ -209,13 +220,13 @@ function TreePanel({ familyId }: { familyId: string }) {
                       ) : null}
                     </div>
                   </div>
-                  <PersonFactsSection personId={person.id} name={person.name} />
+                  <PersonFactsSection personId={person.id} name={displayPersonName(person)} />
                 </CardContent>
               </Card>
             </li>
           ))}
         </ul>
-      )}
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -272,12 +283,19 @@ function MembersPanel({ familyId }: { familyId: string }) {
   });
 
   if (members.isPending) return <QueryLoading />;
-  if (members.isError) return <p className="text-body text-destructive">{messageForError(members.error)}</p>;
 
   const items = members.data?.members ?? [];
 
   return (
     <div className="flex flex-col gap-4">
+      {members.isError ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-body text-destructive">{messageForError(members.error)}</p>
+          <Button type="button" variant="ghost" size="sm" onClick={() => void members.refetch()}>
+            {copy['family.focus.load_error.action']}
+          </Button>
+        </div>
+      ) : null}
       <h2 className="text-h3 font-semibold">{copy['members.title']}</h2>
       <ul className="flex flex-col gap-3">
         {items.map((member) => (

@@ -10,7 +10,11 @@ import {
   familyListResponseSchema,
   familyResponseSchema,
   focusListResponseSchema,
+  homeResponseSchema,
   mediaItemSchema,
+  personFactsResponseSchema,
+  personListResponseSchema,
+  personResponseSchema,
   mediaUploadSessionSchema,
   updateConsentSchema,
   updateContributionSchema,
@@ -32,11 +36,15 @@ import {
 import {
   createFactSchema,
   familyFocusRequestSchema,
-  familyHomeSchema,
   skipFactSchema,
   updateFactSchema,
 } from '@/lib/home-api';
-import { HOME_QUESTION_TEMPLATES, fillQuestionText } from '@/mocks/home-questions';
+import {
+  familyInviteSchema,
+  familyInvitesSchema,
+  familyMembersSchema,
+} from '@/lib/family-graph';
+import { HOME_QUESTION_TEMPLATES, fillQuestionText, homeQuestionId } from '@/mocks/home-questions';
 
 const api = env.apiUrl.replace(/\/$/, '');
 const supabase = env.supabaseUrl.replace(/\/$/, '');
@@ -386,26 +394,26 @@ export const handlers = [
       const id = `q-${index + 1}`;
       return !skippedQuestions.has(id) && !answeredQuestions.has(id);
     });
-    return HttpResponse.json(
-      familyHomeSchema.parse({
-        focus: focused.map((person) => ({
-          person: { id: person.id, name: person.name },
-          photo_url: null,
-          memory_count: events.filter((event) => event.family_id === fid).length,
-        })),
-        quick_question:
-          first && questionIndex >= 0
-            ? {
-                question_id: `q-${questionIndex + 1}`,
-                person_id: first.id,
-                text: fillQuestionText(HOME_QUESTION_TEMPLATES[questionIndex], first.name),
-              }
-            : null,
-        recent_memories: events
-          .filter((event) => event.family_id === fid && event.status === 'active')
-          .slice(0, 5),
-      })
-    );
+    return jsonContract(homeResponseSchema, {
+      focus: focused.map((person, position) => ({
+        person: { id: person.id, display_name: person.display_name },
+        photo_url: null,
+        memory_count: events.filter((event) => event.family_id === fid && event.status === 'active').length,
+        position,
+      })),
+      quick_question:
+        first && questionIndex >= 0
+          ? {
+              question_id: homeQuestionId(questionIndex),
+              key: `q-${questionIndex + 1}`,
+              person: { id: first.id, display_name: first.display_name },
+              text: fillQuestionText(HOME_QUESTION_TEMPLATES[questionIndex], first.display_name),
+            }
+          : null,
+      recent_memories: events
+        .filter((event) => event.family_id === fid && event.status === 'active')
+        .slice(0, 5),
+    });
   }),
 
   http.get(`${api}/v1/families/:fid/focus`, ({ request, params }) => {
@@ -432,7 +440,7 @@ export const handlers = [
   http.get(`${api}/v1/families/:fid/members`, ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    return HttpResponse.json({
+    return jsonContract(familyMembersSchema, {
       members: members.filter((member) => member.family_id === params.fid),
     });
   }),
@@ -440,8 +448,17 @@ export const handlers = [
   http.get(`${api}/v1/families/:fid/invites`, ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    return HttpResponse.json({
-      invites: invites.filter((invite) => invite.family_id === params.fid),
+    return jsonContract(familyInvitesSchema, {
+      invites: invites
+        .filter((invite) => invite.family_id === params.fid)
+        .map(({ id, email, expires_at, created_at }) => ({
+          id,
+          email,
+          role: 'member' as const,
+          invited_by: account.id,
+          expires_at,
+          created_at,
+        })),
     });
   }),
 
@@ -464,22 +481,33 @@ export const handlers = [
       created_at: new Date().toISOString(),
     };
     invites.push(created);
-    return HttpResponse.json(created, { status: 201 });
+    return jsonContract(
+      familyInviteSchema,
+      {
+        id: created.id,
+        email: created.email,
+        url: `https://app.example.com/invite/${created.id}`,
+        expires_at: created.expires_at,
+      },
+      { status: 201 }
+    );
   }),
 
   http.get(`${api}/v1/families/:fid/people`, ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    return HttpResponse.json({
+    return jsonContract(personListResponseSchema, {
       people: people.filter((person) => person.family_id === params.fid),
+      relationships: [],
     });
   }),
 
   http.post(`${api}/v1/families/:fid/people`, async ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    const body = (await request.json()) as { name?: string; relation_label?: string };
-    if (!body.name?.trim()) {
+    const body = (await request.json()) as { name?: string; display_name?: string; relation_label?: string };
+    const name = (body.display_name ?? body.name)?.trim();
+    if (!name) {
       return HttpResponse.json(
         { error: { code: 'INVALID_INPUT', message: 'name required', field: 'name' } },
         { status: 400 }
@@ -488,12 +516,13 @@ export const handlers = [
     const created = {
       id: crypto.randomUUID(),
       family_id: String(params.fid),
-      name: body.name.trim(),
+      display_name: name,
+      name,
       relation_label: body.relation_label ?? null,
       account_id: null,
     };
     people.push(created);
-    return HttpResponse.json(created, { status: 201 });
+    return jsonContract(personResponseSchema, created, { status: 201 });
   }),
 
   http.get(`${api}/v1/events/:id/contributions`, ({ request, params }) => {
@@ -597,17 +626,24 @@ export const handlers = [
     if (denied) return denied;
     const facts = factsByPerson[String(params.id)] ?? [];
     const groups = facts.map((fact) => ({
-      question: { id: fact.question_id, text: fact.question_text ?? '' },
+      question: {
+        id: fact.question_id,
+        key: fact.question_id,
+        text: fact.question_text ?? '',
+      },
       answers: [
         {
           id: fact.id,
           answer_text: fact.answer_text,
           author: fact.author,
           created_at: fact.created_at,
+          updated_at: fact.created_at,
+          can_edit: true,
+          can_delete: true,
         },
       ],
     }));
-    return HttpResponse.json({ groups });
+    return jsonContract(personFactsResponseSchema, { groups });
   }),
 
   http.patch(`${api}/v1/facts/:id`, async ({ request, params }) => {

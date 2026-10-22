@@ -141,13 +141,20 @@ describe('FamilyPage', () => {
       return {
         groups: [
           {
-            question: { id: 'q-1', text: 'ยายสมศรี เกิดที่ไหน' },
+            question: {
+              id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001',
+              key: 'birthplace',
+              text: 'ยายสมศรี เกิดที่ไหน',
+            },
             answers: [
               {
-                id: 'fact-1',
+                id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
                 answer_text: 'อยุธยา',
                 author: { account_id: '11111111-1111-4111-8111-111111111111', display_name: 'Atta' },
                 created_at: '2026-10-22T00:00:00.000Z',
+                updated_at: '2026-10-22T00:00:00.000Z',
+                can_edit: true,
+                can_delete: true,
               },
             ],
           },
@@ -185,5 +192,18 @@ describe('FamilyPage', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: copy['family.focus.load_error.action'] })[0]);
     await waitFor(() => expect(vi.mocked(homeApi.getFocus).mock.calls.length).toBeGreaterThan(1));
+  });
+
+  it('keeps the add-person form when the people list fails', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(familyGraph.listPeople).mockRejectedValue(new Error('boom'));
+    vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([]));
+    vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
+
+    renderPage();
+    expect(await screen.findByText(copy['error.generic'])).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy['family.focus.load_error.action'] })).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy['person.save'] })).toBeTruthy();
+    expect(screen.queryByText('ยายสมศรี')).toBeNull();
   });
 });

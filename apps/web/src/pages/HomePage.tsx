@@ -106,10 +106,10 @@ export function HomePage() {
                   <CardHeader>
                     <img
                       src={card.photo_url ?? illustrationSrc['person-placeholder']}
-                      alt={card.person.name}
+                      alt={card.person.display_name}
                       className="mb-2 aspect-square w-full rounded-[10px] object-cover"
                     />
-                    <CardTitle className="truncate">{card.person.name}</CardTitle>
+                    <CardTitle className="truncate">{card.person.display_name}</CardTitle>
                     <CardDescription>
                       {interpolate(copy['person.memories.title'], { จำนวน: String(card.memory_count) })}
                     </CardDescription>
@@ -170,13 +170,13 @@ function QuickQuestionCard({
   question,
 }: {
   familyId: string;
-  question: { question_id: string; person_id: string; text: string };
+  question: { question_id: string; person: { id: string }; text: string };
 }) {
   const queryClient = useQueryClient();
   const [answer, setAnswer] = useState('');
   const save = useMutation({
     mutationFn: () =>
-      homeApi.answerFact(question.person_id, {
+      homeApi.answerFact(question.person.id, {
         question_id: question.question_id,
         answer_text: answer.trim(),
       }),
@@ -187,7 +187,7 @@ function QuickQuestionCard({
     },
   });
   const skip = useMutation({
-    mutationFn: () => homeApi.skipFact(question.person_id, question.question_id),
+    mutationFn: () => homeApi.skipFact(question.person.id, question.question_id),
     onSuccess: async () => {
       toast(copy['home.question.skipped.toast']);
       await queryClient.invalidateQueries({ queryKey: queryKeys.home(familyId) });
