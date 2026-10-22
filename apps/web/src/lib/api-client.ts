@@ -33,7 +33,11 @@ type RequestOptions = {
   idempotent?: boolean;
 };
 
-async function request<T>(path: string, schema: z.ZodType<T>, options: RequestOptions = {}): Promise<T> {
+async function request<S extends z.ZodTypeAny>(
+  path: string,
+  schema: S,
+  options: RequestOptions = {}
+): Promise<z.output<S>> {
   const token = await getAccessToken();
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -63,7 +67,7 @@ async function request<T>(path: string, schema: z.ZodType<T>, options: RequestOp
   }
 
   if (response.status === 204) {
-    return undefined as T;
+    return undefined as z.output<S>;
   }
 
   let payload: unknown = null;
