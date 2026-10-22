@@ -24,7 +24,7 @@ export function ConsentPage() {
     onSuccess: async (account) => {
       queryClient.setQueryData(queryKeys.me, account);
       await queryClient.invalidateQueries({ queryKey: queryKeys.me });
-      navigate('/families', { replace: true });
+      navigate('/home', { replace: true });
     },
     onError: (cause) => setError(messageForError(cause)),
   });
@@ -32,7 +32,7 @@ export function ConsentPage() {
   if (me.isPending) return <QueryLoading />;
   if (me.isError) return <p className="p-6 text-destructive">{messageForError(me.error)}</p>;
   if (!me.data) return <Navigate to="/login" replace />;
-  if (!isFirstUse(me.data)) return <Navigate to="/families" replace />;
+  if (!isFirstUse(me.data)) return <Navigate to="/home" replace />;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

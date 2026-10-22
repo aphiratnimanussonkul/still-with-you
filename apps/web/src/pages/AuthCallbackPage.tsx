@@ -19,6 +19,6 @@ export function AuthCallbackPage() {
   }
 
   if (loading) return <QueryLoading />;
-  if (session) return <Navigate to="/families" replace />;
+  if (session) return <Navigate to="/home" replace />;
   return <Navigate to="/login" replace />;
 }

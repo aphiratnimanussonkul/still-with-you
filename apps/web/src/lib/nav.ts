@@ -1,20 +1,20 @@
 import type { CopyKey } from '@/copy';
 
-export const NAV_IDS = ['family', 'memories', 'trash', 'settings'] as const;
+export const NAV_IDS = ['home', 'memories', 'family', 'me'] as const;
 
 export type NavId = (typeof NAV_IDS)[number];
 
 export type NavItem = {
   id: NavId;
   to: string;
-  labelKey: Extract<CopyKey, 'nav.family' | 'nav.memories' | 'nav.trash' | 'nav.settings'>;
+  labelKey: Extract<CopyKey, 'nav.home' | 'nav.memories' | 'nav.family' | 'nav.me'>;
 };
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { id: 'family', to: '/families', labelKey: 'nav.family' },
+  { id: 'home', to: '/home', labelKey: 'nav.home' },
   { id: 'memories', to: '/memories', labelKey: 'nav.memories' },
-  { id: 'trash', to: '/trash', labelKey: 'nav.trash' },
-  { id: 'settings', to: '/settings', labelKey: 'nav.settings' },
+  { id: 'family', to: '/family', labelKey: 'nav.family' },
+  { id: 'me', to: '/me', labelKey: 'nav.me' },
 ] as const;
 
 export type AppBarState = {
@@ -23,29 +23,32 @@ export type AppBarState = {
 };
 
 export function isNavItemActive(id: NavId, pathname: string): boolean {
-  if (id === 'family') return pathname === '/families';
-  if (id === 'memories') {
-    return pathname === '/memories' || /^\/families\/[^/]+/.test(pathname);
-  }
-  if (id === 'trash') return pathname === '/trash' || pathname.startsWith('/trash/');
-  return pathname === '/settings' || pathname.startsWith('/settings/');
+  if (id === 'home') return pathname === '/home';
+  if (id === 'memories') return pathname === '/memories' || pathname.startsWith('/memories/');
+  if (id === 'family') return pathname === '/family' || pathname.startsWith('/family/');
+  return (
+    pathname === '/me' ||
+    pathname.startsWith('/me/') ||
+    pathname === '/trash' ||
+    pathname.startsWith('/trash/') ||
+    pathname === '/settings' ||
+    pathname.startsWith('/settings/')
+  );
 }
 
 export function appBarForPath(pathname: string): AppBarState {
-  if (pathname === '/families') {
-    return { titleKey: 'family.list.title', backTo: null };
-  }
-  if (/^\/families\/[^/]+/.test(pathname)) {
-    return { titleKey: 'memory.list.title', backTo: '/families' };
-  }
-  if (pathname === '/memories') {
-    return { titleKey: 'memory.list.title', backTo: null };
-  }
-  if (pathname === '/trash' || pathname.startsWith('/trash/')) {
-    return { titleKey: 'trash.title', backTo: null };
+  if (pathname === '/home') return { titleKey: 'nav.home', backTo: null };
+  if (pathname === '/memories') return { titleKey: 'memory.list.title', backTo: null };
+  if (/^\/memories\/[^/]+/.test(pathname)) return { titleKey: 'memory.list.title', backTo: '/memories' };
+  if (pathname === '/family') return { titleKey: 'nav.family', backTo: null };
+  if (pathname === '/family/invite') return { titleKey: 'invite.title', backTo: '/family' };
+  if (pathname === '/family/people/new') return { titleKey: 'person.add.title', backTo: '/family' };
+  if (pathname === '/me') return { titleKey: 'nav.me', backTo: null };
+  if (pathname === '/me/trash' || pathname === '/trash' || pathname.startsWith('/trash/')) {
+    return { titleKey: 'trash.title', backTo: '/me' };
   }
   if (pathname === '/settings' || pathname.startsWith('/settings/')) {
-    return { titleKey: 'nav.settings', backTo: null };
+    return { titleKey: 'nav.settings', backTo: '/me' };
   }
   return { titleKey: 'login.title', backTo: null };
 }

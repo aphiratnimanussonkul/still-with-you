@@ -33,7 +33,7 @@ type RequestOptions = {
   idempotent?: boolean;
 };
 
-async function request<S extends z.ZodTypeAny>(
+export async function request<S extends z.ZodTypeAny>(
   path: string,
   schema: S,
   options: RequestOptions = {}

@@ -21,7 +21,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="hidden lg:flex lg:w-56 lg:shrink-0 lg:flex-col lg:border-r lg:border-border lg:bg-card"
       >
         <div className="flex h-14 items-center px-4">
-          <Link to="/families" className="truncate text-h3 font-semibold text-foreground">
+          <Link to="/home" className="truncate text-h3 font-semibold text-foreground">
             {copy['login.title']}
           </Link>
         </div>

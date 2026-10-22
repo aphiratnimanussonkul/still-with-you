@@ -36,8 +36,12 @@ vi.mock('@/components/Illustration', () => ({
   Illustration: () => <div data-testid="illustration" />,
 }));
 
-vi.mock('@/pages/FamiliesPage', () => ({
-  FamiliesPage: () => <h1>ครอบครัว</h1>,
+vi.mock('@/pages/HomePage', () => ({
+  HomePage: () => <h1>หน้าแรก</h1>,
+}));
+
+vi.mock('@/pages/TrashPage', () => ({
+  TrashPage: () => <p>{copy['trash.empty.title']}</p>,
 }));
 
 function renderAt(path: string) {
@@ -59,7 +63,7 @@ describe('auth gate and OAuth callback', () => {
     renderAt(`/?code=pkce-code`);
     expect(screen.getByRole('status')).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Still With You' })).toBeNull();
-    expect(screen.queryByRole('heading', { name: 'ครอบครัว' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'หน้าแรก' })).toBeNull();
   });
 
   it('keeps /login?code= on a loading gate instead of the sign-in button', () => {
@@ -69,16 +73,16 @@ describe('auth gate and OAuth callback', () => {
     expect(screen.queryByRole('button')).toBeNull();
   });
 
-  it('sends a finished PKCE callback to families once a session exists', () => {
+  it('sends a finished PKCE callback to home once a session exists', () => {
     authState.session = { access_token: 'tok' };
     renderAt(`${AUTH_CALLBACK_PATH}?code=pkce-code`);
-    expect(screen.getByRole('heading', { name: 'ครอบครัว' })).toBeTruthy();
+    expect(screen.getAllByRole('heading', { name: 'หน้าแรก' }).length).toBeGreaterThan(0);
   });
 
-  it('sends a finished implicit callback hash to families once a session exists', () => {
+  it('sends a finished implicit callback hash to home once a session exists', () => {
     authState.session = { access_token: 'tok' };
     renderAt(`${AUTH_CALLBACK_PATH}#access_token=ya29&token_type=bearer`);
-    expect(screen.getByRole('heading', { name: 'ครอบครัว' })).toBeTruthy();
+    expect(screen.getAllByRole('heading', { name: 'หน้าแรก' }).length).toBeGreaterThan(0);
   });
 
   it('returns to login when the callback finishes with no session', () => {
@@ -93,7 +97,7 @@ describe('auth gate and OAuth callback', () => {
 
   it('does not send a signed-out user to login while auth is still loading', () => {
     authState.loading = true;
-    renderAt('/families');
+    renderAt('/home');
     expect(screen.getByRole('status')).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Still With You' })).toBeNull();
   });
@@ -120,6 +124,6 @@ describe('auth gate and OAuth callback', () => {
     renderAt('/trash');
     expect(screen.getByRole('heading', { name: copy['trash.title'] })).toBeTruthy();
     expect(screen.getByText(copy['trash.empty.title'])).toBeTruthy();
-    expect(screen.getAllByRole('link', { name: copy['nav.trash'] }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: copy['nav.me'] }).length).toBeGreaterThan(0);
   });
 });

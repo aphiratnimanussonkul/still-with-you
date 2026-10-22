@@ -16,4 +16,11 @@ export const queryKeys = {
   family: (id: string) => ['families', id] as const,
   events: (familyId: string) => ['families', familyId, 'events'] as const,
   event: (id: string) => ['events', id] as const,
+  contributions: (eventId: string) => ['events', eventId, 'contributions'] as const,
+  members: (familyId: string) => ['families', familyId, 'members'] as const,
+  invites: (familyId: string) => ['families', familyId, 'invites'] as const,
+  people: (familyId: string) => ['families', familyId, 'people'] as const,
+  home: (familyId: string) => ['families', familyId, 'home'] as const,
+  focus: (familyId: string) => ['families', familyId, 'focus'] as const,
+  trash: ['trash'] as const,
 };
