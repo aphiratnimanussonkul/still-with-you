@@ -34,6 +34,15 @@ describe('copy v0.4', () => {
     expect(copy['photo.label']).toBe('เพิ่มรูป (ถ้ามี)');
   });
 
+  it('includes the four IA tab labels from Eddy', () => {
+    expect(copy['nav.home']).toBe('หน้าแรก');
+    expect(copy['nav.memories']).toBe('ความทรงจำ');
+    expect(copy['nav.family']).toBe('ครอบครัว');
+    expect(copy['nav.me']).toBe('ฉัน');
+    expect(copy['family.switcher']).toBe('เปลี่ยนครอบครัว');
+    expect(copy['home.question.title']).toBe('คำถามเล็กๆ สำหรับคุณ');
+  });
+
   it('includes Eddy aria-label keys for icon-only controls', () => {
     expect(copy['a11y.back']).toBe('ย้อนกลับ');
     expect(copy['a11y.more']).toBe('ตัวเลือกเพิ่มเติม');

@@ -2,43 +2,34 @@ import { describe, expect, it } from 'vitest';
 import { appBarForPath, isNavItemActive } from '@/lib/nav';
 
 describe('isNavItemActive', () => {
-  it('marks family only on the exact families list', () => {
-    expect(isNavItemActive('family', '/families')).toBe(true);
-    expect(isNavItemActive('family', '/families/22222222-2222-4222-8222-222222222222')).toBe(false);
-    expect(isNavItemActive('family', '/memories')).toBe(false);
-  });
-
-  it('marks memories on the index and a family detail route', () => {
+  it('marks the four IA tabs on their own trees', () => {
+    expect(isNavItemActive('home', '/home')).toBe(true);
+    expect(isNavItemActive('home', '/memories')).toBe(false);
     expect(isNavItemActive('memories', '/memories')).toBe(true);
-    expect(isNavItemActive('memories', '/families/abc')).toBe(true);
-    expect(isNavItemActive('memories', '/families')).toBe(false);
-    expect(isNavItemActive('memories', '/trash')).toBe(false);
-  });
-
-  it('marks trash and settings on their own paths', () => {
-    expect(isNavItemActive('trash', '/trash')).toBe(true);
-    expect(isNavItemActive('settings', '/settings')).toBe(true);
-    expect(isNavItemActive('trash', '/settings')).toBe(false);
+    expect(isNavItemActive('memories', '/memories/abc')).toBe(true);
+    expect(isNavItemActive('memories', '/family')).toBe(false);
+    expect(isNavItemActive('family', '/family')).toBe(true);
+    expect(isNavItemActive('family', '/family/invite')).toBe(true);
+    expect(isNavItemActive('family', '/families')).toBe(false);
+    expect(isNavItemActive('me', '/me')).toBe(true);
+    expect(isNavItemActive('me', '/me/trash')).toBe(true);
+    expect(isNavItemActive('me', '/settings')).toBe(true);
   });
 });
 
 describe('appBarForPath', () => {
-  it('uses the families title with no back on the list', () => {
-    expect(appBarForPath('/families')).toEqual({
-      titleKey: 'family.list.title',
-      backTo: null,
-    });
+  it('uses tab titles with no back on the four roots', () => {
+    expect(appBarForPath('/home')).toEqual({ titleKey: 'nav.home', backTo: null });
+    expect(appBarForPath('/memories')).toEqual({ titleKey: 'memory.list.title', backTo: null });
+    expect(appBarForPath('/family')).toEqual({ titleKey: 'nav.family', backTo: null });
+    expect(appBarForPath('/me')).toEqual({ titleKey: 'nav.me', backTo: null });
   });
 
-  it('uses the memories title and a family back link on detail', () => {
-    expect(appBarForPath('/families/abc')).toEqual({
+  it('uses a back link on memory detail and trash', () => {
+    expect(appBarForPath('/memories/abc')).toEqual({
       titleKey: 'memory.list.title',
-      backTo: '/families',
+      backTo: '/memories',
     });
-  });
-
-  it('titles trash and settings from existing copy keys', () => {
-    expect(appBarForPath('/trash').titleKey).toBe('trash.title');
-    expect(appBarForPath('/settings').titleKey).toBe('nav.settings');
+    expect(appBarForPath('/me/trash')).toEqual({ titleKey: 'trash.title', backTo: '/me' });
   });
 });

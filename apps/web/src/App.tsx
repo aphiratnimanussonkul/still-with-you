@@ -1,20 +1,32 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { PwaUpdatePrompt } from '@/components/PwaUpdatePrompt';
 import { QueryLoading } from '@/components/QueryLoading';
 import { IconProvider } from '@/components/ui/icon';
 import { useAuth } from '@/hooks/use-auth';
 import { AUTH_CALLBACK_PATH, hasAuthCallbackParams } from '@/lib/auth-callback';
+import { rememberFamilyId } from '@/lib/last-family';
 import { AuthCallbackPage } from '@/pages/AuthCallbackPage';
 import { ConsentPage } from '@/pages/ConsentPage';
-import { FamiliesPage } from '@/pages/FamiliesPage';
+import { FamilyPage } from '@/pages/FamilyPage';
+import { HomePage } from '@/pages/HomePage';
 import { LoginPage } from '@/pages/LoginPage';
-import { MemoriesIndexPage } from '@/pages/MemoriesIndexPage';
+import { MePage } from '@/pages/MePage';
 import { MemoriesPage } from '@/pages/MemoriesPage';
+import { MemoryDetailPage } from '@/pages/MemoryDetailPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { RequireSession } from '@/pages/RequireSession';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { TrashPage } from '@/pages/TrashPage';
+
+function LegacyFamilyMemoriesRedirect() {
+  const { familyId } = useParams();
+  useEffect(() => {
+    if (familyId) rememberFamilyId(familyId);
+  }, [familyId]);
+  return <Navigate to="/memories" replace />;
+}
 
 export function App() {
   const { session, loading } = useAuth();
@@ -37,17 +49,22 @@ export function App() {
           <Route path={AUTH_CALLBACK_PATH} element={<AuthCallbackPage />} />
           <Route
             path="/login"
-            element={session ? <Navigate to="/families" replace /> : <LoginPage />}
+            element={session ? <Navigate to="/home" replace /> : <LoginPage />}
           />
           <Route element={<RequireSession />}>
             <Route path="/consent" element={<ConsentPage />} />
-            <Route path="/families" element={<FamiliesPage />} />
-            <Route path="/families/:familyId" element={<MemoriesPage />} />
-            <Route path="/memories" element={<MemoriesIndexPage />} />
-            <Route path="/trash" element={<TrashPage />} />
+            <Route path="/home" element={<HomePage />} />
+            <Route path="/memories" element={<MemoriesPage />} />
+            <Route path="/memories/:eventId" element={<MemoryDetailPage />} />
+            <Route path="/family" element={<FamilyPage />} />
+            <Route path="/me" element={<MePage />} />
+            <Route path="/me/trash" element={<TrashPage />} />
+            <Route path="/families" element={<Navigate to="/family" replace />} />
+            <Route path="/families/:familyId" element={<LegacyFamilyMemoriesRedirect />} />
+            <Route path="/trash" element={<Navigate to="/me/trash" replace />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
-          <Route path="/" element={<Navigate to={session ? '/families' : signedOutTo} replace />} />
+          <Route path="/" element={<Navigate to={session ? '/home' : signedOutTo} replace />} />
           <Route path="*" element={session ? <NotFoundPage /> : <Navigate to={signedOutTo} replace />} />
         </Routes>
       )}
