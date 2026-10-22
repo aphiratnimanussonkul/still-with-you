@@ -60,6 +60,31 @@ describe('MemoriesPage', () => {
       `/memories/${mockEvents[0].id}`
     );
   });
+
+  it('filters paused memories for the selected family only', async () => {
+    const otherPaused = {
+      ...mockEvents[1],
+      id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      family_id: mockFamilies[1].id,
+      title: 'พักไว้ที่บ้านคุณยาย',
+    };
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(api.listEvents).mockImplementation(async (familyId: string) => ({
+      events: familyId === mockFamilies[1].id ? [otherPaused] : mockEvents,
+    }));
+
+    renderPage();
+    expect(await screen.findByText('ทริปทะเลกับคุณยาย')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: copy['memory.filter.paused'] }));
+    expect(await screen.findByText('วันเกิดยาย')).toBeTruthy();
+    expect(screen.queryByText('ทริปทะเลกับคุณยาย')).toBeNull();
+
+    fireEvent.change(screen.getByLabelText(copy['family.switcher']), {
+      target: { value: mockFamilies[1].id },
+    });
+    expect(await screen.findByText('พักไว้ที่บ้านคุณยาย')).toBeTruthy();
+    expect(screen.queryByText('วันเกิดยาย')).toBeNull();
+  });
 });
 
 describe('MemoriesPage photo attach', () => {

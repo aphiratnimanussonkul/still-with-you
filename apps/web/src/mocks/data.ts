@@ -112,6 +112,14 @@ export const mockTrash: TrashItem[] = [
     family_id: mockFamilies[1].id,
     trashed_at: '2026-10-12T00:00:00.000Z',
   },
+  {
+    id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    story: 'เรื่องจากบ้านเรา',
+    origin_event_title: 'ทริปทะเลกับคุณยาย',
+    family_name: mockFamilies[0].name,
+    family_id: mockFamilies[0].id,
+    trashed_at: '2026-10-11T00:00:00.000Z',
+  },
 ];
 
 export const mockFocusIds: Record<string, string[]> = {

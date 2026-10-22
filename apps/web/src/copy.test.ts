@@ -40,6 +40,8 @@ describe('copy v0.4', () => {
     expect(copy['nav.family']).toBe('ครอบครัว');
     expect(copy['nav.me']).toBe('ฉัน');
     expect(copy['family.switcher']).toBe('เปลี่ยนครอบครัว');
+    expect(copy['a11y.family_switcher']).toBe('ครอบครัวที่เลือกอยู่: {ชื่อครอบครัว}');
+    expect(copy['trash.item.active.meta.family']).toBe('ย้ายมาจาก {ชื่อความทรงจำ} · {ชื่อครอบครัว}');
     expect(copy['home.question.title']).toBe('คำถามเล็กๆ สำหรับคุณ');
   });
 
