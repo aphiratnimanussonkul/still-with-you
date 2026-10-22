@@ -25,6 +25,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Icon } from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Sheet,
   SheetContent,
@@ -58,6 +60,7 @@ export function PersonPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
   const [createdInvite, setCreatedInvite] = useState<PersonInvite | null>(null);
 
   const people = useQuery({
@@ -88,13 +91,17 @@ export function PersonPage() {
     ) ?? [];
 
   const invite = useMutation({
-    mutationFn: () => familyGraph.createPersonInvite(personId),
+    mutationFn: () => familyGraph.createPersonInvite(personId, { email: inviteEmail.trim() }),
     onSuccess: async (created) => {
       setCreatedInvite(created);
       setInviteOpen(true);
       await queryClient.invalidateQueries({ queryKey: queryKeys.people(familyId!) });
     },
   });
+
+  const inviteUrl = createdInvite
+    ? createdInvite.url ?? `${window.location.origin}/invites/${createdInvite.id}`
+    : '';
 
   const remove = useMutation({
     mutationFn: () => familyGraph.deletePerson(personId),
@@ -226,12 +233,17 @@ export function PersonPage() {
 
       {steward && status !== 'linked' ? (
         <div className="flex flex-col gap-2">
-          <Button type="button" onClick={() => invite.mutate()} disabled={invite.isPending}>
+          <Button
+            type="button"
+            onClick={() => {
+              setCreatedInvite(null);
+              setInviteEmail('');
+              invite.reset();
+              setInviteOpen(true);
+            }}
+          >
             {interpolate(copy['person.invite.action'], { name })}
           </Button>
-          {invite.isError ? (
-            <p className="text-caption text-destructive">{messageForError(invite.error, { name })}</p>
-          ) : null}
         </div>
       ) : null}
 
@@ -282,23 +294,41 @@ export function PersonPage() {
             <SheetTitle>{interpolate(copy['person.invite.action'], { name })}</SheetTitle>
             <SheetDescription>{copy['invite.body']}</SheetDescription>
           </SheetHeader>
-          {createdInvite?.url ? (
-            <p className="break-all px-4 text-caption text-muted-foreground">{createdInvite.url}</p>
-          ) : null}
+          {createdInvite ? (
+            <p className="break-all px-4 text-caption text-muted-foreground">{inviteUrl}</p>
+          ) : (
+            <div className="flex flex-col gap-2 px-4">
+              <Label htmlFor="person-invite-email">{copy['invite.email_label']}</Label>
+              <Input
+                id="person-invite-email"
+                type="email"
+                value={inviteEmail}
+                onChange={(event) => setInviteEmail(event.target.value)}
+              />
+              {invite.isError ? (
+                <p className="text-caption text-destructive">{messageForError(invite.error, { name })}</p>
+              ) : null}
+            </div>
+          )}
           <SheetFooter>
-            <Button
-              type="button"
-              onClick={() => createdInvite?.url && void copyInviteLink(createdInvite.url)}
-            >
-              {copy['invite.copy_link']}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => createdInvite?.url && void shareInviteLink(createdInvite.url)}
-            >
-              {copy['person.invite.share']}
-            </Button>
+            {createdInvite ? (
+              <>
+                <Button type="button" onClick={() => void copyInviteLink(inviteUrl)}>
+                  {copy['invite.copy_link']}
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => void shareInviteLink(inviteUrl)}>
+                  {copy['person.invite.share']}
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="button"
+                disabled={invite.isPending || !inviteEmail.trim()}
+                onClick={() => invite.mutate()}
+              >
+                {copy['invite.send']}
+              </Button>
+            )}
             <Button type="button" variant="ghost" onClick={() => setInviteOpen(false)}>
               {copy['common.cancel']}
             </Button>

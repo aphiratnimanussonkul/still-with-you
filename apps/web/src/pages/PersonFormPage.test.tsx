@@ -99,9 +99,12 @@ describe('PersonFormPage', () => {
     vi.mocked(familyGraph.createPerson).mockResolvedValue(created);
     vi.mocked(familyGraph.createRelationship).mockResolvedValue({
       id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      family_id: mockFamilies[0].id,
       person_id: created.id,
       related_person_id: mockPeople[0].id,
       type: 'parent',
+      created_by_account_id: mockPeople[0].created_by_account_id,
+      created_at: '2026-10-22T00:00:00.000Z',
     });
   });
 

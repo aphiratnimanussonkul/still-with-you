@@ -79,10 +79,7 @@ describe('PersonPage', () => {
       id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
       person_id: mockPeople[0].id,
       family_id: mockFamilies[0].id,
-      family_name: mockFamilies[0].name,
-      inviter_display_name: mockAccount.display_name,
-      person_display_name: mockPeople[0].display_name,
-      url: 'http://localhost:5173/invites/dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      email: 'user@example.com',
       status: 'pending',
       expires_at: '2026-10-29T00:00:00.000Z',
       created_at: '2026-10-22T00:00:00.000Z',
@@ -105,7 +102,15 @@ describe('PersonPage', () => {
       name: interpolate(copy['person.invite.action'], { name }),
     });
     fireEvent.click(inviteButton);
-    await waitFor(() => expect(familyGraph.createPersonInvite).toHaveBeenCalledWith(mockPeople[0].id));
+    fireEvent.change(await screen.findByLabelText(copy['invite.email_label']), {
+      target: { value: 'user@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: copy['invite.send'] }));
+    await waitFor(() =>
+      expect(familyGraph.createPersonInvite).toHaveBeenCalledWith(mockPeople[0].id, {
+        email: 'user@example.com',
+      })
+    );
     expect(await screen.findByText(copy['invite.copy_link'])).toBeTruthy();
     expect(screen.getByText(copy['person.invite.share'])).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: copy['common.cancel'] }));
@@ -214,9 +219,12 @@ describe('PersonPage', () => {
       relationships: [
         {
           id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+          family_id: mockFamilies[0].id,
           person_id: mockPeople[1].id,
           related_person_id: mockPeople[0].id,
           type: 'parent',
+          created_by_account_id: mockAccount.id,
+          created_at: '2026-10-22T00:00:00.000Z',
         },
       ],
     });

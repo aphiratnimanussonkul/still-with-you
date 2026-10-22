@@ -83,7 +83,9 @@ export const mockPeople: FamilyPerson[] = [
     account_id: null,
     invite_status: 'none',
     created_by_account_id: mockAccount.id,
+    created_at: '2026-10-03T00:00:00.000Z',
     updated_at: '2026-10-03T00:00:00.000Z',
+    deleted_at: null,
   },
   {
     id: '87878787-8787-4878-8878-878787878787',
@@ -93,6 +95,8 @@ export const mockPeople: FamilyPerson[] = [
     family_name: null,
     gender: 'male',
     birth_date: null,
+    birth_date_precision: 'day',
+    age: null,
     bio: null,
     avatar_media_id: null,
     avatar_url: null,
@@ -100,7 +104,9 @@ export const mockPeople: FamilyPerson[] = [
     account_id: null,
     invite_status: 'none',
     created_by_account_id: mockAccount.id,
+    created_at: '2026-10-03T00:00:00.000Z',
     updated_at: '2026-10-03T00:00:00.000Z',
+    deleted_at: null,
   },
 ];
 
@@ -112,6 +118,8 @@ export const mockPersonOther: FamilyPerson = {
   family_name: null,
   gender: 'other',
   birth_date: null,
+  birth_date_precision: 'day',
+  age: null,
   bio: null,
   avatar_media_id: null,
   avatar_url: null,
@@ -119,7 +127,9 @@ export const mockPersonOther: FamilyPerson = {
   account_id: null,
   invite_status: 'none',
   created_by_account_id: mockAccount.id,
+  created_at: '2026-10-03T00:00:00.000Z',
   updated_at: '2026-10-03T00:00:00.000Z',
+  deleted_at: null,
 };
 
 export const mockMembers: FamilyMember[] = [

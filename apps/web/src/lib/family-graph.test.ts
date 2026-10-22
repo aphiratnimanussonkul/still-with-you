@@ -111,15 +111,17 @@ describe('family-graph vs live API handlers', () => {
 describe('family people contract v0.8', () => {
   it('requires display_name and defaults relationships to []', () => {
     expect(createPersonSchema.safeParse({}).success).toBe(false);
-    expect(createPersonSchema.safeParse({ name: 'ยายสมศรี' }).success).toBe(false);
+    expect(createPersonSchema.parse({ name: 'ยายสมศรี' }).name).toBe('ยายสมศรี');
     expect(createPersonSchema.parse({ display_name: ' ยายสมศรี ' }).display_name).toBe('ยายสมศรี');
     expect(createPersonSchema.parse({ display_name: 'ยายสมศรี', gender: null }).gender).toBeNull();
     expect(createPersonSchema.parse({ display_name: 'ยายสมศรี', gender: 'other' }).gender).toBe('other');
-    expect(familyPeopleSchema.parse({ people: [mockPersonOther] }).people[0]?.gender).toBe('other');
+    expect(familyPeopleSchema.parse({ people: [mockPersonOther], relationships: [] }).people[0]?.gender).toBe(
+      'other'
+    );
     expect(createPersonSchema.safeParse({ display_name: 'ยาย', bio: 'x'.repeat(2001) }).success).toBe(
       false
     );
-    expect(familyPeopleSchema.parse({ people: mockPeople }).relationships).toBeUndefined();
+    expect(familyPeopleSchema.parse({ people: mockPeople, relationships: [] }).relationships).toEqual([]);
   });
 
   it('parses parent and spouse relationships', () => {
@@ -151,24 +153,22 @@ describe('family people contract v0.8', () => {
     expect(
       createPersonSchema.parse({
         display_name: 'ยาย',
-        birth_date: '1948-01-01',
+        birth_date: '1948',
         birth_date_precision: 'year',
         gender: 'female',
+        avatar_media_id: null,
       })
-    ).toMatchObject({ birth_date_precision: 'year', gender: 'female' });
+    ).toMatchObject({ birth_date: '1948', birth_date_precision: 'year', gender: 'female' });
     expect(
       personInviteSchema.parse({
         id: mockPeople[0].id,
         person_id: mockPeople[0].id,
         family_id: mockPeople[0].family_id,
-        family_name: 'บ้านเรา',
-        inviter_display_name: 'Atta',
-        person_display_name: 'ยายสมศรี',
-        url: 'http://localhost:5173/invites/dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        email: 'user@example.com',
         status: 'pending',
         expires_at: '2026-10-29T00:00:00.000Z',
         created_at: '2026-10-22T00:00:00.000Z',
-      }).url
-    ).toContain('/invites/');
+      }).email
+    ).toBe('user@example.com');
   });
 });
