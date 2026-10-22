@@ -113,7 +113,7 @@ describe('AppShell', () => {
     unmount();
 
     renderAt('/families/abc');
-    expect(screen.getByLabelText(copy['nav.family'])).toHaveAttribute('href', '/families');
+    expect(screen.getByLabelText(copy['nav.family']).getAttribute('href')).toBe('/families');
     expect(screen.getByRole('heading', { name: copy['memory.list.title'] })).toBeTruthy();
   });
 
