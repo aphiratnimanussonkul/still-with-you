@@ -243,6 +243,20 @@ export const trashResponseSchema = z.object({
   next_cursor: z.string().nullable(),
 });
 
+/** Deployed GET /v1/me/trash — matches apps/web family-graph + MSW. */
+export const meTrashItemSchema = z.object({
+  id: uuidSchema,
+  story: z.string().nullable(),
+  origin_event_title: z.string().nullable(),
+  family_name: z.string(),
+  family_id: uuidSchema,
+  trashed_at: z.string().datetime(),
+});
+
+export const meTrashListResponseSchema = z.object({
+  items: z.array(meTrashItemSchema),
+});
+
 // Notification schemas
 export const notificationResponseSchema = z.object({
   id: uuidSchema,
@@ -394,6 +408,8 @@ export type MediaItem = z.infer<typeof mediaItemSchema>;
 export type MediaResponse = z.infer<typeof mediaResponseSchema>;
 export type TrashItemResponse = z.infer<typeof trashItemResponseSchema>;
 export type TrashResponse = z.infer<typeof trashResponseSchema>;
+export type MeTrashItem = z.infer<typeof meTrashItemSchema>;
+export type MeTrashListResponse = z.infer<typeof meTrashListResponseSchema>;
 export type NotificationResponse = z.infer<typeof notificationResponseSchema>;
 export type UpdateFocus = z.infer<typeof updateFocusSchema>;
 export type CreateFact = z.infer<typeof createFactSchema>;

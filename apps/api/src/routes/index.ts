@@ -31,7 +31,6 @@ const routes: FastifyPluginAsync = async (fastify) => {
       await fastify.register(peopleRoutes);
 
       // TODO: Add routes for:
-      // - /me/trash
       // - /me/notifications
       // - /notifications/:id/read
     },

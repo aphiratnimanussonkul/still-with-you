@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
 import { db, familyMembers, contributions } from '../lib/db/index.js';
 import { eq } from 'drizzle-orm';
-import { contributionResponseSchema } from '@still-with-you/contracts';
+import { contributionResponseSchema, meTrashListResponseSchema } from '@still-with-you/contracts';
 
 const UNKNOWN_UUID = '00000000-0000-4000-a000-000000000001';
 
@@ -157,7 +157,7 @@ describe('Web-compat routes (contributions list, people, envelope, api-client)',
           id: person.id,
           family_id: familyId,
           name: 'ยายสมศรี',
-          relation_label: null,
+          relation_label: 'ยาย',
           account_id: null,
         },
       ]);
@@ -168,7 +168,11 @@ describe('Web-compat routes (contributions list, people, envelope, api-client)',
         headers: await auth(stewardToken),
       });
       expect(one.statusCode).toBe(200);
-      expect(JSON.parse(one.body).name).toBe('ยายสมศรี');
+      expect(JSON.parse(one.body)).toMatchObject({
+        id: person.id,
+        name: 'ยายสมศรี',
+        relation_label: 'ยาย',
+      });
 
       const hidden = await server.inject({
         method: 'GET',
@@ -184,6 +188,36 @@ describe('Web-compat routes (contributions list, people, envelope, api-client)',
         headers: await auth(outsiderToken),
       });
       expect(hiddenOne.statusCode).toBe(404);
+    });
+
+    it('persists relation_label so a later GET list and GET by id return it', async () => {
+      const created = await server.inject({
+        method: 'POST',
+        url: `/v1/families/${familyId}/people`,
+        headers: await auth(memberToken),
+        payload: { name: 'ปู่สมชาย', relation_label: 'ปู่' },
+      });
+      expect(created.statusCode).toBe(201);
+      const id = JSON.parse(created.body).id;
+      expect(JSON.parse(created.body).relation_label).toBe('ปู่');
+
+      const listed = await server.inject({
+        method: 'GET',
+        url: `/v1/families/${familyId}/people`,
+        headers: await auth(memberToken),
+      });
+      expect(listed.statusCode).toBe(200);
+      expect(JSON.parse(listed.body).people.find((row: { id: string }) => row.id === id).relation_label).toBe(
+        'ปู่'
+      );
+
+      const one = await server.inject({
+        method: 'GET',
+        url: `/v1/people/${id}`,
+        headers: await auth(memberToken),
+      });
+      expect(one.statusCode).toBe(200);
+      expect(JSON.parse(one.body).relation_label).toBe('ปู่');
     });
 
     it('lists family members for a member and 404s outsiders', async () => {
@@ -206,6 +240,144 @@ describe('Web-compat routes (contributions list, people, envelope, api-client)',
       });
       expect(hidden.statusCode).toBe(404);
       expect(JSON.parse(hidden.body).error.code).toBe('NOT_FOUND');
+    });
+  });
+
+  describe('GET /v1/me/trash', () => {
+    it('returns the caller own restorable items, newest trashed first, web mock shape', async () => {
+      const created = await server.inject({
+        method: 'POST',
+        url: `/v1/families/${familyId}/events`,
+        headers: await auth(stewardToken),
+        payload: { title: 'วันเกิดยาย', story: 'เรื่องต้น' },
+      });
+      const eventId = JSON.parse(created.body).id;
+      const [stewardStory] = await db.select().from(contributions).where(eq(contributions.eventId, eventId));
+
+      const first = await server.inject({
+        method: 'POST',
+        url: `/v1/events/${eventId}/contributions`,
+        headers: await auth(memberToken),
+        payload: { story: 'เรื่องเก่า' },
+      });
+      const firstId = JSON.parse(first.body).id;
+      const second = await server.inject({
+        method: 'POST',
+        url: `/v1/events/${eventId}/contributions`,
+        headers: await auth(memberToken),
+        payload: { story: 'เรื่องใหม่' },
+      });
+      const secondId = JSON.parse(second.body).id;
+
+      await server.inject({
+        method: 'POST',
+        url: `/v1/contributions/${firstId}/trash`,
+        headers: await auth(memberToken),
+      });
+      await server.inject({
+        method: 'POST',
+        url: `/v1/contributions/${secondId}/trash`,
+        headers: await auth(memberToken),
+      });
+
+      await server.inject({
+        method: 'POST',
+        url: `/v1/contributions/${stewardStory.id}/trash`,
+        headers: await auth(stewardToken),
+      });
+
+      const listed = await server.inject({
+        method: 'GET',
+        url: '/v1/me/trash',
+        headers: await auth(memberToken),
+      });
+      expect(listed.statusCode).toBe(200);
+      const body = meTrashListResponseSchema.parse(JSON.parse(listed.body));
+      expect(body.items.map((row) => row.id)).toEqual([secondId, firstId]);
+      expect(body.items[0]).toEqual({
+        id: secondId,
+        story: 'เรื่องใหม่',
+        origin_event_title: 'วันเกิดยาย',
+        family_name: 'บ้านเรา',
+        family_id: familyId,
+        trashed_at: body.items[0].trashed_at,
+      });
+      expect(body.items.find((row) => row.id === stewardStory.id)).toBeUndefined();
+    });
+
+    it('omits items whose origin is archived (not restorable) and items after leaving the family', async () => {
+      const created = await server.inject({
+        method: 'POST',
+        url: `/v1/families/${familyId}/events`,
+        headers: await auth(stewardToken),
+        payload: { title: 'ทริป', story: 'ต้นเรื่อง' },
+      });
+      const eventId = JSON.parse(created.body).id;
+      const extra = await server.inject({
+        method: 'POST',
+        url: `/v1/events/${eventId}/contributions`,
+        headers: await auth(memberToken),
+        payload: { story: 'จะกู้ไม่ได้' },
+      });
+      const extraId = JSON.parse(extra.body).id;
+      await server.inject({
+        method: 'POST',
+        url: `/v1/contributions/${extraId}/trash`,
+        headers: await auth(memberToken),
+      });
+
+      await server.inject({
+        method: 'POST',
+        url: `/v1/events/${eventId}/archive`,
+        headers: await auth(stewardToken),
+      });
+
+      const afterArchive = await server.inject({
+        method: 'GET',
+        url: '/v1/me/trash',
+        headers: await auth(memberToken),
+      });
+      expect(JSON.parse(afterArchive.body).items).toEqual([]);
+
+      const otherEvent = await server.inject({
+        method: 'POST',
+        url: `/v1/families/${familyId}/events`,
+        headers: await auth(stewardToken),
+        payload: { title: 'ยังอยู่', story: 'ต้น' },
+      });
+      const keep = await server.inject({
+        method: 'POST',
+        url: `/v1/events/${JSON.parse(otherEvent.body).id}/contributions`,
+        headers: await auth(memberToken),
+        payload: { story: 'กู้ได้' },
+      });
+      const keepId = JSON.parse(keep.body).id;
+      await server.inject({
+        method: 'POST',
+        url: `/v1/contributions/${keepId}/trash`,
+        headers: await auth(memberToken),
+      });
+
+      const beforeLeave = await server.inject({
+        method: 'GET',
+        url: '/v1/me/trash',
+        headers: await auth(memberToken),
+      });
+      expect(JSON.parse(beforeLeave.body).items.map((row: { id: string }) => row.id)).toEqual([keepId]);
+
+      const left = await server.inject({
+        method: 'POST',
+        url: `/v1/families/${familyId}/leave`,
+        headers: await auth(memberToken),
+      });
+      expect(left.statusCode).toBeLessThan(300);
+
+      const afterLeave = await server.inject({
+        method: 'GET',
+        url: '/v1/me/trash',
+        headers: await auth(memberToken),
+      });
+      expect(JSON.parse(afterLeave.body).items).toEqual([]);
     });
   });
 

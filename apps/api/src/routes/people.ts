@@ -4,15 +4,12 @@ import { asc, eq } from 'drizzle-orm';
 import { db, families, people } from '../lib/db/index.js';
 import { findActiveMember } from '../lib/authz.js';
 
-function toPersonResponse(
-  person: typeof people.$inferSelect,
-  relationLabel: string | null = null
-) {
+function toPersonResponse(person: typeof people.$inferSelect) {
   return {
     id: person.id,
     family_id: person.familyId,
     name: person.displayName,
-    relation_label: relationLabel,
+    relation_label: person.relationLabel,
     account_id: person.accountId,
   };
 }
@@ -50,10 +47,11 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
       .values({
         familyId: request.params.fid,
         displayName: body.name.trim(),
+        relationLabel: body.relation_label ?? null,
       })
       .returning();
 
-    return reply.status(201).send(toPersonResponse(created, body.relation_label ?? null));
+    return reply.status(201).send(toPersonResponse(created));
   });
 
   fastify.get<{ Params: { id: string } }>('/people/:id', async (request, reply) => {

@@ -105,6 +105,7 @@ create table people (
   id uuid primary key default gen_random_uuid(),
   family_id uuid not null references families(id),
   display_name text not null,
+  relation_label text,
   birth_date date,
   death_date date,
   account_id uuid unique references accounts(id)
@@ -303,6 +304,7 @@ v0.6 paths **`/quick-question`** and **`/persons/{id}/answers`** are not impleme
 | GET | `/health` | No auth |
 | GET | `/v1/me` | Current account |
 | PATCH | `/v1/me/consent` | Marketing consent |
+| GET | `/v1/me/trash` | Caller's restorable trashed stories |
 | DELETE | `/v1/me` | Account deletion |
 | GET | `/v1/families` | Families the caller belongs to |
 | POST | `/v1/families` | Create family; creator is first steward |
@@ -344,7 +346,7 @@ v0.6 paths **`/quick-question`** and **`/persons/{id}/answers`** are not impleme
 | PATCH | `/v1/facts/{id}` | Author only |
 | DELETE | `/v1/facts/{id}` | Author or steward |
 
-Not yet implemented (do not call): `GET /v1/me/trash`, `GET /v1/me/notifications`, `POST /v1/notifications/{id}/read`. No person update/PATCH route (web does not call one).
+Not yet implemented (do not call): `GET /v1/me/notifications`, `POST /v1/notifications/{id}/read`. No person update/PATCH route (web does not call one).
 
 ### 4.1 Account & Consent (NEW in v0.4)
 
@@ -458,7 +460,7 @@ Permanent delete errors (AC-19):
 | Method | Path | Notes |
 |--------|------|-------|
 | GET | `/v1/families/{id}/people` | Member. `{ people: [{ id, family_id, name, relation_label, account_id }] }`. `name` is `people.display_name`. Non-member or missing family → **404 NOT_FOUND** |
-| POST | `/v1/families/{id}/people` | Member. Body `{ name, relation_label? }`. Empty name → **400 INVALID_INPUT** `field: "name"`. **201** person. `relation_label` is echoed on create; list/get return `null` (not persisted) |
+| POST | `/v1/families/{id}/people` | Member. Body `{ name, relation_label? }`. Empty name → **400 INVALID_INPUT** `field: "name"`. **201** person. `relation_label` is stored on `people.relation_label` and returned on list/get |
 | GET | `/v1/people/{id}` | Member of that person's family. Same person object. Else **404 NOT_FOUND** |
 
 No `PATCH`/`DELETE` person routes (web does not call them).
@@ -513,7 +515,28 @@ Worker also deletes `pending`/`uploaded` rows with `story_id` null older than 24
 
 ### 4.6 Trash
 
-Not deployed. Do not call `GET /v1/me/trash`.
+```http
+GET /v1/me/trash
+```
+
+Authenticated. Returns the caller's **own** `trashed` contributions that can still be restored: still an active member of that family, and the origin event is not `archived` (`POST /contributions/{id}/restore` would otherwise return **409 SOURCE_ARCHIVED**). Newest `trashed_at` first. Contributions have no restore-deadline column; none is returned.
+
+```json
+{
+  "items": [
+    {
+      "id": "…",
+      "story": "เรื่องที่ย้ายไปถังขยะ",
+      "origin_event_title": "วันเกิดยาย",
+      "family_name": "บ้านคุณยาย",
+      "family_id": "…",
+      "trashed_at": "2026-10-12T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+`POST /v1/contributions/{id}/restore` remains owner-only.
 
 ### 4.7 Notifications
 
@@ -662,8 +685,9 @@ JWKS_URI=${SUPABASE_URL}/auth/v1/.well-known/jwks.json
 
 ### Added
 - `GET /v1/events/{id}/contributions` (`{ contributions: […] }`, published only, `created_at` asc, signed media URLs)
-- `GET` / `POST /v1/families/{id}/people`, `GET /v1/people/{id}`
+- `GET` / `POST /v1/families/{id}/people`, `GET /v1/people/{id}` (`relation_label` persisted)
 - `GET /v1/families/{id}/members`
+- `GET /v1/me/trash` (restorable own items; web list shape)
 - Unknown-route **404 NOT_FOUND** envelope `{ error: { code: "NOT_FOUND", message: "Route not found" } }`
 - **400 ANSWER_REQUIRED** for empty/missing fact `answer_text` (`INVALID_INPUT` remains for `question_id`)
 
