@@ -199,22 +199,32 @@ jobs:
             console.log('supabase-js import ok', typeof client.from);
           "
 
-          set +e
-          timeout 8 docker run --rm \
+          docker rm -f swy-worker-smoke swy-api-smoke >/dev/null 2>&1 || true
+          docker run -d --name swy-worker-smoke \
             -e NODE_ENV=production \
             -e DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:1/postgres \
             -e SUPABASE_URL=https://example.supabase.co \
             -e SUPABASE_SERVICE_ROLE_KEY=test-service-role \
-            swy-worker:smoke > /tmp/worker.log 2>&1
-          worker_rc=$?
-          set -e
+            swy-worker:smoke
+          trap 'docker logs swy-worker-smoke || true; docker logs swy-api-smoke || true; docker rm -f swy-worker-smoke swy-api-smoke || true' EXIT
+          started=0
+          for i in $(seq 1 15); do
+            docker logs swy-worker-smoke > /tmp/worker.log 2>&1 || true
+            if grep -q 'Worker started' /tmp/worker.log; then
+              started=1
+              break
+            fi
+            if grep -q 'native WebSocket not found' /tmp/worker.log; then
+              echo 'worker still crashing on supabase-js WebSocket'
+              cat /tmp/worker.log
+              exit 1
+            fi
+            sleep 1
+          done
           cat /tmp/worker.log
-          grep -q 'Worker started' /tmp/worker.log
-          if grep -q 'native WebSocket not found' /tmp/worker.log; then
-            echo 'worker still crashing on supabase-js WebSocket'
-            exit 1
-          fi
-          echo "worker-start-rc=${worker_rc} (timeout expected)"
+          test "$started" = 1
+          docker inspect -f '{{.State.Running}}' swy-worker-smoke | grep -qx true
+          echo 'worker stayed up on node:22-alpine'
 
           docker run -d --name swy-api-smoke \
             -p 3000:3000 \
@@ -225,7 +235,6 @@ jobs:
             -e SUPABASE_ANON_KEY=test-anon \
             -e WEB_ORIGIN=http://localhost:5173 \
             swy-api:smoke
-          trap 'docker logs swy-api-smoke || true; docker rm -f swy-api-smoke || true' EXIT
           ok=0
           for i in $(seq 1 30); do
             if curl -sf http://127.0.0.1:3000/health; then
