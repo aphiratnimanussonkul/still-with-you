@@ -58,6 +58,7 @@ export function PersonPage() {
   const me = useMe();
   const { familyId } = useSelectedFamily();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -100,6 +101,16 @@ export function PersonPage() {
   });
 
   const inviteUrl = createdInvite?.url ?? '';
+
+  const revoke = useMutation({
+    mutationFn: () => familyGraph.revokePersonInvite(createdInvite!.id),
+    onSuccess: async () => {
+      setConfirmRevoke(false);
+      setCreatedInvite(null);
+      setInviteOpen(false);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.people(familyId!) });
+    },
+  });
 
   const remove = useMutation({
     mutationFn: () => familyGraph.deletePerson(personId),
@@ -249,9 +260,14 @@ export function PersonPage() {
 
       <section className="flex flex-col gap-3">
         <h3 className="text-h3 font-semibold">
-          {interpolate(copy['person.memories.title'], { จำนวน: String(featured.length) })}
+          {interpolate(copy['person.memories.with_name'], { name })}
         </h3>
         {memories.isPending ? <QueryLoading /> : null}
+        {!memories.isPending && featured.length === 0 ? (
+          <p className="text-body text-muted-foreground">
+            {interpolate(copy['person.memories.empty'], { name })}
+          </p>
+        ) : null}
         {featured.map((event) => (
           <Link key={event.id} to={`/memories/${event.id}`} className="text-body underline-offset-4 hover:underline">
             {event.title}
@@ -290,7 +306,7 @@ export function PersonPage() {
         <SheetContent side="bottom">
           <SheetHeader>
             <SheetTitle>{interpolate(copy['person.invite.action'], { name })}</SheetTitle>
-            <SheetDescription>{copy['invite.body']}</SheetDescription>
+            <SheetDescription>{copy['person.invite.note']}</SheetDescription>
           </SheetHeader>
           {createdInvite ? (
             <p className="break-all px-4 text-caption text-muted-foreground">{inviteUrl}</p>
@@ -317,6 +333,9 @@ export function PersonPage() {
                 <Button type="button" variant="secondary" onClick={() => void shareInviteLink(inviteUrl)}>
                   {copy['person.invite.share']}
                 </Button>
+                <Button type="button" variant="destructive" onClick={() => setConfirmRevoke(true)}>
+                  {copy['invite.action.revoke']}
+                </Button>
               </>
             ) : (
               <Button
@@ -333,6 +352,29 @@ export function PersonPage() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={confirmRevoke} onOpenChange={setConfirmRevoke}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{copy['invite.action.revoke']}</AlertDialogTitle>
+            <AlertDialogDescription>{copy['invite.revoke.confirm.body']}</AlertDialogDescription>
+          </AlertDialogHeader>
+          {revoke.isError ? (
+            <p className="text-caption text-destructive">{messageForError(revoke.error, { name })}</p>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel>{copy['common.cancel']}</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={revoke.isPending || !createdInvite}
+              onClick={() => revoke.mutate()}
+            >
+              {copy['invite.action.revoke']}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

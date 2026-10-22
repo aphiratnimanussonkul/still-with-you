@@ -67,6 +67,24 @@ describe('copy v0.4', () => {
       '{name} ในผังนี้ผูกกับบัญชีอื่นไปแล้ว ขอคำเชิญใหม่จากผู้ดูแลครอบครัว'
     );
     expect(copy['error.INVITE_INVALID']).toBe('คำเชิญนี้ใช้ไม่ได้แล้ว ขอคำเชิญใหม่จากผู้ดูแลครอบครัว');
+    expect(copy['invite.landing.title']).toBe(
+      '{inviter_display_name} ชวนคุณเข้าครอบครัว {family_name}'
+    );
+    expect(copy['invite.landing.body']).toBe(
+      'ในผังครอบครัวมีหน้าของ {person_display_name} อยู่แล้ว รับคำเชิญแล้วหน้านี้จะผูกกับบัญชีของคุณ'
+    );
+    expect(copy['invite.landing.accept']).toBe('รับคำเชิญ');
+    expect(copy['invite.landing.login']).toBe('เข้าสู่ระบบเพื่อรับคำเชิญ');
+    expect(copy['invite.landing.expires']).toBe('คำเชิญนี้ใช้ได้ถึง {date}');
+    expect(copy['invite.accepted.toast']).toBe('ยินดีต้อนรับสู่ครอบครัว {family_name}');
+    expect(copy['person.invite.note']).toBe('ลิงก์นี้ใช้ได้ครั้งเดียว ภายใน 7 วัน');
+    expect(copy['invite.copied.toast']).toBe('คัดลอกลิงก์แล้ว');
+    expect(copy['invite.revoke.confirm.body']).toBe(
+      'ลิงก์ที่ส่งไปแล้วจะใช้ไม่ได้ ถ้าต้องการชวนอีกครั้งต้องสร้างลิงก์ใหม่'
+    );
+    expect(copy['person.memories.with_name']).toBe('ความทรงจำที่มี {name}');
+    expect(copy['person.memories.empty']).toBe('ยังไม่มีความทรงจำที่มี {name}');
+    expect(copy['error.RATE_LIMITED.invite']).toBe('ลองหลายครั้งเกินไป รอสักครู่แล้วลองอีกครั้ง');
   });
 
   it('uses locked v0.4 wording for create, tree, cancel, and admin confirm split', () => {

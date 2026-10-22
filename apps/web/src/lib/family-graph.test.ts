@@ -186,6 +186,14 @@ describe('family people contract v0.8', () => {
       person_display_name: 'ยายสมศรี',
       expires_at: '2026-10-29T00:00:00.000Z',
     });
+    expect(
+      personInvitePreviewSchema.parse({
+        family_name: 'บ้านเรา',
+        inviter_display_name: 'สมศรี',
+        person_display_name: null,
+        expires_at: '2026-10-29T00:00:00.000Z',
+      }).person_display_name
+    ).toBeNull();
     expect(personInvitePreviewSchema.safeParse({ status: 'pending' }).success).toBe(false);
     expect(
       acceptPersonInviteResponseSchema.parse({

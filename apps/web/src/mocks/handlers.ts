@@ -765,6 +765,19 @@ export const handlers = [
     });
   }),
 
+  http.delete(`${api}/v1/invites/:id`, ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const invite = invites.find((row) => row.id === params.id || row.token === params.id);
+    if (!invite) {
+      return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, { status: 404 });
+    }
+    invite.status = 'revoked';
+    const person = people.find((row) => row.id === invite.person_id);
+    if (person && !person.account_id) person.invite_status = 'none';
+    return new HttpResponse(null, { status: 204 });
+  }),
+
   http.get(`${api}/v1/people/:id/events`, ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;

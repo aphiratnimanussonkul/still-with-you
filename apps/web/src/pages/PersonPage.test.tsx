@@ -23,6 +23,7 @@ vi.mock('@/lib/family-graph', async () => {
       listMembers: vi.fn(),
       listPersonEvents: vi.fn(),
       createPersonInvite: vi.fn(),
+      revokePersonInvite: vi.fn(),
       deletePerson: vi.fn(),
     },
   };
@@ -68,6 +69,7 @@ describe('PersonPage', () => {
     vi.mocked(familyGraph.listMembers).mockReset();
     vi.mocked(familyGraph.listPersonEvents).mockReset();
     vi.mocked(familyGraph.createPersonInvite).mockReset();
+    vi.mocked(familyGraph.revokePersonInvite).mockReset();
     vi.mocked(familyGraph.deletePerson).mockReset();
     vi.mocked(homeApi.listFacts).mockReset();
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
@@ -75,6 +77,7 @@ describe('PersonPage', () => {
     vi.mocked(familyGraph.listMembers).mockResolvedValue({ members: mockMembers });
     vi.mocked(familyGraph.listPersonEvents).mockResolvedValue({ events: [] });
     vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
+    vi.mocked(familyGraph.revokePersonInvite).mockResolvedValue(undefined);
     vi.mocked(familyGraph.createPersonInvite).mockResolvedValue({
       id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
       person_id: mockPeople[0].id,
@@ -99,6 +102,8 @@ describe('PersonPage', () => {
       )
     ).toBeTruthy();
     expect(screen.getByText(copy['person.status.uninvited'])).toBeTruthy();
+    expect(screen.getByText(interpolate(copy['person.memories.with_name'], { name }))).toBeTruthy();
+    expect(screen.getByText(interpolate(copy['person.memories.empty'], { name }))).toBeTruthy();
     const inviteButton = screen.getByRole('button', {
       name: interpolate(copy['person.invite.action'], { name }),
     });
@@ -113,7 +118,11 @@ describe('PersonPage', () => {
       })
     );
     expect(await screen.findByText(copy['invite.copy_link'])).toBeTruthy();
+    expect(screen.getByText(copy['person.invite.note'])).toBeTruthy();
     expect(screen.getByText(copy['person.invite.share'])).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: copy['invite.action.revoke'] }));
+    expect(await screen.findByText(copy['invite.revoke.confirm.body'])).toBeTruthy();
+    fireEvent.click(screen.getAllByRole('button', { name: copy['common.cancel'] }).at(-1)!);
     fireEvent.click(screen.getByRole('button', { name: copy['common.cancel'] }));
 
     fireEvent.click(screen.getByRole('button', { name: copy['a11y.more'] }));
