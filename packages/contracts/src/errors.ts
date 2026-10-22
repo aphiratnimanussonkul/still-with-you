@@ -10,6 +10,7 @@ export const ErrorCode = {
   MIXED_ORIGIN_EVENTS: 'MIXED_ORIGIN_EVENTS',
   FILE_TYPE_NOT_ALLOWED: 'FILE_TYPE_NOT_ALLOWED',
   TOO_MANY_PHOTOS: 'TOO_MANY_PHOTOS',
+  TOO_MANY_FOCUS: 'TOO_MANY_FOCUS',
   INVALID_INPUT: 'INVALID_INPUT',
   UNSUPPORTED_TYPE: 'UNSUPPORTED_TYPE',
   UPLOAD_MISMATCH: 'UPLOAD_MISMATCH',
@@ -25,6 +26,7 @@ export const ErrorCode = {
 
   // 409 Conflict
   LAST_ADMIN: 'LAST_ADMIN',
+  ALREADY_ANSWERED: 'ALREADY_ANSWERED',
 
   // 404 Not Found
   NOT_FOUND: 'NOT_FOUND',
@@ -86,6 +88,7 @@ export const errorMessages: Record<ErrorCode, string> = {
   MIXED_ORIGIN_EVENTS: 'Cannot create event from contributions with different origin events',
   FILE_TYPE_NOT_ALLOWED: 'File type is not allowed',
   TOO_MANY_PHOTOS: 'Too many photos attached',
+  TOO_MANY_FOCUS: 'Too many focus people',
   INVALID_INPUT: 'Invalid input provided',
   UNSUPPORTED_TYPE: 'This file type is not supported',
   UPLOAD_MISMATCH: 'Uploaded object does not match the declared type or size',
@@ -95,6 +98,7 @@ export const errorMessages: Record<ErrorCode, string> = {
   ADMIN_REQUIRED: 'This action requires admin role',
   NOT_YET_DELETABLE: 'Event is not yet permanently deletable',
   LAST_ADMIN: 'Cannot remove or demote the last admin when other members exist',
+  ALREADY_ANSWERED: 'You have already answered this question for this person',
   NOT_FOUND: 'Resource not found',
   EVENT_NOT_ACTIVE: 'Event must be active for this operation',
   EVENT_NOT_ARCHIVED: 'Event must be archived before deletion',

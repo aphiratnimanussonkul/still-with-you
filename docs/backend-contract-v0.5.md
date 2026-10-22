@@ -1,9 +1,9 @@
 # Still With You — Backend Contract v0.5
 
 **Updated:** Oct 22, 2026  
-**Changes from v0.4:** Optional photo uploads on stories via signed URLs (private `private-media` bucket)  
+**Changes from v0.4:** Optional photo uploads on stories via signed URLs; focus people (max 10) and quick questions / person facts  
 **Requirements v1.2 (AC-19..AC-27):** family steward, `archived_at` / `deletable_at`, 7-day permanent delete, `canManageEvent`, owner-only stories  
-**References:** Domain Model v0.4 (Kret), Requirements v1.1 / v1.2, Kret media contract v0.5
+**References:** Domain Model v0.4 (Kret), Requirements v1.1 / v1.2, Kret media contract v0.5, Kret focus + quick questions spec
 
 ## 1. Core Principles
 
@@ -69,6 +69,7 @@ create type contribution_status as enum ('published','trashed','purged');
 create type media_status as enum ('pending','uploaded','ready','failed');
 create type trash_reason as enum ('owner','event_deleted');
 create type member_role as enum ('member', 'admin');
+create type question_answer_type as enum ('text', 'choice');
 
 -- Core tables (plural names as in the live schema)
 create table accounts (
@@ -229,6 +230,53 @@ create table idempotency_keys (
   response jsonb,
   created_at timestamptz default now(),
   primary key (account_id, key)
+);
+
+create unique index people_id_family_id_key on people (id, family_id);
+
+create table focus_people (
+  account_id uuid not null references accounts(id) on delete cascade,
+  family_id uuid not null references families(id) on delete cascade,
+  person_id uuid not null references people(id) on delete cascade,
+  position int not null,
+  created_at timestamptz not null default now(),
+  primary key (account_id, family_id, person_id),
+  foreign key (person_id, family_id) references people(id, family_id) on delete cascade
+);
+
+create table question_bank (
+  id uuid primary key,
+  key text not null unique,
+  text_th text not null,
+  category text not null,
+  answer_type question_answer_type not null default 'text',
+  choices jsonb,
+  active boolean not null default true,
+  sort int not null
+);
+
+create table person_facts (
+  id uuid primary key default gen_random_uuid(),
+  family_id uuid not null references families(id) on delete cascade,
+  person_id uuid not null references people(id) on delete cascade,
+  question_id uuid not null references question_bank(id),
+  author_account_id uuid not null references accounts(id) on delete cascade,
+  answer_text text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz
+);
+
+create unique index uq_person_facts_live
+  on person_facts (person_id, question_id, author_account_id)
+  where deleted_at is null;
+
+create table question_skips (
+  account_id uuid not null references accounts(id) on delete cascade,
+  person_id uuid not null references people(id) on delete cascade,
+  question_id uuid not null references question_bank(id),
+  skipped_at timestamptz not null default now(),
+  primary key (account_id, person_id, question_id)
 );
 
 -- Trigger to prevent demoting/removing last admin
@@ -406,6 +454,32 @@ GET /v1/me/notifications
 POST /v1/notifications/{id}/read
 ```
 
+### 4.8 Focus people (NEW in v0.5)
+
+Per-account, per-family. Max **10**. Empty set allowed. All routes require family membership → **403 FORBIDDEN**.
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/families/{id}/focus` | `{ items: [{ person: { id, display_name }, photo_url, memory_count, position }] }`. `photo_url` is null until person photos exist. `memory_count` is active (non-archived) events tagged with that person |
+| PUT | `/families/{id}/focus` | Body `{ person_ids: [] }` replaces the set. Array order becomes `position` (0-based). Duplicates or people not in the family → **400 INVALID_INPUT** `field: "person_ids"`. More than 10 → **422 TOO_MANY_FOCUS** |
+| GET | `/families/{id}/home` | `{ focus, quick_question, recent_memories }`. `recent_memories` is the latest 5 non-archived events in the family |
+
+`quick_question` is `{ question_id, key, person: { id, display_name }, text }` or `null`. Picked among the caller's focus people, active questions, not already answered by the caller for that person, and not skipped by the caller in the last 30 days. `text` substitutes `{name}` / `{ชื่อ}` with the person's `display_name`. Null when there is no focus person or no eligible question.
+
+### 4.9 Person facts / quick questions (NEW in v0.5)
+
+Seed: 20 questions from quick-questions-v0.1 (keys `q01`–`q20`, categories favorites / habits / skills / places / life / feelings). MVP `answer_type` is `text` only. Skipped questions are not re-offered for 30 days. All routes require family membership → **403 FORBIDDEN**.
+
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/people/{id}/facts` | `{ question_id, answer_text }`. Trimmed empty/missing → **400 INVALID_INPUT** `field: "answer_text"`. Unknown or inactive question → **400 INVALID_INPUT** `field: "question_id"`. Duplicate live answer by the same author → **409 ALREADY_ANSWERED** with `error.details.fact_id`. **201** fact |
+| POST | `/people/{id}/facts/skip` | `{ question_id }` → **204**. Upserts `skipped_at` |
+| GET | `/people/{id}/facts` | `{ groups: [{ question: { id, key, text }, answers: [{ id, answer_text, author: { account_id, display_name }, created_at, updated_at, can_edit, can_delete }] }] }` |
+| PATCH | `/facts/{id}` | `{ answer_text }`. Author only; steward **cannot** edit → **403 FORBIDDEN** |
+| DELETE | `/facts/{id}` | Soft delete (`deleted_at`). Author **or** family steward → **204**. Other members → **403** |
+
+`can_edit` is true only for the author. `can_delete` is true for the author or a family steward (`family_members.role = 'admin'`). Soft-deleted rows are omitted from GET and do not block a new answer (partial unique index).
+
 ## 5. Error Format
 
 ```json
@@ -425,18 +499,20 @@ POST /v1/notifications/{id}/read
 | 400 | `STORY_REQUIRED` | Story empty or whitespace only on create event or add-contribution (AC-27) |
 | 400 | `CONFIRM_TEXT_MISMATCH` | Confirmation text is not exactly `ลบเรื่องนี้` after trim |
 | 400 | `MIXED_ORIGIN_EVENTS` | Selected contributions from different origin events |
-| 400 | `INVALID_INPUT` | Validation failed. `person_ids` not in the family uses `field: "person_ids"` |
+| 400 | `INVALID_INPUT` | Validation failed. `person_ids` not in the family uses `field: "person_ids"`. Empty `answer_text` uses `field: "answer_text"`. Unknown/inactive question uses `field: "question_id"` |
 | 400 | `FILE_TYPE_NOT_ALLOWED` | Legacy file validation |
 | 409 | `MEDIA_NOT_READY` | `media_ids` not yet `uploaded`/`ready`. `details.media_ids` lists them |
 | 413 | `FILE_TOO_LARGE` | Declared `size_bytes` exceeds `MEDIA_MAX_BYTES` |
 | 415 | `UNSUPPORTED_TYPE` | `content_type` is not jpeg/png/webp/heic |
 | 422 | `UPLOAD_MISMATCH` | Object missing, size mismatch, or magic-bytes type mismatch |
 | 422 | `TOO_MANY_PHOTOS` | More than `MEDIA_MAX_PER_CONTRIBUTION` photos on a story |
+| 422 | `TOO_MANY_FOCUS` | More than 10 focus people for this account in this family |
 | 401 | `UNAUTHENTICATED` | Token expired or invalid |
 | 403 | `FORBIDDEN` | Action not permitted (including role change when caller is not a steward). Permanent delete: caller is neither creator nor steward (no dates) |
 | 403 | `NOT_YET_DELETABLE` | Caller can manage the event, but the transactional claim failed (not archived, cooling not elapsed, or concurrent restore). `error.details` has `archived_at` and `deletable_at` |
 | 404 | `NOT_FOUND` | Resource doesn't exist or user can't see it |
 | 409 | `LAST_ADMIN` | Cannot remove/demote last admin when other members exist |
+| 409 | `ALREADY_ANSWERED` | Caller already has a live fact for this person + question. `error.details.fact_id` |
 | 409 | `EVENT_NOT_ACTIVE` | Event must be active for this operation |
 | 409 | `EVENT_NOT_ARCHIVED` | Event must be archived before deletion |
 | 409 | `SOURCE_ARCHIVED` | Cannot restore when origin is archived |
@@ -457,7 +533,7 @@ POST /v1/notifications/{id}/read
 - ✅ CORS allowlist (`WEB_ORIGIN` comma-separated origins, no `*`)
 - ✅ Encrypted backups, 30-day retention after purge
 
-## 7. Permission Matrix (v0.4)
+## 7. Permission Matrix (v0.5)
 
 All requests must be from an active FamilyMember.
 
@@ -474,6 +550,9 @@ All requests must be from an active FamilyMember.
 | Add contribution | ✅ (if active, story required) | ✅ | ✅ | ✅ |
 | Edit/trash/purge contribution | own only | **cannot edit/delete others'** (AC-24) | own only | ❌ |
 | **Invite / change role / remove** | if steward | ✅; last-admin → 409 | N/A | 403 |
+| Set own focus people | ✅ | ✅ | ✅ | ✅ (own set only) |
+| Answer / skip / edit own fact | ✅ | ✅ | own only | own only |
+| Delete someone else's fact | ❌ | ✅ steward | own only | ❌ |
 
 ## 8. Environment Variables
 
@@ -518,6 +597,14 @@ JWKS_URI=${SUPABASE_URL}/auth/v1/.well-known/jwks.json
 - `media` table with `pending|uploaded|ready|failed` and `story_id` (contribution)
 - Optional `media_ids` on story create/update
 - Worker EXIF strip / thumbnail / 24h orphan cleanup
+- `focus_people` (max 10 per account per family; cascade on person delete)
+- `question_bank` seeded with 20 quick questions (v0.1)
+- `person_facts` with soft delete and live unique (person, question, author)
+- `question_skips` (30-day suppression)
+- `GET`/`PUT /v1/families/{id}/focus`, `GET /v1/families/{id}/home`
+- `POST /v1/people/{id}/facts`, `POST /v1/people/{id}/facts/skip`, `GET /v1/people/{id}/facts`
+- `PATCH`/`DELETE /v1/facts/{id}` (author edit; author or steward delete)
+- Error codes `TOO_MANY_FOCUS`, `ALREADY_ANSWERED`
 
 ## 10. Changes Summary (v0.3 → v0.4 / requirements v1.2)
 

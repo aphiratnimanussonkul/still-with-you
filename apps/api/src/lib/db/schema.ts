@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   pgTable,
   uuid,
@@ -12,11 +13,12 @@ import {
   pgEnum,
   primaryKey,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 /**
  * Drizzle schema matching Supabase migrations
- * Based on backend-contract-v0.4.md
+ * Based on backend-contract-v0.5.md
  */
 
 // Enums
@@ -26,6 +28,7 @@ export const trashReasonEnum = pgEnum('trash_reason', ['owner', 'event_deleted']
 export const mediaStatusEnum = pgEnum('media_status', ['pending', 'uploaded', 'ready', 'failed']);
 // admin = family steward (no separate table)
 export const memberRoleEnum = pgEnum('member_role', ['member', 'admin']);
+export const questionAnswerTypeEnum = pgEnum('question_answer_type', ['text', 'choice']);
 
 // Accounts table
 export const accounts = pgTable('accounts', {
@@ -292,5 +295,77 @@ export const invites = pgTable(
     emailStatusIdx: index('idx_invites_email_status').on(table.email, table.status),
     familyIdx: index('idx_invites_family').on(table.familyId),
     tokenIdx: index('idx_invites_token').on(table.tokenHash),
+  })
+);
+
+// Per-account home focus people (max 10 per account per family, enforced in API)
+export const focusPeople = pgTable(
+  'focus_people',
+  {
+    accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+    familyId: uuid('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
+    personId: uuid('person_id').notNull().references(() => people.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.accountId, table.familyId, table.personId] }),
+    accountFamilyIdx: index('idx_focus_people_account_family').on(
+      table.accountId,
+      table.familyId,
+      table.position
+    ),
+  })
+);
+
+export const questionBank = pgTable(
+  'question_bank',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    key: text('key').notNull().unique(),
+    textTh: text('text_th').notNull(),
+    category: text('category').notNull(),
+    answerType: questionAnswerTypeEnum('answer_type').notNull().default('text'),
+    choices: jsonb('choices'),
+    active: boolean('active').notNull().default(true),
+    sort: integer('sort').notNull(),
+  },
+  (table) => ({
+    activeSortIdx: index('idx_question_bank_active_sort').on(table.active, table.sort),
+  })
+);
+
+export const personFacts = pgTable(
+  'person_facts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    familyId: uuid('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
+    personId: uuid('person_id').notNull().references(() => people.id, { onDelete: 'cascade' }),
+    questionId: uuid('question_id').notNull().references(() => questionBank.id),
+    authorAccountId: uuid('author_account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+    answerText: text('answer_text').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (table) => ({
+    liveUnique: uniqueIndex('uq_person_facts_live')
+      .on(table.personId, table.questionId, table.authorAccountId)
+      .where(sql`deleted_at is null`),
+    personIdx: index('idx_person_facts_person').on(table.personId),
+  })
+);
+
+export const questionSkips = pgTable(
+  'question_skips',
+  {
+    accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+    personId: uuid('person_id').notNull().references(() => people.id, { onDelete: 'cascade' }),
+    questionId: uuid('question_id').notNull().references(() => questionBank.id),
+    skippedAt: timestamp('skipped_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.accountId, table.personId, table.questionId] }),
+    lookupIdx: index('idx_question_skips_lookup').on(table.accountId, table.personId, table.skippedAt),
   })
 );
