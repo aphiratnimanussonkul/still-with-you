@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ImageIcon } from '@phosphor-icons/react/Image';
 import { XIcon } from '@phosphor-icons/react/X';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Icon } from '@/components/ui/icon';
 import { copy, interpolate } from '@/copy';
 import { MEDIA_DEFAULTS, type MediaLimits } from '@/lib/media-config';
@@ -31,6 +32,7 @@ type PhotoAttachProps = {
   maxCount?: number;
   purpose?: 'avatar';
   label?: string;
+  existingUrl?: string | null;
 };
 
 function emit(photos: PhotoDraft[], onStateChange: (state: PhotoAttachState) => void) {
@@ -40,7 +42,14 @@ function emit(photos: PhotoDraft[], onStateChange: (state: PhotoAttachState) => 
   });
 }
 
-export function PhotoAttach({ familyId, onStateChange, maxCount, purpose, label }: PhotoAttachProps) {
+export function PhotoAttach({
+  familyId,
+  onStateChange,
+  maxCount,
+  purpose,
+  label,
+  existingUrl,
+}: PhotoAttachProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [photos, setPhotos] = useState<PhotoDraft[]>([]);
@@ -133,6 +142,46 @@ export function PhotoAttach({ familyId, onStateChange, maxCount, purpose, label 
 
   const readyCount = photos.filter((photo) => photo.status === 'ready').length;
   const showAdd = photos.length < limits.maxPerStory;
+  const latest = photos[photos.length - 1];
+  const avatarSrc = latest?.previewUrl ?? existingUrl ?? undefined;
+
+  if (purpose === 'avatar') {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-label font-medium">{label ?? copy['person.avatar.label']}</p>
+        <label htmlFor={inputId} className="w-fit cursor-pointer">
+          <Avatar className="size-24">
+            {avatarSrc ? <AvatarImage src={avatarSrc} alt="" /> : null}
+            <AvatarFallback>
+              <Icon as={ImageIcon} size={32} />
+            </AvatarFallback>
+          </Avatar>
+          <span className="sr-only">{copy['a11y.add_photo']}</span>
+        </label>
+        {latest?.status === 'uploading' ? (
+          <p className="text-caption text-muted-foreground">{latest.progress}%</p>
+        ) : null}
+        {latest?.status === 'failed' ? (
+          <button type="button" className="text-caption text-destructive" onClick={() => void uploadDraft(latest)}>
+            {copy['retry']}
+          </button>
+        ) : null}
+        <input
+          id={inputId}
+          ref={inputRef}
+          type="file"
+          className="sr-only"
+          accept="image/*,.heic,.heif"
+          aria-label={copy['a11y.add_photo']}
+          onChange={(event) => {
+            update([]);
+            void addFiles(event.target.files);
+          }}
+        />
+        {banner ? <p className="text-caption text-destructive">{banner}</p> : null}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2">

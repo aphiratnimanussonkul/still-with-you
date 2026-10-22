@@ -62,6 +62,19 @@ export const personInviteSchema = z.object({
   created_at: z.string().datetime().optional(),
 });
 
+export const personInviteSchema = z.object({
+  id: z.string().uuid(),
+  person_id: z.string().uuid(),
+  family_id: z.string().uuid(),
+  family_name: z.string(),
+  inviter_display_name: z.string(),
+  person_display_name: z.string(),
+  url: z.string().url(),
+  status: z.enum(['pending', 'accepted', 'revoked', 'expired']),
+  expires_at: z.string().datetime(),
+  created_at: z.string().datetime(),
+});
+
 export const personGenderSchema = z.enum(['female', 'male', 'other']).nullable();
 
 export const familyRelationshipSchema = z.object({
@@ -76,6 +89,7 @@ export const createPersonSchema = z.object({
   family_name: z.string().trim().optional(),
   gender: z.enum(['female', 'male', 'other']).nullable().optional(),
   birth_date: z.string().optional(),
+  birth_date_precision: z.enum(['year', 'day']).optional(),
   bio: z.string().max(2000).optional(),
   avatar_media_id: z.string().uuid().optional(),
   relation_label: z.string().optional(),
@@ -157,6 +171,28 @@ export const familyGraph = {
       method: 'POST',
       body,
     });
+  },
+
+  createPersonInvite(personId: string) {
+    return request(`/v1/people/${personId}/invites`, personInviteSchema, {
+      method: 'POST',
+      body: {},
+    });
+  },
+
+  getPersonInvite(inviteId: string) {
+    return request(`/v1/people-invites/${inviteId}`, personInviteSchema);
+  },
+
+  acceptPersonInvite(inviteId: string) {
+    return request(`/v1/people-invites/${inviteId}/accept`, personInviteSchema, {
+      method: 'POST',
+      body: {},
+    });
+  },
+
+  listPersonEvents(personId: string) {
+    return request(`/v1/people/${personId}/events`, eventListResponseSchema);
   },
 
   listPeople(familyId: string) {

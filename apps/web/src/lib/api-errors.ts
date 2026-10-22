@@ -55,7 +55,11 @@ const CODE_COPY: Partial<Record<string, string>> = {
  * FILE_TOO_LARGE / TOO_MANY_PHOTOS limit fields. Field names are never
  * appended to user-facing copy.
  */
-export function messageForError(error: unknown): string {
+export function fieldForError(error: unknown): string | undefined {
+  return error instanceof ApiClientError ? error.field : undefined;
+}
+
+export function messageForError(error: unknown, vars?: Record<string, string>): string {
   if (error instanceof NetworkError) {
     return copy['error.network'];
   }

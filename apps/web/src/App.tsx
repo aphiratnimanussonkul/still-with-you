@@ -14,6 +14,7 @@ import { FamilyPage } from '@/pages/FamilyPage';
 import { PersonPage } from '@/pages/PersonPage';
 import { HomePage } from '@/pages/HomePage';
 import { PersonFormPage } from '@/pages/PersonFormPage';
+import { PersonInvitePage } from '@/pages/PersonInvitePage';
 import { PersonPage } from '@/pages/PersonPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { MePage } from '@/pages/MePage';
@@ -55,6 +56,7 @@ export function App() {
             path="/login"
             element={session ? <Navigate to="/home" replace /> : <LoginPage />}
           />
+          <Route path="/invites/:inviteId" element={<PersonInvitePage />} />
           <Route element={<RequireSession />}>
             <Route path="/consent" element={<ConsentPage />} />
             <Route path="/home" element={<HomePage />} />

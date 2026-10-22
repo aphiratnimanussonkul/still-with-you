@@ -153,4 +153,13 @@ describe('PersonPage', () => {
     expect(payload).toHaveProperty('death_date_precision', null);
     expect(payload).not.toHaveProperty('death_date', undefined);
   });
+
+  it('lists memories that feature this person', async () => {
+    vi.mocked(familyGraph.listPersonEvents).mockResolvedValue({ events: [mockEvents[0]] });
+    renderPerson();
+    expect(await screen.findByRole('link', { name: mockEvents[0].title ?? '' })).toHaveAttribute(
+      'href',
+      `/memories/${mockEvents[0].id}`
+    );
+  });
 });

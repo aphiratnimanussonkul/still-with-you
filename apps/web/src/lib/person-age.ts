@@ -16,6 +16,34 @@ function bangkokYmd(now = new Date()): { year: number; month: number; day: numbe
   };
 }
 
+export type BirthDatePrecision = 'year' | 'day';
+
+export type BirthInput = {
+  birth_date: string;
+  birth_date_precision: BirthDatePrecision;
+};
+
+export function parseBirthInput(value: string): BirthInput | 'invalid' | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^\d{4}$/.test(trimmed)) {
+    return { birth_date: `${trimmed}-01-01`, birth_date_precision: 'year' };
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return { birth_date: trimmed, birth_date_precision: 'day' };
+  }
+  return 'invalid';
+}
+
+export function formatBirthInput(
+  birthDate?: string | null,
+  precision?: BirthDatePrecision | null
+): string {
+  if (!birthDate) return '';
+  if (precision === 'year') return birthDate.slice(0, 4);
+  return birthDate;
+}
+
 export function ageYearsFromBirthDate(birthDate: string, now = new Date()): number | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDate);
   if (!match) return null;
@@ -30,6 +58,38 @@ export function ageYearsFromBirthDate(birthDate: string, now = new Date()): numb
   return age >= 0 ? age : null;
 }
 
-export function isFutureBirthDate(birthDate: string, now = new Date()): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(birthDate) && birthDate > bangkokYmd(now).iso;
+export function ageFromYearOnly(birthDate: string, now = new Date()): number | null {
+  const year = Number(birthDate.slice(0, 4));
+  if (!Number.isFinite(year)) return null;
+  const age = bangkokYmd(now).year - year;
+  return age >= 0 ? age : null;
+}
+
+export function displayPersonAge(
+  person: {
+    age?: number | null;
+    birth_date?: string | null;
+    birth_date_precision?: BirthDatePrecision | null;
+  },
+  now = new Date()
+): number | null {
+  if (typeof person.age === 'number' && Number.isFinite(person.age) && person.age >= 0) {
+    return person.age;
+  }
+  if (!person.birth_date) return null;
+  if (person.birth_date_precision === 'year') return ageFromYearOnly(person.birth_date, now);
+  return ageYearsFromBirthDate(person.birth_date, now);
+}
+
+export function isFutureBirthDate(
+  birthDate: string,
+  precision?: BirthDatePrecision | null,
+  now = new Date()
+): boolean {
+  const today = bangkokYmd(now);
+  if (precision === 'year' || /^\d{4}$/.test(birthDate)) {
+    const year = Number(birthDate.slice(0, 4));
+    return Number.isFinite(year) && year > today.year;
+  }
+  return /^\d{4}-\d{2}-\d{2}$/.test(birthDate) && birthDate > today.iso;
 }

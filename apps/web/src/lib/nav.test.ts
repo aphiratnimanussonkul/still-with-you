@@ -51,5 +51,9 @@ describe('appBarForPath', () => {
       titleKey: 'person.edit.title',
       backTo: '/family/people/77777777-7777-4777-8777-777777777777',
     });
+    expect(appBarForPath('/invites/dddddddd-dddd-4ddd-8ddd-dddddddddddd')).toEqual({
+      titleKey: 'invite.landing.accept',
+      backTo: null,
+    });
   });
 });

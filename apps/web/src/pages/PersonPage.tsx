@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { DotsThreeIcon } from '@phosphor-icons/react/DotsThree';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { QueryLoading } from '@/components/QueryLoading';
@@ -13,6 +14,12 @@ import { familyGraph, isPersonLiving, personDisplayName } from '@/lib/family-gra
 import { FOCUS_MAX, homeApi } from '@/lib/home-api';
 import { formatNodeYears, livingDeathWriteFields } from '@/lib/person-years';
 import { queryKeys } from '@/lib/query-client';
+
+function accountStatus(person: FamilyPerson, pendingPersonIds: Set<string>) {
+  if (person.account_id) return 'linked' as const;
+  if (pendingPersonIds.has(person.id)) return 'pending' as const;
+  return 'uninvited' as const;
+}
 
 export function PersonPage() {
   const { personId } = useParams();

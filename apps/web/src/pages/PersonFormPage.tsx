@@ -1,16 +1,27 @@
-import { useState, type FormEvent } from 'react';
+import { useCallback, useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useBeforeUnload, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PhotoAttach, type PhotoAttachState } from '@/components/PhotoAttach';
 import { QueryLoading } from '@/components/QueryLoading';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import { copy } from '@/copy';
+import { copy, interpolate } from '@/copy';
 import { useMe } from '@/hooks/use-me';
 import { useSelectedFamily } from '@/hooks/use-selected-family';
-import { messageForError } from '@/lib/api-errors';
+import { fieldForError, messageForError } from '@/lib/api-errors';
 import {
   familyGraph,
   personDisplayName,
@@ -18,40 +29,55 @@ import {
   type FamilyPerson,
   type FamilyRelationship,
 } from '@/lib/family-graph';
-import { isFutureBirthDate } from '@/lib/person-age';
+import { formatBirthInput, isFutureBirthDate, parseBirthInput } from '@/lib/person-age';
+import { PERSON_GENDER_OPTIONS, genderFromRadio, genderToRadio, type PersonGender } from '@/lib/person-gender';
 import { canEditPerson } from '@/lib/person-permissions';
+import {
+  relationshipUiType,
+  relationshipWriteBody,
+  type RelationshipUiType,
+} from '@/lib/person-relationship';
 import { queryKeys } from '@/lib/query-client';
 
 const BIO_MAX = 2000;
 
-const GENDER_OPTIONS = [
-  { value: 'male' as const, labelKey: 'person.gender.male' as const },
-  { value: 'female' as const, labelKey: 'person.gender.female' as const },
-  { value: null, labelKey: 'person.gender.unspecified' as const },
-];
-
 const selectClassName =
   'flex h-12 min-h-12 w-full rounded-md border border-input bg-card px-3 py-2 text-body text-foreground';
-
-type GenderValue = 'female' | 'male' | null;
-type RelationshipType = 'parent' | 'spouse';
 
 function personWriteBody(input: {
   display_name: string;
   family_name: string;
-  gender: GenderValue;
-  birth_date: string;
+  relation_label: string;
+  gender: PersonGender;
+  birth: string;
   bio: string;
   avatar_media_id?: string;
-}): CreatePerson {
+}): CreatePerson | { field: 'display_name' | 'birth_date'; message: string } {
   const display_name = input.display_name.trim();
+  if (!display_name) {
+    return { field: 'display_name', message: copy['error.NAME_REQUIRED'] };
+  }
+  const parsedBirth = parseBirthInput(input.birth);
+  if (parsedBirth === 'invalid') {
+    return { field: 'birth_date', message: copy['error.INVALID_BIRTH_DATE'] };
+  }
+  if (
+    parsedBirth &&
+    isFutureBirthDate(parsedBirth.birth_date, parsedBirth.birth_date_precision)
+  ) {
+    return { field: 'birth_date', message: copy['error.INVALID_BIRTH_DATE'] };
+  }
   const family_name = input.family_name.trim();
+  const relation_label = input.relation_label.trim();
   const bio = input.bio.trim();
   return {
     display_name,
     gender: input.gender,
     ...(family_name ? { family_name } : {}),
-    ...(input.birth_date ? { birth_date: input.birth_date } : {}),
+    ...(relation_label ? { relation_label } : {}),
+    ...(parsedBirth
+      ? { birth_date: parsedBirth.birth_date, birth_date_precision: parsedBirth.birth_date_precision }
+      : {}),
     ...(bio ? { bio } : {}),
     ...(input.avatar_media_id ? { avatar_media_id: input.avatar_media_id } : {}),
   };
@@ -59,7 +85,9 @@ function personWriteBody(input: {
 
 export function PersonFormPage() {
   const { personId } = useParams();
+  const [params] = useSearchParams();
   const isEdit = Boolean(personId);
+  const relatedPrefill = params.get('related') ?? '';
   const { familyId } = useSelectedFamily();
   const me = useMe();
   const people = useQuery({
@@ -95,6 +123,7 @@ export function PersonFormPage() {
       person={person}
       people={people.data?.people ?? []}
       relationships={people.data?.relationships ?? []}
+      relatedPrefill={relatedPrefill}
     />
   );
 }
@@ -104,56 +133,119 @@ function PersonForm({
   person,
   people,
   relationships,
+  relatedPrefill,
 }: {
   familyId: string;
   person?: FamilyPerson;
   people: FamilyPerson[];
   relationships: FamilyRelationship[];
+  relatedPrefill: string;
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [displayName, setDisplayName] = useState(person ? personDisplayName(person) : '');
+  const initialName = person ? personDisplayName(person) : '';
+  const [displayName, setDisplayName] = useState(initialName);
   const [familyName, setFamilyName] = useState(person?.family_name ?? '');
-  const [gender, setGender] = useState<GenderValue>(
-    person?.gender === 'male' || person?.gender === 'female' ? person.gender : null
-  );
-  const [birthDate, setBirthDate] = useState(person?.birth_date ?? '');
+  const [relationLabel, setRelationLabel] = useState(person?.relation_label ?? '');
+  const [gender, setGender] = useState<PersonGender>(person?.gender ?? null);
+  const [birth, setBirth] = useState(formatBirthInput(person?.birth_date, person?.birth_date_precision));
   const [bio, setBio] = useState(person?.bio ?? '');
-  const [relatedPersonId, setRelatedPersonId] = useState('');
-  const [relationshipType, setRelationshipType] = useState<RelationshipType | ''>('');
+  const [relatedPersonId, setRelatedPersonId] = useState(relatedPrefill);
+  const [relationshipType, setRelationshipType] = useState<RelationshipUiType | ''>('');
   const [photos, setPhotos] = useState<PhotoAttachState>({ mediaIds: [], isBusy: false });
+  const [fieldErrors, setFieldErrors] = useState<{ display_name?: string; birth_date?: string }>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [allowLeave, setAllowLeave] = useState(false);
 
   const ownRelationships = person
     ? relationships.filter((row) => row.person_id === person.id || row.related_person_id === person.id)
     : [];
   const otherPeople = people.filter((row) => row.id !== person?.id);
 
+  const dirty = useMemo(() => {
+    if (photos.mediaIds.length > 0 || photos.isBusy) return true;
+    if (displayName !== initialName) return true;
+    if (familyName !== (person?.family_name ?? '')) return true;
+    if (relationLabel !== (person?.relation_label ?? '')) return true;
+    if (gender !== (person?.gender ?? null)) return true;
+    if (birth !== formatBirthInput(person?.birth_date, person?.birth_date_precision)) return true;
+    if (bio !== (person?.bio ?? '')) return true;
+    if (relatedPersonId !== relatedPrefill) return true;
+    if (relationshipType) return true;
+    return false;
+  }, [
+    photos,
+    displayName,
+    initialName,
+    familyName,
+    relationLabel,
+    gender,
+    birth,
+    bio,
+    relatedPersonId,
+    relatedPrefill,
+    relationshipType,
+    person,
+  ]);
+
+  useBeforeUnload(
+    useCallback(
+      (event: BeforeUnloadEvent) => {
+        if (dirty && !allowLeave) {
+          event.preventDefault();
+          event.returnValue = '';
+        }
+      },
+      [dirty, allowLeave]
+    )
+  );
+  const blocker = useBlocker(dirty && !allowLeave);
+
   const save = useMutation({
     mutationFn: async () => {
       const body = personWriteBody({
         display_name: displayName,
         family_name: familyName,
+        relation_label: relationLabel,
         gender,
-        birth_date: birthDate,
+        birth,
         bio,
         avatar_media_id: photos.mediaIds[0],
       });
+      if ('field' in body) {
+        throw Object.assign(new Error(body.message), { field: body.field, clientField: true, message: body.message });
+      }
       const saved = person
         ? await familyGraph.updatePerson(person.id, body)
         : await familyGraph.createPerson(familyId, body);
       if (relationshipType && relatedPersonId) {
-        await familyGraph.createRelationship(familyId, {
-          person_id: saved.id,
-          related_person_id: relatedPersonId,
-          type: relationshipType,
-        });
+        await familyGraph.createRelationship(
+          familyId,
+          relationshipWriteBody(saved.id, relatedPersonId, relationshipType)
+        );
       }
       return saved;
     },
     onSuccess: async (saved) => {
+      setAllowLeave(true);
       await queryClient.invalidateQueries({ queryKey: queryKeys.people(familyId) });
       navigate(`/family/people/${saved.id}`);
+    },
+    onError: (error) => {
+      if (error && typeof error === 'object' && 'clientField' in error) {
+        const fieldError = error as unknown as { field: 'display_name' | 'birth_date'; message: string };
+        setFieldErrors({ [fieldError.field]: fieldError.message });
+        setFormError(null);
+        return;
+      }
+      const field = fieldForError(error);
+      const message = messageForError(error);
+      if (field === 'display_name' || field === 'birth_date') {
+        setFieldErrors({ [field]: message });
+        setFormError(null);
+        return;
+      }
+      setFormError(message);
     },
   });
 
@@ -166,162 +258,210 @@ function PersonForm({
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!displayName.trim()) return;
     if (photos.isBusy) return;
-    if (birthDate && isFutureBirthDate(birthDate)) {
-      setFormError(copy['error.INVALID_BIRTH_DATE']);
-      return;
-    }
+    setFieldErrors({});
     setFormError(null);
     save.mutate();
   }
 
-  const errorMessage = formError ?? (save.isError ? messageForError(save.error) : null);
-
   return (
-    <form className="flex flex-col gap-6" onSubmit={onSubmit}>
-      <div className="flex flex-col gap-2">
-        {person?.avatar_url && photos.mediaIds.length === 0 ? (
-          <img
-            src={person.avatar_url}
-            alt={personDisplayName(person)}
-            className="size-24 rounded-full object-cover"
-          />
-        ) : null}
+    <>
+      <form className="flex flex-col gap-6 pb-24" onSubmit={onSubmit}>
         <PhotoAttach
           familyId={familyId}
           maxCount={1}
           purpose="avatar"
           label={copy['person.avatar.label']}
+          existingUrl={person?.avatar_url}
           onStateChange={setPhotos}
         />
-      </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="person-display-name">{copy['person.display_name.label']}</Label>
-        <Input
-          id="person-display-name"
-          value={displayName}
-          onChange={(event) => setDisplayName(event.target.value)}
-          required
-        />
-      </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="person-display-name">{copy['person.display_name.label']}</Label>
+          <Input
+            id="person-display-name"
+            value={displayName}
+            aria-invalid={Boolean(fieldErrors.display_name)}
+            onChange={(event) => setDisplayName(event.target.value)}
+          />
+          {fieldErrors.display_name ? (
+            <p className="text-caption text-destructive">{fieldErrors.display_name}</p>
+          ) : null}
+        </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="person-family-name">{copy['person.family_name.label']}</Label>
-        <Input
-          id="person-family-name"
-          value={familyName}
-          onChange={(event) => setFamilyName(event.target.value)}
-        />
-      </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="person-family-name">{copy['person.family_name.label']}</Label>
+          <Input
+            id="person-family-name"
+            value={familyName}
+            onChange={(event) => setFamilyName(event.target.value)}
+          />
+        </div>
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-label font-medium">{copy['person.gender.label']}</legend>
-        {GENDER_OPTIONS.map((option) => (
-          <label key={option.labelKey} className="flex min-h-11 items-center gap-3 text-body">
-            <input
-              type="radio"
-              name="person-gender"
-              checked={gender === option.value}
-              onChange={() => setGender(option.value)}
-            />
-            {copy[option.labelKey]}
-          </label>
-        ))}
-      </fieldset>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-label font-medium">{copy['person.gender.label']}</legend>
+          <RadioGroup
+            className="flex flex-col gap-1"
+            value={genderToRadio(gender)}
+            onValueChange={(value) => setGender(genderFromRadio(value))}
+          >
+            {PERSON_GENDER_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                htmlFor={`person-gender-${option.value}`}
+                className="flex min-h-11 items-center gap-3 text-body"
+              >
+                <RadioGroupItem id={`person-gender-${option.value}`} value={option.value} />
+                {copy[option.labelKey]}
+              </label>
+            ))}
+          </RadioGroup>
+        </fieldset>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="person-birth-date">{copy['person.birth.label']}</Label>
-        <Input
-          id="person-birth-date"
-          type="date"
-          value={birthDate}
-          onChange={(event) => setBirthDate(event.target.value)}
-        />
-        <p className="text-caption text-muted-foreground">{copy['person.birth.hint']}</p>
-      </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="person-birth-date">{copy['person.birth.label']}</Label>
+          <Input
+            id="person-birth-date"
+            inputMode="numeric"
+            value={birth}
+            aria-invalid={Boolean(fieldErrors.birth_date)}
+            onChange={(event) => setBirth(event.target.value)}
+          />
+          <p className="text-caption text-muted-foreground">{copy['person.birth.hint']}</p>
+          {fieldErrors.birth_date ? (
+            <p className="text-caption text-destructive">{fieldErrors.birth_date}</p>
+          ) : null}
+        </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="person-bio">{copy['person.bio.label']}</Label>
-        <Textarea
-          id="person-bio"
-          value={bio}
-          maxLength={BIO_MAX}
-          onChange={(event) => setBio(event.target.value)}
-        />
-      </div>
+        {ownRelationships.length > 0 ? (
+          <ul className="flex flex-col gap-2">
+            {ownRelationships.map((row) => {
+              const otherId = row.person_id === person?.id ? row.related_person_id : row.person_id;
+              const other = people.find((item) => item.id === otherId);
+              const uiType = person ? relationshipUiType(row, person.id) : 'parent';
+              const typeLabel =
+                uiType === 'parent'
+                  ? copy['person.relationship.parent']
+                  : uiType === 'spouse'
+                    ? copy['person.relationship.spouse']
+                    : copy['person.relationship.child'];
+              return (
+                <li key={row.id} className="flex min-h-11 items-center justify-between gap-3">
+                  <p className="text-body">
+                    {typeLabel}
+                    {other ? ` · ${personDisplayName(other)}` : ''}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label={copy['a11y.close']}
+                    disabled={removeRelationship.isPending}
+                    onClick={() => removeRelationship.mutate(row.id)}
+                  >
+                    {copy['a11y.close']}
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
 
-      {ownRelationships.length > 0 ? (
-        <ul className="flex flex-col gap-2">
-          {ownRelationships.map((row) => {
-            const otherId = row.person_id === person?.id ? row.related_person_id : row.person_id;
-            const other = people.find((item) => item.id === otherId);
-            const typeLabel =
-              row.type === 'parent'
-                ? copy['person.relationship.parent']
-                : copy['person.relationship.spouse'];
-            return (
-              <li key={row.id} className="flex min-h-11 items-center justify-between gap-3">
-                <p className="text-body">
-                  {typeLabel}
-                  {other ? ` · ${personDisplayName(other)}` : ''}
-                </p>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  aria-label={copy['a11y.close']}
-                  disabled={removeRelationship.isPending}
-                  onClick={() => removeRelationship.mutate(row.id)}
-                >
-                  {copy['a11y.close']}
-                </Button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="person-related">{copy['person.relationship.label']}</Label>
+          <select
+            id="person-related"
+            className={selectClassName}
+            value={relatedPersonId}
+            onChange={(event) => setRelatedPersonId(event.target.value)}
+          >
+            <option value="">{copy['person.relationship.related']}</option>
+            {otherPeople.map((row) => (
+              <option key={row.id} value={row.id}>
+                {personDisplayName(row)}
+              </option>
+            ))}
+          </select>
+          {relatedPersonId ? (
+            <RadioGroup
+              className="flex flex-col gap-1"
+              value={relationshipType}
+              onValueChange={(value) => setRelationshipType(value as RelationshipUiType)}
+            >
+              <label htmlFor="person-rel-parent" className="flex min-h-11 items-center gap-3 text-body">
+                <RadioGroupItem id="person-rel-parent" value="parent" />
+                {copy['person.relationship.parent']}
+              </label>
+              <label htmlFor="person-rel-spouse" className="flex min-h-11 items-center gap-3 text-body">
+                <RadioGroupItem id="person-rel-spouse" value="spouse" />
+                {copy['person.relationship.spouse']}
+              </label>
+              <label htmlFor="person-rel-child" className="flex min-h-11 items-center gap-3 text-body">
+                <RadioGroupItem id="person-rel-child" value="child" />
+                {copy['person.relationship.child']}
+              </label>
+            </RadioGroup>
+          ) : null}
+        </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="person-relationship-type">{copy['person.relationship.label']}</Label>
-        <select
-          id="person-relationship-type"
-          className={selectClassName}
-          value={relationshipType}
-          onChange={(event) => setRelationshipType(event.target.value as RelationshipType | '')}
-        >
-          <option value="">{copy['person.relation_placeholder']}</option>
-          <option value="parent">{copy['person.relationship.parent']}</option>
-          <option value="spouse">{copy['person.relationship.spouse']}</option>
-        </select>
-        <Label htmlFor="person-related">{copy['person.relationship.related']}</Label>
-        <select
-          id="person-related"
-          className={selectClassName}
-          value={relatedPersonId}
-          onChange={(event) => setRelatedPersonId(event.target.value)}
-        >
-          <option value="">{copy['person.relation_placeholder']}</option>
-          {otherPeople.map((row) => (
-            <option key={row.id} value={row.id}>
-              {personDisplayName(row)}
-            </option>
-          ))}
-        </select>
-      </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="person-relation-label">{copy['person.relation_label.label']}</Label>
+          <Input
+            id="person-relation-label"
+            value={relationLabel}
+            placeholder={copy['person.relation_label.placeholder']}
+            onChange={(event) => setRelationLabel(event.target.value)}
+          />
+        </div>
 
-      {photos.isBusy ? (
-        <p className="text-caption text-muted-foreground">{copy['photo.upload.wait']}</p>
-      ) : null}
-      {errorMessage ? <p className="text-caption text-destructive">{errorMessage}</p> : null}
-      {removeRelationship.isError ? (
-        <p className="text-caption text-destructive">{messageForError(removeRelationship.error)}</p>
-      ) : null}
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="person-bio">{copy['person.bio.label']}</Label>
+          <Textarea
+            id="person-bio"
+            value={bio}
+            maxLength={BIO_MAX}
+            onChange={(event) => setBio(event.target.value)}
+          />
+          <p className="text-caption text-muted-foreground">
+            {interpolate(copy['person.bio.counter'], { count: String(bio.length) })}
+          </p>
+        </div>
 
-      <Button type="submit" disabled={save.isPending || photos.isBusy || !displayName.trim()}>
-        {copy['person.save']}
-      </Button>
-    </form>
+        {photos.isBusy ? (
+          <p className="text-caption text-muted-foreground">{copy['photo.upload.wait']}</p>
+        ) : null}
+        {formError ? <p className="text-caption text-destructive">{formError}</p> : null}
+        {removeRelationship.isError ? (
+          <p className="text-caption text-destructive">{messageForError(removeRelationship.error)}</p>
+        ) : null}
+
+        <div className="sticky z-30 -mx-4 border-t border-border bg-card px-4 py-3 bottom-[calc(var(--bottom-nav-height)+var(--safe-bottom))] lg:bottom-0">
+          <Button className="w-full" type="submit" disabled={save.isPending || photos.isBusy}>
+            {copy['person.save']}
+          </Button>
+        </div>
+      </form>
+
+      <AlertDialog open={blocker.state === 'blocked'} onOpenChange={(open) => !open && blocker.reset?.()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{copy['unsaved.title']}</AlertDialogTitle>
+            <AlertDialogDescription>{copy['unsaved.body']}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => blocker.reset?.()}>{copy['unsaved.stay']}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                setAllowLeave(true);
+                blocker.proceed?.();
+              }}
+            >
+              {copy['unsaved.leave']}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
