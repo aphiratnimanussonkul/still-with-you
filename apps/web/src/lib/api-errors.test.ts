@@ -122,4 +122,9 @@ describe('messageForError', () => {
     expect(messageForError(apiError(ErrorCode.TOO_MANY_FOCUS))).toBe(copy['error.TOO_MANY_FOCUS']);
     expect(messageForError(apiError(ErrorCode.ALREADY_ANSWERED))).toBe(copy['error.ALREADY_ANSWERED']);
   });
+
+  it('maps INVALID_BIRTH_DATE and PERSON_LINKED by code', () => {
+    expect(messageForError(apiError('INVALID_BIRTH_DATE'))).toBe(copy['error.INVALID_BIRTH_DATE']);
+    expect(messageForError(apiError('PERSON_LINKED'))).toBe(copy['error.PERSON_LINKED']);
+  });
 });

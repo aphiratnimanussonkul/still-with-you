@@ -108,6 +108,14 @@ export function messageForError(error: unknown): string {
       return copy['error.ALREADY_ANSWERED'];
     }
 
+    if (error.code === 'INVALID_BIRTH_DATE') {
+      return copy['error.INVALID_BIRTH_DATE'];
+    }
+
+    if (error.code === 'PERSON_LINKED') {
+      return copy['error.PERSON_LINKED'];
+    }
+
     if (error.code === ErrorCode.INTERNAL_ERROR || error.status >= 500) {
       return copy['error.INTERNAL_ERROR'];
     }

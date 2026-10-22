@@ -34,16 +34,24 @@ import {
   mockTrash,
 } from '@/mocks/data';
 import {
+  createPersonSchema,
+  createRelationshipSchema,
+  familyInviteSchema,
+  familyInvitesSchema,
+  familyMembersSchema,
+  familyPersonSchema,
+  familyRelationshipSchema,
+  updatePersonSchema,
+  type FamilyPerson,
+  type FamilyRelationship,
+} from '@/lib/family-graph';
+import {
   createFactSchema,
   familyFocusRequestSchema,
   skipFactSchema,
   updateFactSchema,
 } from '@/lib/home-api';
-import {
-  familyInviteSchema,
-  familyInvitesSchema,
-  familyMembersSchema,
-} from '@/lib/family-graph';
+import { isFutureBirthDate } from '@/lib/person-age';
 import { HOME_QUESTION_TEMPLATES, fillQuestionText, homeQuestionId } from '@/mocks/home-questions';
 
 const api = env.apiUrl.replace(/\/$/, '');
@@ -76,11 +84,19 @@ function focusListPayload(familyId: string) {
 let account = { ...mockAccount };
 const families = [...mockFamilies];
 const events = [...mockEvents];
-const people = [...mockPeople];
+const people: FamilyPerson[] = mockPeople.map((person) => ({ ...person }));
+const relationships: FamilyRelationship[] = [];
 const members = [...mockMembers];
 const trash = [...mockTrash];
-const invites: { id: string; family_id: string; email: string; status: 'pending'; expires_at: string; created_at: string }[] =
-  [];
+const invites: {
+  id: string;
+  family_id: string;
+  email: string;
+  person_id?: string | null;
+  status: 'pending';
+  expires_at: string;
+  created_at: string;
+}[] = [];
 const focusByFamily: Record<string, string[]> = { ...mockFocusIds };
 const skippedQuestions = new Set<string>();
 const answeredQuestions = new Set<string>();
@@ -181,6 +197,14 @@ function toContributionResponse(item: (typeof contributions)[number]) {
   };
 }
 
+function toPersonResponse(person: FamilyPerson) {
+  return familyPersonSchema.parse({
+    ...person,
+    display_name: person.display_name,
+    name: person.display_name,
+  });
+}
+
 function requireAuth(request: Request) {
   const header = request.headers.get('Authorization');
   if (!header?.startsWith('Bearer ')) {
@@ -254,7 +278,8 @@ export const handlers = [
   http.post(`${api}/v1/families/:fid/media/uploads`, async ({ request }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    const body = createMediaUploadSchema.parse(await request.json());
+    const raw = (await request.json()) as { purpose?: string };
+    const body = createMediaUploadSchema.parse(raw);
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
     if (!allowed.includes(body.content_type)) {
       return HttpResponse.json(
@@ -281,7 +306,7 @@ export const handlers = [
       upload_url: `${api}/v1/mock-uploads/${mediaId}`,
       expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
       max_bytes: MEDIA_DEFAULTS.maxBytes,
-      max_per_story: MEDIA_DEFAULTS.maxPerStory,
+      max_per_story: raw.purpose === 'avatar' ? 1 : MEDIA_DEFAULTS.maxPerStory,
     });
     return HttpResponse.json(session, { status: 201 });
   }),
@@ -465,17 +490,25 @@ export const handlers = [
   http.post(`${api}/v1/families/:fid/invites`, async ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    const body = (await request.json()) as { email?: string };
-    if (!body.email) {
+    const body = (await request.json()) as { email?: string; person_id?: string };
+    const member = members.find((row) => row.family_id === params.fid && row.account_id === account.id);
+    if (body.person_id && member?.role !== 'admin') {
       return HttpResponse.json(
-        { error: { code: 'INVALID_INPUT', message: 'email required', field: 'email' } },
+        { error: { code: 'FORBIDDEN', message: 'Admin required' } },
+        { status: 403 }
+      );
+    }
+    if (!body.email && !body.person_id) {
+      return HttpResponse.json(
+        { error: { code: 'INVALID_INPUT', message: 'email or person_id required' } },
         { status: 400 }
       );
     }
     const created = {
       id: crypto.randomUUID(),
       family_id: String(params.fid),
-      email: body.email,
+      email: body.email ?? '',
+      person_id: body.person_id ?? null,
       status: 'pending' as const,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       created_at: new Date().toISOString(),
@@ -496,33 +529,152 @@ export const handlers = [
   http.get(`${api}/v1/families/:fid/people`, ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
+    const familyPeople = people.filter((person) => person.family_id === params.fid);
+    const familyIds = new Set(familyPeople.map((person) => person.id));
     return jsonContract(personListResponseSchema, {
-      people: people.filter((person) => person.family_id === params.fid),
-      relationships: [],
+      people: familyPeople.map(toPersonResponse),
+      relationships: relationships
+        .filter((row) => familyIds.has(row.person_id) && familyIds.has(row.related_person_id))
+        .map((row) => ({
+          id: row.id,
+          family_id: String(params.fid),
+          person_id: row.person_id,
+          related_person_id: row.related_person_id,
+          type: row.type,
+          created_by_account_id: account.id,
+          created_at: new Date().toISOString(),
+        })),
     });
   }),
 
   http.post(`${api}/v1/families/:fid/people`, async ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    const body = (await request.json()) as { name?: string; display_name?: string; relation_label?: string };
-    const name = (body.display_name ?? body.name)?.trim();
-    if (!name) {
+    const parsed = createPersonSchema.safeParse(await request.json());
+    if (!parsed.success) {
       return HttpResponse.json(
-        { error: { code: 'INVALID_INPUT', message: 'name required', field: 'name' } },
+        { error: { code: 'INVALID_INPUT', message: 'display_name required' } },
         { status: 400 }
       );
     }
-    const created = {
+    if (parsed.data.birth_date && isFutureBirthDate(parsed.data.birth_date)) {
+      return HttpResponse.json(
+        { error: { code: 'INVALID_BIRTH_DATE', message: 'birth_date is in the future' } },
+        { status: 400 }
+      );
+    }
+    const now = new Date().toISOString();
+    const created: FamilyPerson = {
       id: crypto.randomUUID(),
       family_id: String(params.fid),
-      display_name: name,
-      name,
-      relation_label: body.relation_label ?? null,
+      display_name: parsed.data.display_name,
+      name: parsed.data.display_name,
+      family_name: parsed.data.family_name ?? null,
+      gender: parsed.data.gender ?? null,
+      birth_date: parsed.data.birth_date ?? null,
+      bio: parsed.data.bio ?? null,
+      avatar_media_id: parsed.data.avatar_media_id ?? null,
+      avatar_url: parsed.data.avatar_media_id
+        ? `${api}/v1/mock-uploads/${parsed.data.avatar_media_id}`
+        : null,
+      relation_label: parsed.data.relation_label ?? null,
       account_id: null,
+      created_by_account_id: account.id,
+      updated_at: now,
     };
     people.push(created);
-    return jsonContract(personResponseSchema, created, { status: 201 });
+    return jsonContract(personResponseSchema, toPersonResponse(created), { status: 201 });
+  }),
+
+  http.patch(`${api}/v1/people/:id`, async ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const person = people.find((row) => row.id === params.id);
+    if (!person) {
+      return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, { status: 404 });
+    }
+    const parsed = updatePersonSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return HttpResponse.json(
+        { error: { code: 'INVALID_INPUT', message: 'invalid person' } },
+        { status: 400 }
+      );
+    }
+    if (parsed.data.birth_date && isFutureBirthDate(parsed.data.birth_date)) {
+      return HttpResponse.json(
+        { error: { code: 'INVALID_BIRTH_DATE', message: 'birth_date is in the future' } },
+        { status: 400 }
+      );
+    }
+    Object.assign(person, parsed.data, {
+      display_name: parsed.data.display_name ?? person.display_name,
+      name: parsed.data.display_name ?? person.display_name,
+      avatar_url: parsed.data.avatar_media_id
+        ? `${api}/v1/mock-uploads/${parsed.data.avatar_media_id}`
+        : person.avatar_url,
+      updated_at: new Date().toISOString(),
+    });
+    return jsonContract(personResponseSchema, toPersonResponse(person));
+  }),
+
+  http.delete(`${api}/v1/people/:id`, ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const index = people.findIndex((row) => row.id === params.id);
+    if (index < 0) {
+      return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, { status: 404 });
+    }
+    if (people[index]?.account_id) {
+      return HttpResponse.json(
+        { error: { code: 'PERSON_LINKED', message: 'Person is linked to an account' } },
+        { status: 409 }
+      );
+    }
+    const personId = people[index]!.id;
+    people.splice(index, 1);
+    for (let i = relationships.length - 1; i >= 0; i -= 1) {
+      const row = relationships[i];
+      if (row && (row.person_id === personId || row.related_person_id === personId)) {
+        relationships.splice(i, 1);
+      }
+    }
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post(`${api}/v1/families/:fid/relationships`, async ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const parsed = createRelationshipSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return HttpResponse.json(
+        { error: { code: 'INVALID_INPUT', message: 'invalid relationship' } },
+        { status: 400 }
+      );
+    }
+    const familyId = String(params.fid);
+    const ids = new Set(
+      people.filter((person) => person.family_id === familyId).map((person) => person.id)
+    );
+    if (!ids.has(parsed.data.person_id) || !ids.has(parsed.data.related_person_id)) {
+      return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Person not found' } }, { status: 404 });
+    }
+    const created = familyRelationshipSchema.parse({
+      id: crypto.randomUUID(),
+      ...parsed.data,
+    });
+    relationships.push(created);
+    return jsonContract(familyRelationshipSchema, created, { status: 201 });
+  }),
+
+  http.delete(`${api}/v1/relationships/:id`, ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const index = relationships.findIndex((row) => row.id === params.id);
+    if (index < 0) {
+      return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, { status: 404 });
+    }
+    relationships.splice(index, 1);
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.get(`${api}/v1/events/:id/contributions`, ({ request, params }) => {

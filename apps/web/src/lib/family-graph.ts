@@ -30,6 +30,7 @@ export const familyInviteSchema = z.object({
   email: z.string(),
   role: z.enum(['member', 'admin']).optional(),
   invited_by: z.string().uuid().optional(),
+  person_id: z.string().uuid().nullable().optional(),
   url: z.string().url().optional(),
   status: z.enum(['pending', 'accepted', 'revoked', 'expired']).optional(),
   expires_at: z.string().datetime(),
@@ -42,6 +43,33 @@ export const familyInvitesSchema = z.object({
 
 export const familyPersonSchema = personResponseSchema;
 export const familyPeopleSchema = personListResponseSchema;
+
+export const personGenderSchema = z.enum(['female', 'male', 'other']).nullable();
+
+export const familyRelationshipSchema = z.object({
+  id: z.string().uuid(),
+  person_id: z.string().uuid(),
+  related_person_id: z.string().uuid(),
+  type: z.enum(['parent', 'spouse']),
+});
+
+export const createPersonSchema = z.object({
+  display_name: z.string().trim().min(1),
+  family_name: z.string().trim().optional(),
+  gender: z.enum(['female', 'male', 'other']).nullable().optional(),
+  birth_date: z.string().optional(),
+  bio: z.string().max(2000).optional(),
+  avatar_media_id: z.string().uuid().optional(),
+  relation_label: z.string().optional(),
+});
+
+export const updatePersonSchema = createPersonSchema.partial();
+
+export const createRelationshipSchema = z.object({
+  person_id: z.string().uuid(),
+  related_person_id: z.string().uuid(),
+  type: z.enum(['parent', 'spouse']),
+});
 
 export const contributionItemSchema = z.object({
   id: z.string().uuid(),
@@ -71,8 +99,16 @@ export const trashListSchema = z.object({
 
 export type FamilyMember = z.infer<typeof familyMemberSchema>;
 export type FamilyPerson = PersonResponse;
+export type FamilyRelationship = z.infer<typeof familyRelationshipSchema>;
+export type CreatePerson = z.infer<typeof createPersonSchema>;
+export type UpdatePerson = z.infer<typeof updatePersonSchema>;
+export type CreateRelationship = z.infer<typeof createRelationshipSchema>;
 export type ContributionItem = z.infer<typeof contributionItemSchema>;
 export type TrashItem = z.infer<typeof trashItemSchema>;
+
+export function personDisplayName(person: Pick<FamilyPerson, 'display_name'> & { name?: string }): string {
+  return person.display_name || person.name || '';
+}
 
 export const familyGraph = {
   listMembers(familyId: string) {
@@ -83,10 +119,10 @@ export const familyGraph = {
     return request(`/v1/families/${familyId}/invites`, familyInvitesSchema);
   },
 
-  createInvite(familyId: string, email: string) {
+  createInvite(familyId: string, body: { email?: string; person_id?: string }) {
     return request(`/v1/families/${familyId}/invites`, familyInviteSchema, {
       method: 'POST',
-      body: { email },
+      body,
     });
   },
 
@@ -94,11 +130,33 @@ export const familyGraph = {
     return request(`/v1/families/${familyId}/people`, familyPeopleSchema);
   },
 
-  createPerson(familyId: string, body: { name: string; relation_label?: string }) {
+  createPerson(familyId: string, body: CreatePerson) {
     return request(`/v1/families/${familyId}/people`, familyPersonSchema, {
       method: 'POST',
-      body,
+      body: createPersonSchema.parse(body),
     });
+  },
+
+  updatePerson(personId: string, body: UpdatePerson) {
+    return request(`/v1/people/${personId}`, familyPersonSchema, {
+      method: 'PATCH',
+      body: updatePersonSchema.parse(body),
+    });
+  },
+
+  deletePerson(personId: string) {
+    return request(`/v1/people/${personId}`, z.void(), { method: 'DELETE' });
+  },
+
+  createRelationship(familyId: string, body: z.input<typeof createRelationshipSchema>) {
+    return request(`/v1/families/${familyId}/relationships`, familyRelationshipSchema, {
+      method: 'POST',
+      body: createRelationshipSchema.parse(body),
+    });
+  },
+
+  deleteRelationship(relationshipId: string) {
+    return request(`/v1/relationships/${relationshipId}`, z.void(), { method: 'DELETE' });
   },
 
   listContributions(eventId: string) {
