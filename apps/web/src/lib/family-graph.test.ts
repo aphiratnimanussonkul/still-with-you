@@ -258,11 +258,5 @@ describe('family people contract v0.8', () => {
       family_id: mockPeople[0].family_id,
       person_id: mockPeople[0].id,
     });
-    expect(
-      personEventsResponseSchema.parse({
-        events: [],
-        next_cursor: null,
-      })
-    ).toEqual({ events: [], next_cursor: null });
   });
 });

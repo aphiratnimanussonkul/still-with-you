@@ -74,7 +74,10 @@ export const personInviteSchema = z.object({
   url: z.string().url(),
 });
 
-/** GET /v1/invites/{token} — public preview. 410 INVITE_INVALID if expired/used/revoked. */
+/**
+ * GET /v1/invites/{token} — public, no auth. 410 INVITE_INVALID if invalid/expired/used/revoked.
+ * Kret field names win over Frank v0.8.1 (`inviter_name`, `person_name`, `status`).
+ */
 export const personInvitePreviewSchema = z.object({
   family_name: z.string(),
   inviter_display_name: z.string(),
@@ -90,10 +93,6 @@ export const acceptPersonInviteResponseSchema = z.object({
 
 export const createPersonInviteSchema = z.object({
   email: z.string().email(),
-});
-
-export const personEventsResponseSchema = eventListResponseSchema.extend({
-  next_cursor: z.string().nullable(),
 });
 
 export const personGenderSchema = z.enum(['female', 'male', 'other']).nullable();
@@ -233,7 +232,7 @@ export const familyGraph = {
 
   listPersonEvents(personId: string, cursor?: string) {
     const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
-    return request(`/v1/people/${personId}/events${query}`, personEventsResponseSchema);
+    return request(`/v1/people/${personId}/events${query}`, eventListResponseSchema);
   },
 
   listPeople(familyId: string) {
