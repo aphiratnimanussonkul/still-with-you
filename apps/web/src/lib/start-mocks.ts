@@ -5,7 +5,7 @@ type StartableWorker = {
   start: (options: {
     onUnhandledRequest: 'bypass';
     quiet: boolean;
-    serviceWorker: { url: string };
+    serviceWorker: { url: string; options?: { updateViaCache: 'none' } };
   }) => Promise<unknown>;
 };
 
@@ -25,14 +25,10 @@ function mockWorkerUrl(): string {
   return `${base}${MSW_WORKER_FILE}`;
 }
 
-function isMswWorkerScript(scriptUrl: string): boolean {
-  return scriptUrl.endsWith(`/${MSW_WORKER_FILE}`) || scriptUrl.endsWith(MSW_WORKER_FILE);
-}
-
 /**
  * MSW calls location.reload() when a mock worker is registered but not yet
- * controlling the page. That fights vite-plugin-pwa's sw.js and loops on
- * Cloudflare Pages. Swallow reloads only for the duration of start().
+ * controlling the page. That fights a leftover vite-plugin-pwa sw.js and loops
+ * on Cloudflare Pages. Swallow reloads only for the duration of start().
  */
 export function suppressLocationReload(location: ReloadableLocation = window.location): () => void {
   const original = location.reload.bind(location);
@@ -53,7 +49,7 @@ export function suppressLocationReload(location: ReloadableLocation = window.loc
     try {
       location.reload = guarded;
     } catch {
-      // Some browsers freeze Location#reload; unregistering the PWA worker is the real fix.
+      // Some browsers freeze Location#reload; unregistering leftover workers is the real fix.
     }
   }
 
@@ -75,21 +71,16 @@ export function suppressLocationReload(location: ReloadableLocation = window.loc
   };
 }
 
-export async function unregisterNonMswWorkers(): Promise<void> {
+/**
+ * Drop every registration (Workbox sw.js and a stale mockServiceWorker.js).
+ * MSW reloads when a mock worker is registered but is not the controller —
+ * that is the production loop. Start() then registers exactly one worker.
+ */
+export async function unregisterServiceWorkers(): Promise<void> {
   if (!('serviceWorker' in navigator)) return;
 
   const registrations = await navigator.serviceWorker.getRegistrations();
-  await Promise.all(
-    registrations.map(async (registration) => {
-      const script =
-        registration.active?.scriptURL ??
-        registration.waiting?.scriptURL ??
-        registration.installing?.scriptURL ??
-        '';
-      if (!script || isMswWorkerScript(script)) return;
-      await registration.unregister();
-    })
-  );
+  await Promise.all(registrations.map((registration) => registration.unregister()));
 }
 
 async function startWithTimeout(worker: StartableWorker): Promise<void> {
@@ -105,7 +96,7 @@ async function startWithTimeout(worker: StartableWorker): Promise<void> {
       worker.start({
         onUnhandledRequest: 'bypass',
         quiet: true,
-        serviceWorker: { url: mockWorkerUrl() },
+        serviceWorker: { url: mockWorkerUrl(), options: { updateViaCache: 'none' } },
       }),
       timeout,
     ]);
@@ -128,7 +119,7 @@ export async function startMocks({
 
   const restoreReload = suppressLocationReload(location);
   try {
-    await unregisterNonMswWorkers();
+    await unregisterServiceWorkers();
     const { worker } = await loadWorker();
     await startWithTimeout(worker);
     return true;

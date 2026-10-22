@@ -40,7 +40,16 @@ The app uses `supabase-js` `signInWithOAuth({ provider: 'google' })`. The projec
 
 The hosted API is not deployed. If the local API is not running, set `VITE_USE_MSW=true` in `apps/web/.env` (or in the Cloudflare Pages build env). MSW handlers are shaped by contract v0.4 (`GET /v1/me`, consent, families, events).
 
-When `VITE_USE_MSW=true`, the PWA service worker is **not** registered or generated. `sw.js` and `mockServiceWorker.js` cannot share the same scope — that clash is what produced the production “mock fail” + reload loop. A failed MSW start logs a warning and still boots `/login`; it does not reload.
+When `VITE_USE_MSW=true`:
+
+- VitePWA is disabled (`loadEnv` + `process.env`) and leftover `manifest.webmanifest` / `workbox-*` files are stripped from `dist`. `public/sw.js` is a tombstone (unregister + clear caches) so a previous Workbox install can update — a missing `/sw.js` would be SPA-rewritten to `index.html` and the old worker could never be replaced.
+- `virtual:pwa-register` is not imported, so `workbox-window` is not in the bundle.
+- `startMocks()` unregisters every existing service worker (including a leftover Workbox `sw.js` from an older deploy and a stale `mockServiceWorker.js`) before calling `worker.start()`.
+- MSW’s `location.reload()` (fired when a mock worker is registered but not yet controlling) is swallowed so `/login` cannot loop.
+- `public/_headers` forces `/mockServiceWorker.js` to `application/javascript`. Do **not** add `public/_routes.json` — `include: ["/*"]` can send the worker through the Functions/SPA path and return `index.html`.
+- `scripts/assert-dist.mjs` fails the build if either worker is missing/HTML, or if an MSW build still contains `manifest.webmanifest` or a Workbox `sw.js`.
+
+A failed MSW start logs a warning and still boots `/login`; it does not reload.
 
 ## Scripts
 
@@ -59,19 +68,19 @@ Build contracts first if types are stale: `pnpm --filter @still-with-you/contrac
 | Setting | Value |
 |---|---|
 | Root directory | repository root (workspace) |
-| Build command | `pnpm install && pnpm --filter @still-with-you/contracts build && pnpm --filter @still-with-you/web build` |
+| Build command | `pnpm install --frozen-lockfile && pnpm --filter "./packages/*" build && pnpm --filter @still-with-you/web build` |
 | Build output | `apps/web/dist` |
 | Framework preset | None (Vite) |
-| SPA fallback | `apps/web/public/_redirects` → `/* /index.html 200` |
+| SPA fallback | `apps/web/public/_redirects` → `/* /index.html 200` (static files win; no self-rewrites, no `_routes.json`) |
 
 Required Pages environment variables (build-time):
 
 - `VITE_API_URL` — public API origin (no trailing slash)
 - `VITE_SUPABASE_URL` — `https://hazkqphgdkklsvkrhubg.supabase.co`
 - `VITE_SUPABASE_PUBLISHABLE_KEY` — publishable key
-- `VITE_USE_MSW` — `false` in production
+- `VITE_USE_MSW` — `true` until the hosted API exists (`false` once `/v1` is deployed)
 
-`error-offline.webp` (and its copy) are precached by `vite-plugin-pwa` so the offline screen works without a network.
+When `VITE_USE_MSW` is not `true`, `error-offline.webp` (and its copy) are precached by `vite-plugin-pwa` so the offline screen works without a network.
 
 ## Copy
 

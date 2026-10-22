@@ -1,4 +1,3 @@
-/mockServiceWorker.js    /mockServiceWorker.js    200
-/sw.js                   /sw.js                   200
-/assets/*                /assets/:splat           200
-/*                       /index.html              200
+# Existing static files (mockServiceWorker.js, assets, illustrations) are
+# served first. This catch-all is only for client routes like /login.
+/*    /index.html   200

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { startMocks, suppressLocationReload, unregisterNonMswWorkers } from '@/lib/start-mocks';
+import { startMocks, suppressLocationReload, unregisterServiceWorkers } from '@/lib/start-mocks';
 
 function stubServiceWorker(value: unknown) {
   Object.defineProperty(navigator, 'serviceWorker', {
@@ -24,12 +24,12 @@ describe('suppressLocationReload', () => {
   });
 });
 
-describe('unregisterNonMswWorkers', () => {
+describe('unregisterServiceWorkers', () => {
   afterEach(() => {
     stubServiceWorker(undefined);
   });
 
-  it('unregisters the PWA worker and leaves the MSW worker', async () => {
+  it('unregisters both the PWA worker and a leftover MSW worker', async () => {
     const pwa = {
       active: { scriptURL: 'https://app.example/sw.js' },
       unregister: vi.fn().mockResolvedValue(true),
@@ -42,10 +42,10 @@ describe('unregisterNonMswWorkers', () => {
       getRegistrations: vi.fn().mockResolvedValue([pwa, msw]),
     });
 
-    await unregisterNonMswWorkers();
+    await unregisterServiceWorkers();
 
     expect(pwa.unregister).toHaveBeenCalledTimes(1);
-    expect(msw.unregister).not.toHaveBeenCalled();
+    expect(msw.unregister).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -67,7 +67,10 @@ describe('startMocks', () => {
     expect(start).toHaveBeenCalledWith(
       expect.objectContaining({
         onUnhandledRequest: 'bypass',
-        serviceWorker: { url: '/mockServiceWorker.js' },
+        serviceWorker: {
+          url: '/mockServiceWorker.js',
+          options: { updateViaCache: 'none' },
+        },
       })
     );
     expect(reload).not.toHaveBeenCalled();
@@ -88,15 +91,14 @@ describe('startMocks', () => {
     warn.mockRestore();
   });
 
-  it('swallows an MSW-style reload when a mock worker exists but is not controlling', async () => {
+  it('unregisters a leftover mock worker before start so MSW does not reload', async () => {
+    const leftover = {
+      active: { scriptURL: 'https://app.example/mockServiceWorker.js' },
+      unregister: vi.fn().mockResolvedValue(true),
+    };
     stubServiceWorker({
       controller: null,
-      getRegistrations: vi.fn().mockResolvedValue([
-        {
-          active: { scriptURL: 'https://app.example/mockServiceWorker.js' },
-          unregister: vi.fn().mockResolvedValue(true),
-        },
-      ]),
+      getRegistrations: vi.fn().mockResolvedValue([leftover]),
     });
     const reload = vi.fn();
     const location = { reload };
@@ -107,6 +109,7 @@ describe('startMocks', () => {
     await expect(startMocks({ loadWorker: async () => ({ worker: { start } }), location })).resolves.toBe(
       true
     );
+    expect(leftover.unregister).toHaveBeenCalledTimes(1);
     expect(reload).not.toHaveBeenCalled();
   });
 });
