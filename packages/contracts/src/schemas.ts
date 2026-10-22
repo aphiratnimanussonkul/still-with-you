@@ -65,9 +65,12 @@ export const familyListResponseSchema = z.object({
 });
 
 // Media upload session (frontend/MSW draft; backend still shipping)
+export const mediaPurposeSchema = z.enum(['story', 'avatar']);
+
 export const createMediaUploadSchema = z.object({
   content_type: z.string(),
   size_bytes: z.number().int().positive(),
+  purpose: mediaPurposeSchema.optional(),
 });
 
 export const mediaUploadSessionSchema = z.object({
@@ -275,21 +278,84 @@ export const updateFocusSchema = z.object({
   person_ids: z.array(uuidSchema),
 });
 
+export const personGenderSchema = z.enum(['female', 'male', 'other']);
+export const birthDatePrecisionSchema = z.enum(['day', 'year']);
+export const relationshipTypeSchema = z.enum(['parent', 'spouse']);
+export const personInviteStatusSchema = z.enum(['none', 'pending', 'linked']);
+
+const optionalNameSchema = z.string().optional();
+const optionalNullableString = z.string().trim().nullable().optional();
+const birthDateInputSchema = z
+  .string()
+  .regex(/^\d{4}(-\d{2}-\d{2})?$/, 'birth_date must be YYYY or YYYY-MM-DD')
+  .nullable()
+  .optional();
+
 export const createPersonSchema = z.object({
-  name: nonEmptyStringSchema,
+  display_name: optionalNameSchema,
+  name: optionalNameSchema,
+  family_name: optionalNullableString,
   relation_label: z.string().trim().min(1).nullable().optional(),
+  gender: personGenderSchema.nullable().optional(),
+  birth_date: birthDateInputSchema,
+  birth_date_precision: birthDatePrecisionSchema.optional(),
+  bio: z.string().trim().max(2000).nullable().optional(),
+  avatar_media_id: uuidSchema.nullable().optional(),
+});
+
+export const updatePersonSchema = z.object({
+  display_name: optionalNameSchema,
+  name: optionalNameSchema,
+  family_name: optionalNullableString,
+  relation_label: z.string().trim().min(1).nullable().optional(),
+  gender: personGenderSchema.nullable().optional(),
+  birth_date: birthDateInputSchema,
+  birth_date_precision: birthDatePrecisionSchema.optional(),
+  bio: z.string().trim().max(2000).nullable().optional(),
+  avatar_media_id: uuidSchema.nullable().optional(),
+});
+
+export const createRelationshipSchema = z.object({
+  person_id: uuidSchema,
+  related_person_id: uuidSchema,
+  type: relationshipTypeSchema,
 });
 
 export const personResponseSchema = z.object({
   id: uuidSchema,
   family_id: uuidSchema,
+  display_name: z.string(),
   name: z.string(),
+  family_name: z.string().nullable().optional(),
   relation_label: z.string().nullable().optional(),
+  gender: personGenderSchema.nullable().optional(),
+  birth_date: z.string().nullable().optional(),
+  birth_date_precision: birthDatePrecisionSchema.optional(),
+  age: z.number().int().nullable().optional(),
+  bio: z.string().nullable().optional(),
+  avatar_media_id: uuidSchema.nullable().optional(),
+  avatar_url: z.string().url().nullable().optional(),
   account_id: uuidSchema.nullable().optional(),
+  invite_status: personInviteStatusSchema.optional(),
+  created_by_account_id: uuidSchema.optional(),
+  created_at: z.string().datetime().optional(),
+  updated_at: z.string().datetime().optional(),
+  deleted_at: z.string().datetime().nullable().optional(),
+});
+
+export const relationshipResponseSchema = z.object({
+  id: uuidSchema,
+  family_id: uuidSchema,
+  person_id: uuidSchema,
+  related_person_id: uuidSchema,
+  type: relationshipTypeSchema,
+  created_by_account_id: uuidSchema,
+  created_at: z.string().datetime(),
 });
 
 export const personListResponseSchema = z.object({
   people: z.array(personResponseSchema),
+  relationships: z.array(relationshipResponseSchema).optional(),
 });
 
 export const createFactSchema = z.object({
@@ -396,7 +462,10 @@ export type UpdateContribution = z.infer<typeof updateContributionSchema>;
 export type ContributionResponse = z.infer<typeof contributionResponseSchema>;
 export type ContributionListResponse = z.infer<typeof contributionListResponseSchema>;
 export type CreatePerson = z.infer<typeof createPersonSchema>;
+export type UpdatePerson = z.infer<typeof updatePersonSchema>;
+export type CreateRelationship = z.infer<typeof createRelationshipSchema>;
 export type PersonResponse = z.infer<typeof personResponseSchema>;
+export type RelationshipResponse = z.infer<typeof relationshipResponseSchema>;
 export type PersonListResponse = z.infer<typeof personListResponseSchema>;
 export type CreateUpload = z.infer<typeof createUploadSchema>;
 export type CreateMediaUpload = z.infer<typeof createMediaUploadSchema>;

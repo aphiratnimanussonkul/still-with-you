@@ -41,8 +41,14 @@ describe('Focus people + quick questions', () => {
     familyId = JSON.parse(familyRes.body).id;
     await db.insert(familyMembers).values({ familyId, accountId: member.id, role: 'member' });
 
-    [grandma] = await db.insert(people).values({ familyId, displayName: 'ยาย' }).returning();
-    [grandpa] = await db.insert(people).values({ familyId, displayName: 'ปู่' }).returning();
+    [grandma] = await db
+      .insert(people)
+      .values({ familyId, displayName: 'ยาย', createdByAccountId: steward.id })
+      .returning();
+    [grandpa] = await db
+      .insert(people)
+      .values({ familyId, displayName: 'ปู่', createdByAccountId: steward.id })
+      .returning();
 
     const questions = await db.select().from(questionBank);
     q01 = questions.find((row) => row.key === 'q01')!;
@@ -143,7 +149,7 @@ describe('Focus people + quick questions', () => {
     const otherFamilyId = JSON.parse(otherFamily.body).id;
     const [stranger] = await db
       .insert(people)
-      .values({ familyId: otherFamilyId, displayName: 'คนนอก' })
+      .values({ familyId: otherFamilyId, displayName: 'คนนอก', createdByAccountId: outsider.id })
       .returning();
 
     const put = await server.inject({
@@ -160,7 +166,7 @@ describe('Focus people + quick questions', () => {
   it('returns 422 TOO_MANY_FOCUS above 10 people', async () => {
     const extras = await db
       .insert(people)
-      .values(Array.from({ length: 9 }, (_, i) => ({ familyId, displayName: `คน${i}` })))
+      .values(Array.from({ length: 9 }, (_, i) => ({ familyId, displayName: `คน${i}`, createdByAccountId: steward.id })))
       .returning();
     const ids = [grandma.id, grandpa.id, ...extras.map((row) => row.id)];
     expect(ids).toHaveLength(11);

@@ -14,11 +14,13 @@ import {
   primaryKey,
   index,
   uniqueIndex,
+  unique,
+  foreignKey,
 } from 'drizzle-orm/pg-core';
 
 /**
  * Drizzle schema matching Supabase migrations
- * Based on backend-contract-v0.7.md
+ * Based on backend-contract-v0.8.md
  */
 
 // Enums
@@ -29,6 +31,10 @@ export const mediaStatusEnum = pgEnum('media_status', ['pending', 'uploaded', 'r
 // admin = family steward (no separate table)
 export const memberRoleEnum = pgEnum('member_role', ['member', 'admin']);
 export const questionAnswerTypeEnum = pgEnum('question_answer_type', ['text', 'choice']);
+export const personGenderEnum = pgEnum('person_gender', ['female', 'male', 'other']);
+export const birthDatePrecisionEnum = pgEnum('birth_date_precision', ['day', 'year']);
+export const relationshipTypeEnum = pgEnum('relationship_type', ['parent', 'spouse']);
+export const mediaPurposeEnum = pgEnum('media_purpose', ['story', 'avatar']);
 
 // Accounts table
 export const accounts = pgTable('accounts', {
@@ -67,27 +73,59 @@ export const familyMembers = pgTable(
 );
 
 // People table
-export const people = pgTable('people', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  familyId: uuid('family_id').notNull().references(() => families.id),
-  displayName: text('display_name').notNull(),
-  relationLabel: text('relation_label'),
-  birthDate: date('birth_date'),
-  deathDate: date('death_date'),
-  accountId: uuid('account_id').unique().references(() => accounts.id),
-});
-
-// Relationships table
-export const relationships = pgTable(
-  'relationships',
+export const people = pgTable(
+  'people',
   {
+    id: uuid('id').primaryKey().defaultRandom(),
     familyId: uuid('family_id').notNull().references(() => families.id),
-    fromPersonId: uuid('from_person_id').notNull().references(() => people.id),
-    toPersonId: uuid('to_person_id').notNull().references(() => people.id),
-    type: text('type').notNull(),
+    displayName: text('display_name').notNull(),
+    familyName: text('family_name'),
+    relationLabel: text('relation_label'),
+    gender: personGenderEnum('gender'),
+    birthDate: date('birth_date'),
+    birthDatePrecision: birthDatePrecisionEnum('birth_date_precision').notNull().default('day'),
+    deathDate: date('death_date'),
+    bio: text('bio'),
+    avatarMediaId: uuid('avatar_media_id'),
+    accountId: uuid('account_id').references(() => accounts.id),
+    createdByAccountId: uuid('created_by_account_id').notNull().references(() => accounts.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => ({
-    pk: primaryKey({ columns: [table.fromPersonId, table.toPersonId, table.type] }),
+    idFamilyKey: uniqueIndex('people_id_family_id_key').on(table.id, table.familyId),
+    familyAccountLive: uniqueIndex('people_family_account_live')
+      .on(table.familyId, table.accountId)
+      .where(sql`account_id is not null and deleted_at is null`),
+  })
+);
+
+// Stored parent/spouse edges. Composite FKs keep both people in the same family.
+export const personRelationships = pgTable(
+  'person_relationships',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    familyId: uuid('family_id').notNull().references(() => families.id),
+    personId: uuid('person_id').notNull(),
+    relatedPersonId: uuid('related_person_id').notNull(),
+    type: relationshipTypeEnum('type').notNull(),
+    createdByAccountId: uuid('created_by_account_id').notNull().references(() => accounts.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    uniquePair: unique().on(table.personId, table.relatedPersonId, table.type),
+    personFamilyFk: foreignKey({
+      columns: [table.personId, table.familyId],
+      foreignColumns: [people.id, people.familyId],
+      name: 'person_relationships_person_family_fkey',
+    }),
+    relatedFamilyFk: foreignKey({
+      columns: [table.relatedPersonId, table.familyId],
+      foreignColumns: [people.id, people.familyId],
+      name: 'person_relationships_related_family_fkey',
+    }),
+    familyIdx: index('idx_person_relationships_family').on(table.familyId),
   })
 );
 
@@ -183,6 +221,8 @@ export const media = pgTable(
     familyId: uuid('family_id').notNull().references(() => families.id),
     uploaderAccountId: uuid('uploader_account_id').notNull().references(() => accounts.id),
     storyId: uuid('story_id').references(() => contributions.id, { onDelete: 'set null' }),
+    personId: uuid('person_id').references(() => people.id),
+    purpose: mediaPurposeEnum('purpose').notNull().default('story'),
     storageKey: text('storage_key').notNull().unique(),
     contentType: text('content_type').notNull(),
     sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
@@ -197,6 +237,9 @@ export const media = pgTable(
     familyIdx: index('idx_media_family').on(table.familyId),
     storyIdx: index('idx_media_story').on(table.storyId),
     uploaderIdx: index('idx_media_uploader').on(table.uploaderAccountId),
+    avatarLive: uniqueIndex('media_person_avatar_live')
+      .on(table.personId)
+      .where(sql`purpose = 'avatar' and deleted_at is null and person_id is not null`),
   })
 );
 
@@ -286,6 +329,7 @@ export const invites = pgTable(
     email: text('email').notNull(),
     role: memberRoleEnum('role').notNull().default('member'),
     invitedBy: uuid('invited_by').notNull().references(() => accounts.id),
+    personId: uuid('person_id').references(() => people.id),
     status: text('status').notNull().default('pending'),
     tokenHash: text('token_hash').notNull().unique(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
@@ -296,6 +340,9 @@ export const invites = pgTable(
     emailStatusIdx: index('idx_invites_email_status').on(table.email, table.status),
     familyIdx: index('idx_invites_family').on(table.familyId),
     tokenIdx: index('idx_invites_token').on(table.tokenHash),
+    personPending: uniqueIndex('invites_person_pending')
+      .on(table.personId)
+      .where(sql`person_id is not null and status = 'pending'`),
   })
 );
 
