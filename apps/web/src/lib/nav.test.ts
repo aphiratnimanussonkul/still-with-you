@@ -37,4 +37,19 @@ describe('appBarForPath', () => {
     });
     expect(appBarForPath('/me/trash')).toEqual({ titleKey: 'trash.title', backTo: '/me' });
   });
+
+  it('uses people-CRUD titles with a back link to family', () => {
+    expect(appBarForPath('/family/people/new')).toEqual({
+      titleKey: 'person.add.title',
+      backTo: '/family',
+    });
+    expect(appBarForPath('/family/people/77777777-7777-4777-8777-777777777777')).toEqual({
+      titleKey: 'nav.family',
+      backTo: '/family',
+    });
+    expect(appBarForPath('/family/people/77777777-7777-4777-8777-777777777777/edit')).toEqual({
+      titleKey: 'person.edit.title',
+      backTo: '/family/people/77777777-7777-4777-8777-777777777777',
+    });
+  });
 });

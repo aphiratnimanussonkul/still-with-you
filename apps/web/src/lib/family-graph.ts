@@ -36,6 +36,7 @@ export const familyInviteSchema = z.object({
   email: z.string(),
   role: z.enum(['member', 'admin']).optional(),
   invited_by: z.string().uuid().optional(),
+  person_id: z.string().uuid().nullable().optional(),
   url: z.string().url().optional(),
   status: z.enum(['pending', 'accepted', 'revoked', 'expired']).optional(),
   expires_at: z.string().datetime(),
@@ -59,6 +60,33 @@ export const personInviteSchema = z.object({
   url: z.string().url().optional(),
   expires_at: z.string().datetime(),
   created_at: z.string().datetime().optional(),
+});
+
+export const personGenderSchema = z.enum(['female', 'male', 'other']).nullable();
+
+export const familyRelationshipSchema = z.object({
+  id: z.string().uuid(),
+  person_id: z.string().uuid(),
+  related_person_id: z.string().uuid(),
+  type: z.enum(['parent', 'spouse']),
+});
+
+export const createPersonSchema = z.object({
+  display_name: z.string().trim().min(1),
+  family_name: z.string().trim().optional(),
+  gender: z.enum(['female', 'male', 'other']).nullable().optional(),
+  birth_date: z.string().optional(),
+  bio: z.string().max(2000).optional(),
+  avatar_media_id: z.string().uuid().optional(),
+  relation_label: z.string().optional(),
+});
+
+export const updatePersonSchema = createPersonSchema.partial();
+
+export const createRelationshipSchema = z.object({
+  person_id: z.string().uuid(),
+  related_person_id: z.string().uuid(),
+  type: z.enum(['parent', 'spouse']),
 });
 
 export const contributionItemSchema = z.object({
@@ -124,10 +152,10 @@ export const familyGraph = {
     return request(`/v1/families/${familyId}/invites`, familyInvitesSchema);
   },
 
-  createInvite(familyId: string, email: string) {
+  createInvite(familyId: string, body: { email?: string; person_id?: string }) {
     return request(`/v1/families/${familyId}/invites`, familyInviteSchema, {
       method: 'POST',
-      body: { email },
+      body,
     });
   },
 
@@ -142,7 +170,7 @@ export const familyGraph = {
   createPerson(familyId: string, body: CreatePersonBody) {
     return request(`/v1/families/${familyId}/people`, createPersonResultSchema, {
       method: 'POST',
-      body,
+      body: createPersonSchema.parse(body),
     });
   },
 

@@ -171,3 +171,41 @@ describe('family-graph vs live API handlers', () => {
     expect(created.created_at).toBeUndefined();
   });
 });
+
+describe('family people contract v0.8', () => {
+  it('requires display_name and defaults relationships to []', () => {
+    expect(createPersonSchema.safeParse({}).success).toBe(false);
+    expect(createPersonSchema.safeParse({ name: 'ยายสมศรี' }).success).toBe(false);
+    expect(createPersonSchema.parse({ display_name: ' ยายสมศรี ' }).display_name).toBe('ยายสมศรี');
+    expect(createPersonSchema.parse({ display_name: 'ยายสมศรี', gender: null }).gender).toBeNull();
+    expect(createPersonSchema.safeParse({ display_name: 'ยาย', bio: 'x'.repeat(2001) }).success).toBe(
+      false
+    );
+    expect(familyPeopleSchema.parse({ people: mockPeople }).relationships).toBeUndefined();
+  });
+
+  it('parses parent and spouse relationships', () => {
+    expect(
+      createRelationshipSchema.parse({
+        person_id: mockPeople[0].id,
+        related_person_id: mockPeople[1].id,
+        type: 'parent',
+      }).type
+    ).toBe('parent');
+    expect(
+      createRelationshipSchema.safeParse({
+        person_id: mockPeople[0].id,
+        related_person_id: mockPeople[1].id,
+        type: 'child',
+      }).success
+    ).toBe(false);
+  });
+
+  it('allows a partial PATCH and uses display_name for the person label', () => {
+    expect(updatePersonSchema.parse({ family_name: 'นิมานุสสรณ์กุล' }).family_name).toBe(
+      'นิมานุสสรณ์กุล'
+    );
+    expect(personDisplayName(mockPeople[0])).toBe('ยายสมศรี');
+    expect(personDisplayName({ display_name: '', name: 'ปู่สมชาย' })).toBe('ปู่สมชาย');
+  });
+});

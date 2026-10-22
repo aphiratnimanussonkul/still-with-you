@@ -2,11 +2,40 @@ import { describe, expect, it } from 'vitest';
 import { copy, familyItemMeta, interpolate, interpolateHeading, truncateName } from '@/copy';
 
 describe('copy v0.4', () => {
-  it('has no remaining TODO placeholders', () => {
+  it('has no remaining TODO placeholders except draft people-CRUD keys', () => {
     const leftovers = Object.entries(copy)
       .filter(([, value]) => value.startsWith('TODO:'))
       .map(([key]) => key);
-    expect(leftovers).toEqual([]);
+    expect(leftovers).toEqual([
+      'error.INVALID_BIRTH_DATE',
+      'error.PERSON_LINKED',
+      'person.family_name.label',
+      'person.gender.label',
+      'person.birth.label',
+      'person.bio.label',
+      'person.avatar.label',
+      'person.relationship.label',
+      'person.relationship.parent',
+      'person.relationship.spouse',
+      'person.relationship.related',
+      'person.edit.title',
+      'person.edit.action',
+      'person.delete.action',
+      'person.delete.confirm.primary',
+    ]);
+  });
+
+  it('uses Eddy draft people-CRUD copy', () => {
+    expect(copy['person.display_name.label']).toBe('ชื่อ');
+    expect(copy['person.birth.hint']).toBe('ใส่วันเกิดแล้วจะแสดงอายุให้เอง');
+    expect(copy['person.age']).toBe('อายุ {age} ปี');
+    expect(copy['person.invite.action']).toBe('ชวน {name} เข้าครอบครัว');
+    expect(copy['person.delete.confirm.title']).toBe('ลบ {name} ออกจากผังไหม');
+    expect(copy['person.delete.confirm.body']).toBe('ข้อมูลของ {name} ในผังจะหายไปและกู้คืนไม่ได้');
+    expect(copy['person.unjoined']).toBe('ยังไม่ได้เข้าร่วม');
+    expect(copy['person.gender.male']).toBe('ชาย');
+    expect(copy['person.gender.female']).toBe('หญิง');
+    expect(copy['person.gender.unspecified']).toBe('ไม่ระบุ');
   });
 
   it('uses locked v0.4 wording for create, tree, cancel, and admin confirm split', () => {

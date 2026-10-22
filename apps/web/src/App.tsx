@@ -13,6 +13,8 @@ import { AddPersonPage } from '@/pages/AddPersonPage';
 import { FamilyPage } from '@/pages/FamilyPage';
 import { PersonPage } from '@/pages/PersonPage';
 import { HomePage } from '@/pages/HomePage';
+import { PersonFormPage } from '@/pages/PersonFormPage';
+import { PersonPage } from '@/pages/PersonPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { MePage } from '@/pages/MePage';
 import { MemoriesPage } from '@/pages/MemoriesPage';

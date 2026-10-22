@@ -63,12 +63,16 @@ async function jsonRequest<T>(
 
 export function createMediaUpload(
   familyId: string,
-  body: { content_type: string; size_bytes: number }
+  body: { content_type: string; size_bytes: number; purpose?: 'avatar' }
 ): Promise<MediaUploadSession> {
+  const parsed = createMediaUploadSchema.parse(body);
   return jsonRequest(
     `/v1/families/${familyId}/media/uploads`,
     (value) => mediaUploadSessionSchema.parse(value),
-    { method: 'POST', body: createMediaUploadSchema.parse(body) }
+    {
+      method: 'POST',
+      body: body.purpose ? { ...parsed, purpose: body.purpose } : parsed,
+    }
   );
 }
 

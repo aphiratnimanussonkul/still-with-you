@@ -39,6 +39,18 @@ import {
   mockTrash,
 } from '@/mocks/data';
 import {
+  createPersonSchema,
+  createRelationshipSchema,
+  familyInviteSchema,
+  familyInvitesSchema,
+  familyMembersSchema,
+  familyPersonSchema,
+  familyRelationshipSchema,
+  updatePersonSchema,
+  type FamilyPerson,
+  type FamilyRelationship,
+} from '@/lib/family-graph';
+import {
   createFactSchema,
   familyFocusRequestSchema,
   skipFactSchema,
@@ -88,8 +100,15 @@ const people = [...mockPeople];
 const relationships = [...mockRelationships];
 const members = [...mockMembers];
 const trash = [...mockTrash];
-const invites: { id: string; family_id: string; email: string; status: 'pending'; expires_at: string; created_at: string }[] =
-  [];
+const invites: {
+  id: string;
+  family_id: string;
+  email: string;
+  person_id?: string | null;
+  status: 'pending';
+  expires_at: string;
+  created_at: string;
+}[] = [];
 const focusByFamily: Record<string, string[]> = { ...mockFocusIds };
 const skippedQuestions = new Set<string>();
 const answeredQuestions = new Set<string>();
@@ -192,6 +211,14 @@ function toContributionResponse(item: (typeof contributions)[number]) {
   };
 }
 
+function toPersonResponse(person: FamilyPerson) {
+  return familyPersonSchema.parse({
+    ...person,
+    display_name: person.display_name,
+    name: person.display_name,
+  });
+}
+
 function requireAuth(request: Request) {
   const header = request.headers.get('Authorization');
   if (!header?.startsWith('Bearer ')) {
@@ -265,7 +292,8 @@ export const handlers = [
   http.post(`${api}/v1/families/:fid/media/uploads`, async ({ request }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    const body = createMediaUploadSchema.parse(await request.json());
+    const raw = (await request.json()) as { purpose?: string };
+    const body = createMediaUploadSchema.parse(raw);
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
     if (!allowed.includes(body.content_type)) {
       return HttpResponse.json(
@@ -292,7 +320,7 @@ export const handlers = [
       upload_url: `${api}/v1/mock-uploads/${mediaId}`,
       expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
       max_bytes: MEDIA_DEFAULTS.maxBytes,
-      max_per_story: MEDIA_DEFAULTS.maxPerStory,
+      max_per_story: raw.purpose === 'avatar' ? 1 : MEDIA_DEFAULTS.maxPerStory,
     });
     return HttpResponse.json(session, { status: 201 });
   }),
@@ -479,17 +507,25 @@ export const handlers = [
   http.post(`${api}/v1/families/:fid/invites`, async ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    const body = (await request.json()) as { email?: string };
-    if (!body.email) {
+    const body = (await request.json()) as { email?: string; person_id?: string };
+    const member = members.find((row) => row.family_id === params.fid && row.account_id === account.id);
+    if (body.person_id && member?.role !== 'admin') {
       return HttpResponse.json(
-        { error: { code: 'INVALID_INPUT', message: 'email required', field: 'email' } },
+        { error: { code: 'FORBIDDEN', message: 'Admin required' } },
+        { status: 403 }
+      );
+    }
+    if (!body.email && !body.person_id) {
+      return HttpResponse.json(
+        { error: { code: 'INVALID_INPUT', message: 'email or person_id required' } },
         { status: 400 }
       );
     }
     const created = {
       id: crypto.randomUUID(),
       family_id: String(params.fid),
-      email: body.email,
+      email: body.email ?? '',
+      person_id: body.person_id ?? null,
       status: 'pending' as const,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       created_at: new Date().toISOString(),
@@ -510,6 +546,8 @@ export const handlers = [
   http.get(`${api}/v1/families/:fid/people`, ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
+    const familyPeople = people.filter((person) => person.family_id === params.fid);
+    const familyIds = new Set(familyPeople.map((person) => person.id));
     return jsonContract(personListResponseSchema, {
       people: people.filter((person) => person.family_id === params.fid),
       relationships: relationships.filter((edge) => edge.family_id === params.fid),

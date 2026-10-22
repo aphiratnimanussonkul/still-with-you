@@ -2,10 +2,13 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { Link } from 'react-router-dom';
 import { PlusIcon } from '@phosphor-icons/react/Plus';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { FamilySwitcher } from '@/components/FamilySwitcher';
 import { FamilyTreeCanvas } from '@/components/FamilyTreeCanvas';
 import { Illustration } from '@/components/Illustration';
+import { PersonFactsSection } from '@/components/PersonFactsSection';
 import { QueryLoading } from '@/components/QueryLoading';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
