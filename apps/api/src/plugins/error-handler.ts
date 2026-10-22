@@ -28,11 +28,21 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
     // Handle Zod validation errors
     if (error instanceof ZodError) {
       const firstError = error.errors[0];
+      const field = firstError.path.join('.');
+      if (field === 'story') {
+        return reply.status(400).send({
+          error: {
+            code: ErrorCode.STORY_REQUIRED,
+            message: errorMessages[ErrorCode.STORY_REQUIRED],
+            field: 'story',
+          },
+        });
+      }
       return reply.status(400).send({
         error: {
           code: ErrorCode.INVALID_INPUT,
           message: firstError.message,
-          field: firstError.path.join('.'),
+          field,
         },
       });
     }

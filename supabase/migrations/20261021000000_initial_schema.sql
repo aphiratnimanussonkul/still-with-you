@@ -114,6 +114,9 @@ create table if not exists events (
 
 alter table events enable row level security;
 
+-- Idempotent for databases created before archived_at existed
+alter table events add column if not exists archived_at timestamptz;
+
 create index if not exists idx_event_family_status on events(family_id, status);
 create index if not exists idx_event_creator on events(creator_account_id);
 
@@ -492,7 +495,7 @@ $$;
 comment on table accounts is 'User accounts from Supabase Auth';
 comment on table families is 'Family groups that organize memories';
 comment on table family_members is 'Members of families with roles (admin/member)';
-comment on column family_members.role is 'Admin can invite, promote/demote members; all can create events';
+comment on column family_members.role is 'member or admin. admin is the family steward (no separate table); stewards can invite, change roles, and manage any event';
 comment on table people is 'People in family tree, may or may not have accounts';
 comment on table events is 'Memory events that group contributions';
 comment on column events.status is 'active (normal), archived (hidden from others), deleted (tombstone)';

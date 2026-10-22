@@ -48,6 +48,7 @@ export interface ApiError {
     code: ErrorCode;
     message: string;
     field?: string;
+    details?: Record<string, unknown>;
   };
 }
 
@@ -56,7 +57,8 @@ export class AppError extends Error {
     public code: ErrorCode,
     message: string,
     public statusCode: number = 500,
-    public field?: string
+    public field?: string,
+    public details?: Record<string, unknown>
   ) {
     super(message);
     this.name = 'AppError';
@@ -68,6 +70,7 @@ export class AppError extends Error {
         code: this.code,
         message: this.message,
         ...(this.field && { field: this.field }),
+        ...(this.details && { details: this.details }),
       },
     };
   }

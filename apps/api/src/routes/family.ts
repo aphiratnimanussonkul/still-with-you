@@ -12,7 +12,8 @@ import crypto from 'crypto';
  * GET /v1/families/:fid/invites - List pending invites (admin only)
  * POST /v1/invites/:token/accept - Accept invite
  * DELETE /v1/invites/:id - Revoke invite (admin only)
- * PATCH /v1/families/:fid/members/:aid - Update role (admin only)
+ * PATCH /v1/families/:fid/members/:aid - Update role (family steward / admin only)
+ * PATCH /v1/families/:fid/members/:aid/role - Same as above (AC-25)
  * DELETE /v1/families/:fid/members/:aid - Remove member (admin only)
  * POST /v1/families/:fid/leave - Leave family (self)
  */
@@ -37,7 +38,7 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
     const member = await checkActiveMember(familyId, accountId);
 
     if (member.role !== 'admin') {
-      throw new AppError(ErrorCode.FORBIDDEN, 'This action requires admin role', 403);
+      throw new AppError(ErrorCode.FORBIDDEN, 'This action requires the family steward (admin) role', 403);
     }
 
     return member;
@@ -295,18 +296,17 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(204).send();
   });
 
-  // Update member role (admin only)
-  fastify.patch<{ Params: { fid: string; aid: string } }>('/families/:fid/members/:aid', async (request, reply) => {
+  // Update member role (family steward / admin only). Last-admin rules unchanged (AC-25).
+  const updateMemberRole = async (
+    request: { params: { fid: string; aid: string }; body: unknown; user?: { id: string } },
+    reply: { send: (payload: { success: true }) => unknown }
+  ) => {
     const { fid, aid } = request.params;
     const body = updateMemberRoleSchema.parse(request.body);
 
-    // Check admin permission
     await checkAdmin(fid, request.user!.id);
-
-    // Get target member
     await checkActiveMember(fid, aid);
 
-    // Update role (last admin check is in database trigger)
     try {
       await db
         .update(familyMembers)
@@ -319,7 +319,6 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
       throw error;
     }
 
-    // Audit log
     await db.insert(auditLog).values({
       actorAccountId: request.user!.id,
       action: 'member_role_update',
@@ -328,7 +327,10 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     return reply.send({ success: true });
-  });
+  };
+
+  fastify.patch<{ Params: { fid: string; aid: string } }>('/families/:fid/members/:aid', updateMemberRole);
+  fastify.patch<{ Params: { fid: string; aid: string } }>('/families/:fid/members/:aid/role', updateMemberRole);
 
   // Remove member (admin only)
   fastify.delete<{ Params: { fid: string; aid: string } }>('/families/:fid/members/:aid', async (request, reply) => {

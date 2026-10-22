@@ -1,8 +1,9 @@
 # Still With You — Backend Contract v0.4
 
-**Updated:** Oct 21, 2026  
+**Updated:** Oct 22, 2026  
 **Changes from v0.3:** Role-based permissions, marketing consent, JWT auth via Supabase JWKS, RLS with privileged role  
-**References:** Domain Model v0.4 (Kret), Requirements v1.1
+**Requirements v1.2 (AC-19..AC-27):** family steward, `archived_at` / `deletable_at`, 7-day permanent delete, `canManageEvent`, owner-only stories  
+**References:** Domain Model v0.4 (Kret), Requirements v1.1 / v1.2
 
 ## 1. Core Principles
 
@@ -18,15 +19,16 @@
 ### 2.1 New Role System
 
 ```sql
--- family_members now has role enum
+-- family_members.role = 'admin' is the family steward. No separate table.
 create type member_role as enum ('member', 'admin');
 
 alter table family_member add column role member_role not null default 'member';
 
--- Family creator becomes first admin automatically (trigger)
--- Only admins can invite members and promote/demote admins
--- At least one admin must exist at all times (enforced by trigger)
+-- Family creator becomes first steward (admin) automatically (trigger)
+-- Only stewards can invite members and promote/demote stewards
+-- Last-steward rules (LAST_ADMIN 409) unchanged
 -- All members can create events and contributions
+-- Stewards or the event creator may edit/archive/restore/permanently delete events (canManageEvent)
 ```
 
 ### 2.2 Marketing Consent
@@ -120,7 +122,7 @@ create table event (
   date_precision text,
   location text,
   status event_status not null default 'active',
-  archived_at timestamptz,
+  archived_at timestamptz, -- set to now() on every archive (re-archive overwrites); null on restore
   deleted_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -249,7 +251,8 @@ create table idempotency_key (
 | POST | `/v1/families` | Authenticated | Create family (creator becomes first admin) |
 | GET | `/v1/families/{fid}` | Family member | Get family details |
 | POST | `/v1/families/{fid}/invites` | Admin only | Invite new member (403 if not admin) |
-| PATCH | `/v1/families/{fid}/members/{aid}` | Admin only | Promote/demote member role (403 if not admin) |
+| PATCH | `/v1/families/{fid}/members/{aid}` | Steward only | Promote/demote role (last-admin → 409 LAST_ADMIN) |
+| PATCH | `/v1/families/{id}/members/{accountId}/role` | Steward only | Same handler (AC-25) |
 | DELETE | `/v1/families/{fid}/members/{aid}` | Admin only | Remove member (cannot remove last admin) |
 
 ```json
@@ -268,23 +271,49 @@ create table idempotency_key (
 
 | Method | Path | Permission | Notes |
 |--------|------|------------|-------|
-| POST | `/families/{fid}/events` | Member | Create new or from trash with `source_contribution_ids` |
-| GET | `/families/{fid}/events?cursor=` | Member | Only active + archived owned events |
-| GET | `/events/{id}` | Per matrix | Archived: 404 for non-creator |
-| PATCH | `/events/{id}` | Creator | Requires `If-Match: <version>` |
-| POST | `/events/{id}/archive` | Creator | active → archived |
-| POST | `/events/{id}/unarchive` | Creator | archived → active |
-| POST | `/events/{id}/delete` | Creator | Requires `{ "confirm_text": "<event_title>" }`, only when archived |
+| POST | `/families/{fid}/events` | Member | Create event; **`story` required** (first contribution). `{ title, story, ... }` |
+| GET | `/families/{fid}/events?cursor=` | Member | Active for all members; archived only for creator or steward |
+| GET | `/events/{id}` | Per matrix | Archived: 404 unless creator or steward |
+| PATCH | `/events/{id}` | `canManageEvent` | Core fields; creator or steward |
+| POST | `/events/{id}/archive` | `canManageEvent` | Sets `archived_at = now()` (re-archive overwrites). No auto-delete job |
+| POST | `/events/{id}/unarchive` | `canManageEvent` | Restore: `status=active`, `archived_at=null` |
+| POST | `/events/{id}/delete` | `canManageEvent` | Permanent delete (AC-19). Confirm text exactly `ลบเรื่องนี้` after trim |
+
+Event responses include `archived_at` and `deletable_at` (`archived_at + 7 days`, ISO 8601 UTC). Both are `null` when the event is not archived.
+
+```json
+// POST /events/{id}/delete
+{ "confirm_text": "ลบเรื่องนี้" }
+
+// 403 FORBIDDEN details when not archived, cooling not elapsed, or caller cannot manage
+{
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Event can only be permanently deleted by the creator or a family steward after 7 days archived",
+    "details": {
+      "archived_at": "2026-10-01T00:00:00.000Z",
+      "deletable_at": "2026-10-08T00:00:00.000Z"
+    }
+  }
+}
+```
+
+Permanent delete is allowed only when all of these hold; otherwise **403 FORBIDDEN** (AC-19):
+1. Event is archived
+2. `archived_at <= now() - interval '7 days'`
+3. Caller is the creator **or** a family steward (`role = admin`)
+
+Wrong confirm text → **400 CONFIRM_TEXT_MISMATCH**.
 
 ### 4.4 Contributions
 
 | Method | Path | Notes |
 |--------|------|-------|
-| POST | `/events/{id}/contributions` | `{ story, narrator_person_id?, media_upload_ids? }`, event must be active |
-| PATCH | `/contributions/{id}` | Owner only, `If-Match: <version>`, stores revision |
-| POST | `/contributions/{id}/trash` | Owner only, event active |
-| POST | `/contributions/{id}/restore` | Owner only, origin active |
-| DELETE | `/contributions/{id}` | Purge (owner only, works in any origin status) |
+| POST | `/events/{id}/contributions` | **`story` required** (AC-27). Event must be active. Video out of scope |
+| PATCH | `/contributions/{id}` | **Owner only** (AC-24). Steward cannot edit others' stories/media |
+| POST | `/contributions/{id}/trash` | Owner only |
+| POST | `/contributions/{id}/restore` | Owner only, origin not archived |
+| DELETE | `/contributions/{id}` | Purge (owner only). Steward cannot delete others' contributions |
 
 ### 4.5 Uploads
 
@@ -325,12 +354,12 @@ POST /v1/notifications/{id}/read
 
 | HTTP | Code | When |
 |------|------|------|
-| 400 | `STORY_REQUIRED` | Story empty or whitespace only |
-| 400 | `CONFIRM_TEXT_MISMATCH` | Confirmation text doesn't match |
+| 400 | `STORY_REQUIRED` | Story empty or whitespace only on create event or add-contribution (AC-27) |
+| 400 | `CONFIRM_TEXT_MISMATCH` | Confirmation text is not exactly `ลบเรื่องนี้` after trim |
 | 400 | `MIXED_ORIGIN_EVENTS` | Selected contributions from different origin events |
 | 400 | `FILE_TYPE_NOT_ALLOWED` / `TOO_MANY_PHOTOS` | File validation failed |
 | 401 | `UNAUTHENTICATED` | Token expired or invalid |
-| 403 | `FORBIDDEN` | Resource exists but action not permitted |
+| 403 | `FORBIDDEN` | Action not permitted. Permanent delete also uses this when not archived, cooling not elapsed, or caller is not creator/steward; `error.details` includes `archived_at` and `deletable_at` |
 | 403 | `ADMIN_REQUIRED` | Action requires admin role |
 | 404 | `NOT_FOUND` | Resource doesn't exist or user can't see it |
 | 409 | `LAST_ADMIN` | Cannot remove/demote last admin when other members exist |
@@ -359,23 +388,19 @@ POST /v1/notifications/{id}/read
 
 All requests must be from an active FamilyMember.
 
-| Action | Creator | Owner | Other member | Non-admin |
-|--------|---------|-------|--------------|-----------|
+`canManageEvent` = event creator **OR** family steward (`family_members.role = 'admin'`). Used for editing core fields, archive, restore, and permanent delete (AC-23, AC-26).
+
+| Action | Creator | Steward (admin) | Owner | Other member |
+|--------|---------|-----------------|-------|--------------|
 | Create event | ✅ | ✅ | ✅ | ✅ |
 | View active event | ✅ | ✅ | ✅ | ✅ |
-| View archived event | ✅ | ❌ | ❌ | ❌ |
-| Edit event fields | ✅ | ❌ | ❌ | ❌ |
-| Archive/unarchive event | ✅ | ❌ | ❌ | ❌ |
-| Delete event permanently | ✅ (archived + confirm) | ❌ | ❌ | ❌ |
-| Add contribution | ✅ (if active) | ✅ (if active) | ✅ (if active) | ✅ (if active) |
-| Edit/trash own contribution | ✅ | ✅ | ❌ | ✅ |
-| Restore own contribution | ✅ | ✅ | ❌ | ✅ |
-| Purge own contribution | ✅ | ✅ | ❌ | ✅ |
-| View own trash | ✅ | ✅ | ❌ | ✅ |
-| Create event from trash | ✅ (own items) | ✅ (own items) | ❌ | ✅ |
-| **Invite members** | **Admin only** | N/A | N/A | **403** |
-| **Promote/demote admin** | **Admin only** | N/A | N/A | **403** |
-| **Remove member** | **Admin only** | N/A | N/A | **403** |
+| View archived event | ✅ | ✅ | ❌ | ❌ |
+| Edit event fields | ✅ `canManageEvent` | ✅ `canManageEvent` | ❌ | ❌ |
+| Archive / restore event | ✅ | ✅ | ❌ | ❌ |
+| Delete event permanently | ✅ after 7 days + `ลบเรื่องนี้` | ✅ after 7 days + `ลบเรื่องนี้` | ❌ | ❌ 403 |
+| Add contribution | ✅ (if active, story required) | ✅ | ✅ | ✅ |
+| Edit/trash/purge contribution | own only | **cannot edit/delete others'** (AC-24) | own only | ❌ |
+| **Invite / change role / remove** | if steward | ✅; last-admin → 409 | N/A | 403 |
 
 ## 8. Environment Variables
 
@@ -410,10 +435,10 @@ JWT_ISSUER=${SUPABASE_URL}/auth/v1
 JWKS_URI=${SUPABASE_URL}/auth/v1/.well-known/jwks.json
 ```
 
-## 9. Changes Summary (v0.3 → v0.4)
+## 9. Changes Summary (v0.3 → v0.4 / requirements v1.2)
 
 ### Added
-- Role-based access control (admin/member)
+- Role-based access control: `admin` is the family steward (no new table)
 - Family creator automatically becomes first admin
 - Admin-only endpoints for invites and role management
 - Last admin protection (trigger)

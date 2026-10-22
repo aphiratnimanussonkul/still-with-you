@@ -40,7 +40,7 @@ still-with-you/
 
 ### Stubbed (TODO)
 
-- Event management (CRUD, archive, delete)
+- Event management (CRUD, archive, 7-day permanent delete, family steward)
 - Contribution management (create, edit, trash, restore, purge)
 - Media uploads with signed URLs
 - Trash management
@@ -166,16 +166,16 @@ All endpoints require `Authorization: Bearer <token>` except `/health`.
 - `PATCH /v1/families/:fid/members/:aid` - Update member role (admin only)
 - `DELETE /v1/families/:fid/members/:aid` - Remove member (admin only)
 
-### Events (Stubbed)
-- `POST /v1/families/:fid/events`
+### Events
+- `POST /v1/families/:fid/events` — `story` required
 - `GET /v1/families/:fid/events`
 - `GET /v1/events/:id`
-- `PATCH /v1/events/:id`
-- `POST /v1/events/:id/archive`
-- `POST /v1/events/:id/unarchive`
-- `POST /v1/events/:id/delete`
+- `PATCH /v1/events/:id` — creator or steward
+- `POST /v1/events/:id/archive` — creator or steward; sets `archived_at`
+- `POST /v1/events/:id/unarchive` — restore (`archived_at` null)
+- `POST /v1/events/:id/delete` — confirm `ลบเรื่องนี้`, archived ≥ 7 days
 
-### Contributions (Stubbed)
+### Contributions
 - `POST /v1/events/:id/contributions`
 - `PATCH /v1/contributions/:id`
 - `POST /v1/contributions/:id/trash`

@@ -59,8 +59,12 @@ export const familyMemberResponseSchema = z.object({
 });
 
 // Event schemas
+export const EVENT_DELETE_CONFIRM_TEXT = 'ลบเรื่องนี้';
+export const EVENT_DELETE_COOLING_DAYS = 7;
+
 export const createEventSchema = z.object({
   title: nonEmptyStringSchema,
+  story: nonEmptyStringSchema,
   description: z.string().optional(),
   occurred_from: z.string().date().optional(),
   occurred_to: z.string().date().optional(),
@@ -96,6 +100,7 @@ export const eventResponseSchema = z.object({
   location: z.string().nullable(),
   status: eventStatusSchema,
   archived_at: z.string().datetime().nullable(),
+  deletable_at: z.string().datetime().nullable(),
   deleted_at: z.string().datetime().nullable(),
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),

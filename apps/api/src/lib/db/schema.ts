@@ -23,6 +23,7 @@ import {
 export const eventStatusEnum = pgEnum('event_status', ['active', 'archived', 'deleted']);
 export const contributionStatusEnum = pgEnum('contribution_status', ['published', 'trashed', 'purged']);
 export const trashReasonEnum = pgEnum('trash_reason', ['owner', 'event_deleted']);
+// admin = family steward (no separate table)
 export const memberRoleEnum = pgEnum('member_role', ['member', 'admin']);
 
 // Accounts table
