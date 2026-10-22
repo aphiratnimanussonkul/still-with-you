@@ -702,14 +702,21 @@ export const handlers = [
         status: created.status,
         expires_at: created.expires_at,
         created_at: created.created_at,
+        url: created.url,
       },
       { status: 201 }
     );
   }),
 
-  http.get(`${api}/v1/people-invites/:id`, ({ params }) => {
-    const invite = invites.find((row) => row.id === params.id);
-    if (!invite || invite.status !== 'pending' || new Date(invite.expires_at).getTime() < Date.now()) {
+  http.get(`${api}/v1/invites/:token`, ({ params }) => {
+    const invite = invites.find((row) => row.id === params.token);
+    const expired = invite ? new Date(invite.expires_at).getTime() < Date.now() : false;
+    if (
+      !invite ||
+      !invite.person_id ||
+      invite.status !== 'pending' ||
+      expired
+    ) {
       return HttpResponse.json(
         { error: { code: 'INVITE_INVALID', message: 'Invite invalid' } },
         { status: 410 }
@@ -718,25 +725,19 @@ export const handlers = [
     const person = people.find((row) => row.id === invite.person_id);
     const family = families.find((row) => row.id === invite.family_id);
     return HttpResponse.json({
-      id: invite.id,
-      family_id: invite.family_id,
-      person_id: invite.person_id,
-      email: invite.email,
-      status: invite.status,
-      expires_at: invite.expires_at,
-      created_at: invite.created_at,
       family_name: family?.name ?? '',
       inviter_display_name: account.display_name,
       person_display_name: person?.display_name ?? '',
-      url: invite.url || `http://localhost:5173/invites/${invite.id}`,
+      expires_at: invite.expires_at,
     });
   }),
 
-  http.post(`${api}/v1/invites/:id/accept`, ({ request, params }) => {
+  http.post(`${api}/v1/invites/:token/accept`, ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    const invite = invites.find((row) => row.id === params.id);
-    if (!invite || invite.status !== 'pending' || new Date(invite.expires_at).getTime() < Date.now()) {
+    const invite = invites.find((row) => row.id === params.token);
+    const expired = invite ? new Date(invite.expires_at).getTime() < Date.now() : false;
+    if (!invite || !invite.person_id || invite.status !== 'pending' || expired) {
       return HttpResponse.json(
         { error: { code: 'INVITE_INVALID', message: 'Invite invalid' } },
         { status: 410 }
@@ -749,7 +750,7 @@ export const handlers = [
         { status: 410 }
       );
     }
-    if (person.account_id && person.account_id !== account.id) {
+    if (person.account_id) {
       return HttpResponse.json(
         { error: { code: 'PERSON_ALREADY_LINKED', message: 'Person already linked' } },
         { status: 409 }
@@ -767,32 +768,34 @@ export const handlers = [
         joined_at: new Date().toISOString(),
       });
     }
-    const family = families.find((row) => row.id === invite.family_id);
     return HttpResponse.json({
-      id: invite.id,
       family_id: person.family_id,
       person_id: person.id,
-      email: invite.email,
-      status: invite.status,
-      expires_at: invite.expires_at,
-      created_at: invite.created_at,
-      family_name: family?.name ?? '',
-      inviter_display_name: account.display_name,
-      person_display_name: person.display_name,
-      url: invite.url ?? '',
     });
   }),
 
   http.get(`${api}/v1/people/:id/events`, ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
+    const person = people.find((row) => row.id === params.id && !row.deleted_at);
+    if (!person || !isFamilyMember(person.family_id)) {
+      return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, { status: 404 });
+    }
     const ids = new Set(
       Object.entries(eventPeople)
-        .filter(([, personIds]) => personIds.includes(String(params.id)))
+        .filter(([, personIds]) => personIds.includes(person.id))
         .map(([eventId]) => eventId)
     );
+    const visible = events.filter((event) => ids.has(event.id));
+    const url = new URL(request.url);
+    const rawCursor = url.searchParams.get('cursor');
+    const start = rawCursor && /^\d+$/.test(rawCursor) ? Number(rawCursor) : 0;
+    const pageSize = 20;
+    const page = visible.slice(start, start + pageSize);
+    const next = start + pageSize < visible.length ? String(start + pageSize) : null;
     return HttpResponse.json({
-      events: events.filter((event) => ids.has(event.id)),
+      events: page,
+      next_cursor: next,
     });
   }),
 

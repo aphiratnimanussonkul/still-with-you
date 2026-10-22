@@ -27,18 +27,11 @@ import { familyGraph } from '@/lib/family-graph';
 import { PersonInvitePage } from '@/pages/PersonInvitePage';
 
 const inviteId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
-const invite = {
-  id: inviteId,
-  person_id: mockPeople[0].id,
-  family_id: mockFamilies[0].id,
-  email: 'user@example.com',
+const invitePreview = {
   family_name: mockFamilies[0].name,
   inviter_display_name: mockAccount.display_name,
   person_display_name: mockPeople[0].display_name,
-  url: `http://localhost:5173/invites/${inviteId}`,
-  status: 'pending' as const,
   expires_at: '2026-10-29T00:00:00.000Z',
-  created_at: '2026-10-22T00:00:00.000Z',
 };
 
 function renderInvite() {
@@ -48,7 +41,7 @@ function renderInvite() {
       <MemoryRouter initialEntries={[`/invites/${inviteId}`]}>
         <Routes>
           <Route path="/invites/:inviteId" element={<PersonInvitePage />} />
-          <Route path="/family" element={<p>family-page</p>} />
+          <Route path="/family/people/:personId" element={<p>person-page</p>} />
           <Route path="/login" element={<p>login-page</p>} />
         </Routes>
       </MemoryRouter>
@@ -61,7 +54,7 @@ describe('PersonInvitePage', () => {
     authState.session = { access_token: 'tok' };
     vi.mocked(familyGraph.getPersonInvite).mockReset();
     vi.mocked(familyGraph.acceptPersonInvite).mockReset();
-    vi.mocked(familyGraph.getPersonInvite).mockResolvedValue(invite);
+    vi.mocked(familyGraph.getPersonInvite).mockResolvedValue(invitePreview);
   });
 
   it('shows INVITE_INVALID when the invite is gone', async () => {
@@ -110,10 +103,13 @@ describe('PersonInvitePage', () => {
   });
 
   it('accepts a valid invite', async () => {
-    vi.mocked(familyGraph.acceptPersonInvite).mockResolvedValue({ ...invite, status: 'accepted' });
+    vi.mocked(familyGraph.acceptPersonInvite).mockResolvedValue({
+      family_id: mockFamilies[0].id,
+      person_id: mockPeople[0].id,
+    });
     renderInvite();
     fireEvent.click(await screen.findByRole('button', { name: copy['invite.landing.accept'] }));
     await waitFor(() => expect(familyGraph.acceptPersonInvite).toHaveBeenCalledWith(inviteId));
-    expect(await screen.findByText('family-page')).toBeTruthy();
+    expect(await screen.findByText('person-page')).toBeTruthy();
   });
 });

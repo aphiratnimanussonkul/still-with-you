@@ -232,7 +232,37 @@ describe('family people contract v0.8', () => {
         status: 'pending',
         expires_at: '2026-10-29T00:00:00.000Z',
         created_at: '2026-10-22T00:00:00.000Z',
-      }).email
-    ).toBe('user@example.com');
+        url: 'http://localhost:5173/invites/dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      }).url
+    ).toBe('http://localhost:5173/invites/dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+    expect(
+      personInvitePreviewSchema.parse({
+        family_name: 'บ้านเรา',
+        inviter_display_name: 'สมศรี',
+        person_display_name: 'ยายสมศรี',
+        expires_at: '2026-10-29T00:00:00.000Z',
+      })
+    ).toEqual({
+      family_name: 'บ้านเรา',
+      inviter_display_name: 'สมศรี',
+      person_display_name: 'ยายสมศรี',
+      expires_at: '2026-10-29T00:00:00.000Z',
+    });
+    expect(personInvitePreviewSchema.safeParse({ status: 'pending' }).success).toBe(false);
+    expect(
+      acceptPersonInviteResponseSchema.parse({
+        family_id: mockPeople[0].family_id,
+        person_id: mockPeople[0].id,
+      })
+    ).toEqual({
+      family_id: mockPeople[0].family_id,
+      person_id: mockPeople[0].id,
+    });
+    expect(
+      personEventsResponseSchema.parse({
+        events: [],
+        next_cursor: null,
+      })
+    ).toEqual({ events: [], next_cursor: null });
   });
 });

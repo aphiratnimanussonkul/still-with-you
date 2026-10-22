@@ -176,7 +176,10 @@ describe('PersonPage', () => {
   });
 
   it('lists memories that feature this person', async () => {
-    vi.mocked(familyGraph.listPersonEvents).mockResolvedValue({ events: [mockEvents[0]] });
+    vi.mocked(familyGraph.listPersonEvents).mockResolvedValue({
+      events: [mockEvents[0]],
+      next_cursor: null,
+    });
     renderPerson();
     expect(await screen.findByRole('link', { name: mockEvents[0].title ?? '' })).toHaveAttribute(
       'href',

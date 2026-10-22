@@ -6,13 +6,14 @@ import { copy, interpolate, interpolateHeading } from '@/copy';
 import { useAuth } from '@/hooks/use-auth';
 import { ApiClientError, messageForError } from '@/lib/api-errors';
 import { familyGraph } from '@/lib/family-graph';
+import { rememberFamilyId } from '@/lib/last-family';
 
 export function PersonInvitePage() {
   const { inviteId = '' } = useParams();
   const navigate = useNavigate();
   const { session } = useAuth();
   const invite = useQuery({
-    queryKey: ['people-invites', inviteId],
+    queryKey: ['invites', inviteId],
     queryFn: () => familyGraph.getPersonInvite(inviteId),
     enabled: Boolean(inviteId),
     retry: false,
@@ -21,10 +22,8 @@ export function PersonInvitePage() {
   const accept = useMutation({
     mutationFn: () => familyGraph.acceptPersonInvite(inviteId),
     onSuccess: (result) => {
-      navigate('/family', {
-        replace: true,
-        state: { familyName: result.family_name },
-      });
+      rememberFamilyId(result.family_id);
+      navigate(`/family/people/${result.person_id}`, { replace: true });
     },
   });
 
@@ -49,14 +48,14 @@ export function PersonInvitePage() {
   }
 
   if (!invite.data) return null;
-  const name = invite.data.person_display_name ?? '';
+  const name = invite.data.person_display_name;
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col gap-6 px-4 py-6">
       <h1 className="text-h2 font-semibold break-words">
         {interpolateHeading(copy['invite.landing.title'], {
-          ชื่อผู้ชวน: invite.data.inviter_display_name ?? '',
-          ชื่อครอบครัว: invite.data.family_name ?? '',
+          ชื่อผู้ชวน: invite.data.inviter_display_name,
+          ชื่อครอบครัว: invite.data.family_name,
         })}
       </h1>
       <p className="text-body text-muted-foreground">{copy['invite.landing.body']}</p>

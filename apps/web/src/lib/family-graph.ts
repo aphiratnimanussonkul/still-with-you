@@ -62,7 +62,7 @@ export const personInviteSchema = z.object({
   created_at: z.string().datetime().optional(),
 });
 
-/** POST /v1/people/{id}/invites 201. Landing extras are optional (not in the contract object). */
+/** POST /v1/people/{id}/invites 201 — `url` is returned only here, not on later fetches. */
 export const personInviteSchema = z.object({
   id: z.string().uuid(),
   family_id: z.string().uuid(),
@@ -71,14 +71,29 @@ export const personInviteSchema = z.object({
   status: z.enum(['pending', 'accepted', 'revoked', 'expired']),
   expires_at: z.string().datetime(),
   created_at: z.string().datetime(),
-  family_name: z.string().optional(),
-  inviter_display_name: z.string().optional(),
-  person_display_name: z.string().optional(),
-  url: z.string().url().optional(),
+  url: z.string().url(),
+});
+
+/** GET /v1/invites/{token} — public preview. 410 INVITE_INVALID if expired/used/revoked. */
+export const personInvitePreviewSchema = z.object({
+  family_name: z.string(),
+  inviter_display_name: z.string(),
+  person_display_name: z.string(),
+  expires_at: z.string().datetime(),
+});
+
+/** POST /v1/invites/{token}/accept 200. Login required, body {}. */
+export const acceptPersonInviteResponseSchema = z.object({
+  family_id: z.string().uuid(),
+  person_id: z.string().uuid(),
 });
 
 export const createPersonInviteSchema = z.object({
   email: z.string().email(),
+});
+
+export const personEventsResponseSchema = eventListResponseSchema.extend({
+  next_cursor: z.string().nullable(),
 });
 
 export const personGenderSchema = z.enum(['female', 'male', 'other']).nullable();
@@ -158,6 +173,8 @@ export type UpdatePersonBody = UpdatePerson;
 export type CreatePersonResult = CreatePersonResponse;
 export type RelationshipKind = PersonRelationshipKind;
 export type PersonInvite = z.infer<typeof personInviteSchema>;
+export type PersonInvitePreview = z.infer<typeof personInvitePreviewSchema>;
+export type AcceptPersonInviteResponse = z.infer<typeof acceptPersonInviteResponseSchema>;
 export type ContributionItem = z.infer<typeof contributionItemSchema>;
 export type TrashItem = z.infer<typeof trashItemSchema>;
 
@@ -199,12 +216,12 @@ export const familyGraph = {
     });
   },
 
-  getPersonInvite(inviteId: string) {
-    return request(`/v1/people-invites/${inviteId}`, personInviteSchema);
+  getPersonInvite(token: string) {
+    return request(`/v1/invites/${token}`, personInvitePreviewSchema);
   },
 
-  acceptPersonInvite(inviteId: string) {
-    return request(`/v1/invites/${inviteId}/accept`, personInviteSchema, {
+  acceptPersonInvite(token: string) {
+    return request(`/v1/invites/${token}/accept`, acceptPersonInviteResponseSchema, {
       method: 'POST',
       body: {},
     });
@@ -214,8 +231,9 @@ export const familyGraph = {
     return request(`/v1/people/${personId}`, familyPersonSchema);
   },
 
-  listPersonEvents(personId: string) {
-    return request(`/v1/people/${personId}/events`, eventListResponseSchema);
+  listPersonEvents(personId: string, cursor?: string) {
+    const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+    return request(`/v1/people/${personId}/events${query}`, personEventsResponseSchema);
   },
 
   listPeople(familyId: string) {
