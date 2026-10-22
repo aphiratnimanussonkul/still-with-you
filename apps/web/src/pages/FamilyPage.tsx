@@ -16,7 +16,7 @@ import { useSelectedFamily } from '@/hooks/use-selected-family';
 import { api } from '@/lib/api-client';
 import { messageForError } from '@/lib/api-errors';
 import { familyGraph } from '@/lib/family-graph';
-import { homeApi } from '@/lib/home-api';
+import { FOCUS_MAX, homeApi } from '@/lib/home-api';
 import { queryKeys } from '@/lib/query-client';
 
 export function FamilyPage() {
@@ -138,7 +138,8 @@ function TreePanel({ familyId }: { familyId: string }) {
   if (focus.isError) return <p className="text-body text-destructive">{messageForError(focus.error)}</p>;
 
   const items = people.data?.people ?? [];
-  const focused = new Set(focus.data?.person_ids ?? []);
+  const focusedIds = focus.data?.person_ids ?? [];
+  const focused = new Set(focusedIds);
 
   return (
     <div className="flex flex-col gap-4">
@@ -166,12 +167,17 @@ function TreePanel({ familyId }: { familyId: string }) {
                     <Checkbox
                       id={`focus-${person.id}`}
                       checked={focused.has(person.id)}
-                      disabled={toggleFocus.isPending}
+                      disabled={
+                        toggleFocus.isPending ||
+                        (!focused.has(person.id) && focusedIds.length >= FOCUS_MAX)
+                      }
                       onCheckedChange={(value) => {
-                        const next = new Set(focused);
-                        if (value === true) next.add(person.id);
-                        else next.delete(person.id);
-                        toggleFocus.mutate([...next]);
+                        const next = focusedIds.filter((id) => id !== person.id);
+                        if (value === true) {
+                          if (next.length >= FOCUS_MAX) return;
+                          next.push(person.id);
+                        }
+                        toggleFocus.mutate(next);
                       }}
                     />
                     <div className="flex flex-col gap-1">

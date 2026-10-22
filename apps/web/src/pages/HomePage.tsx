@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { illustrationSrc } from '@/components/illustrations';
 import { copy, interpolate } from '@/copy';
 import { useMe } from '@/hooks/use-me';
 import { useSelectedFamily } from '@/hooks/use-selected-family';
@@ -45,12 +46,14 @@ export function HomePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-h3 font-semibold">
-        {interpolate(copy['welcome.title'], {
-          ชื่อ: me.data?.display_name || me.data?.email || '',
-        })}
-      </p>
-      <FamilySwitcher families={families} selectedId={familyId} onSelect={select} />
+      <section className="flex flex-col gap-3">
+        <p className="text-h3 font-semibold">
+          {interpolate(copy['welcome.title'], {
+            ชื่อ: me.data?.display_name || me.data?.email || '',
+          })}
+        </p>
+        <FamilySwitcher families={families} selectedId={familyId} onSelect={select} />
+      </section>
       {home.isPending ? <QueryLoading /> : null}
       {home.isError ? <p className="text-body text-destructive">{messageForError(home.error)}</p> : null}
       {home.data ? (
@@ -68,6 +71,11 @@ export function HomePage() {
                   <li key={card.person.id}>
                     <Card>
                       <CardHeader>
+                        <img
+                          src={card.photo_url ?? illustrationSrc['person-placeholder']}
+                          alt={card.person.name}
+                          className="mb-2 aspect-square w-full rounded-[10px] object-cover"
+                        />
                         <CardTitle className="truncate">{card.person.name}</CardTitle>
                         <CardDescription>
                           {interpolate(copy['person.memories.title'], { จำนวน: String(card.memory_count) })}
@@ -154,7 +162,10 @@ function QuickQuestionCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="quick-answer">{copy['home.question.save']}</Label>
+          {/* TODO: answer-field label — not in v0.4 or the PO note; do not invent Thai */}
+          <Label htmlFor="quick-answer" className="sr-only">
+            {question.text}
+          </Label>
           <Input
             id="quick-answer"
             value={answer}

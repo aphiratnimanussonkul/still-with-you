@@ -73,6 +73,13 @@ export const mockPeople: FamilyPerson[] = [
     relation_label: 'ยาย',
     account_id: null,
   },
+  {
+    id: '87878787-8787-4878-8878-878787878787',
+    family_id: mockFamilies[0].id,
+    name: 'ปู่สมชาย',
+    relation_label: 'ปู่',
+    account_id: null,
+  },
 ];
 
 export const mockMembers: FamilyMember[] = [
@@ -123,6 +130,6 @@ export const mockTrash: TrashItem[] = [
 ];
 
 export const mockFocusIds: Record<string, string[]> = {
-  [mockFamilies[0].id]: [mockPeople[0].id],
+  [mockFamilies[0].id]: [mockPeople[0].id, mockPeople[1].id],
   [mockFamilies[1].id]: [],
 };

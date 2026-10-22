@@ -43,6 +43,7 @@ const invites: { id: string; family_id: string; email: string; status: 'pending'
 const focusByFamily: Record<string, string[]> = { ...mockFocusIds };
 const skippedQuestions = new Set<string>();
 const answeredQuestions = new Set<string>();
+const factsByPerson: Record<string, { question_id: string; answer_text: string }[]> = {};
 const contributions: Array<{
   id: string;
   family_id: string;
@@ -508,7 +509,7 @@ export const handlers = [
     return HttpResponse.json(toContributionResponse(item));
   }),
 
-  http.post(`${api}/v1/people/:id/facts`, async ({ request }) => {
+  http.post(`${api}/v1/people/:id/facts`, async ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
     const body = (await request.json()) as { question_id?: string; answer_text?: string };
@@ -519,10 +520,13 @@ export const handlers = [
       );
     }
     answeredQuestions.add(body.question_id);
-    return HttpResponse.json({
+    const personId = String(params.id);
+    const fact = {
       question_id: body.question_id,
       answer_text: body.answer_text.trim(),
-    });
+    };
+    factsByPerson[personId] = [...(factsByPerson[personId] ?? []), fact];
+    return HttpResponse.json(fact);
   }),
 
   http.post(`${api}/v1/people/:id/facts/skip`, async ({ request }) => {
@@ -533,10 +537,10 @@ export const handlers = [
     return HttpResponse.json({ skipped: true });
   }),
 
-  http.get(`${api}/v1/people/:id/facts`, ({ request }) => {
+  http.get(`${api}/v1/people/:id/facts`, ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    return HttpResponse.json({ facts: [] });
+    return HttpResponse.json({ facts: factsByPerson[String(params.id)] ?? [] });
   }),
 
   http.get(`${api}/v1/me/trash`, ({ request }) => {

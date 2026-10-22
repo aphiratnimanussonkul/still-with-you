@@ -42,7 +42,13 @@ describe('copy v0.4', () => {
     expect(copy['family.switcher']).toBe('เปลี่ยนครอบครัว');
     expect(copy['a11y.family_switcher']).toBe('ครอบครัวที่เลือกอยู่: {ชื่อครอบครัว}');
     expect(copy['trash.item.active.meta.family']).toBe('ย้ายมาจาก {ชื่อความทรงจำ} · {ชื่อครอบครัว}');
+    expect(copy['home.focus.title']).toBe('คนที่คุณอยากระลึกถึง');
+    expect(copy['home.focus.see_all']).toBe('ดูทั้งหมด');
     expect(copy['home.question.title']).toBe('คำถามเล็กๆ สำหรับคุณ');
+    expect(copy['home.question.save']).toBe('บันทึกคำตอบ');
+    expect(copy['home.question.skip']).toBe('ข้ามคำถามนี้');
+    expect(copy['family.focus.toggle']).toBe('แสดงบนหน้าแรก');
+    expect(copy['family.focus.note']).toBe('เห็นเฉพาะคุณ');
   });
 
   it('includes Eddy aria-label keys for icon-only controls', () => {

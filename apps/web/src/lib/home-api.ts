@@ -1,9 +1,12 @@
 /**
  * Isolated Home / focus / facts client. Backend draft is still pending review.
+ * Keep these shapes here (and in MSW) — do not fold them into api-client yet.
  */
 import { eventResponseSchema, type EventResponse } from '@still-with-you/contracts';
 import { z } from 'zod';
 import { request } from '@/lib/api-client';
+
+export const FOCUS_MAX = 10;
 
 const personCardSchema = z.object({
   person: z.object({
@@ -27,7 +30,7 @@ export const familyHomeSchema = z.object({
 });
 
 export const familyFocusSchema = z.object({
-  person_ids: z.array(z.string().uuid()).max(10),
+  person_ids: z.array(z.string().uuid()).max(FOCUS_MAX),
 });
 
 export const personFactSchema = z.object({
