@@ -14,6 +14,17 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
       return reply.status(error.statusCode || 500).send(error.toJSON());
     }
 
+    // Story check constraint (whitespace-only story that slipped past the client)
+    if (error.code === '23514' && String(error.constraint_name || error.message || '').includes('story')) {
+      return reply.status(400).send({
+        error: {
+          code: ErrorCode.STORY_REQUIRED,
+          message: errorMessages[ErrorCode.STORY_REQUIRED],
+          field: 'story',
+        },
+      });
+    }
+
     // Handle database custom error codes
     if (error.code === 'P0L01') {
       // Last admin constraint violation

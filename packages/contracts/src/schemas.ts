@@ -8,7 +8,7 @@ import { z } from 'zod';
 // Base types
 export const uuidSchema = z.string().uuid();
 export const emailSchema = z.string().email();
-export const nonEmptyStringSchema = z.string().min(1).trim();
+export const nonEmptyStringSchema = z.string().trim().min(1);
 
 // Enums
 export const eventStatusSchema = z.enum(['active', 'archived', 'deleted']);
