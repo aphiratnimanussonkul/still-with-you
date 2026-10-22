@@ -95,4 +95,6 @@ When `VITE_USE_MSW` is not `true`, `error-offline.webp` (and its copy) are preca
 
 ## Copy
 
-All UI strings live in `src/copy.ts`, taken verbatim from voice-and-copy-v0.2. Missing strings are prefixed with `TODO:`.
+All UI strings live in `src/copy.ts`, taken verbatim from voice-and-copy-v0.3 (Eddy) plus the first-PR key mapping. Missing strings are prefixed with `TODO:`.
+
+Visual tokens live in `src/index.css` from Design System v1: primary `#4A7768` (hover `#3F6659`, pressed `#355649`), input border `#858C87`, 2px `#4A7768` focus ring, body 16/26, inputs ≥16px, touch targets ≥44px.

@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '@/App';
+import { copy } from '@/copy';
 
 vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => ({
@@ -31,8 +32,8 @@ function renderAt(path: string) {
 describe('login route', () => {
   it('renders the login screen at /login', () => {
     renderAt('/login');
-    expect(screen.getByRole('heading', { name: 'Still With You' })).toBeTruthy();
-    expect(screen.getByRole('button')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: copy['login.title'] })).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy['auth.login.google'] })).toBeTruthy();
   });
 
   it('sends an unknown path to /login when signed out', () => {

@@ -1,5 +1,6 @@
 /**
- * All UI copy. Strings marked verbatim come from voice-and-copy-v0.2.md.
+ * All UI copy. Strings marked verbatim come from voice-and-copy-v0.3.md
+ * (Eddy, locked 21 Oct 2026) plus Eddy's first-PR key mapping.
  * Never invent Thai copy here — missing strings are prefixed with TODO.
  */
 
@@ -39,7 +40,6 @@ export const copy = {
     'เรื่องเล่าของคนอื่นและตัวความทรงจำยังอยู่เหมือนเดิม คุณกู้คืนได้จากถังขยะของฉัน',
   'contribution.trash.confirm.primary': 'ย้ายไปถังขยะ',
   'trash.title': 'ถังขยะของฉัน',
-  'trash.empty': 'ถังขยะว่างอยู่ เรื่องเล่าที่คุณลบจะมาอยู่ที่นี่',
   'trash.item.active.meta': 'ย้ายมาจาก {ชื่อความทรงจำ}',
   'trash.item.active.restore': 'กู้คืน',
   'trash.item.paused.body':
@@ -91,6 +91,10 @@ export const copy = {
     'เรื่องเล่านี้ยังกู้คืนกลับไปความทรงจำเดิมได้ จึงยังเริ่มความทรงจำใหม่จากเรื่องเล่านี้ไม่ได้',
   'error.VERSION_CONFLICT': 'มีการแก้ไขเรื่องเล่านี้จากที่อื่นก่อนหน้า โหลดเวอร์ชันล่าสุดก่อน แล้วค่อยแก้อีกครั้ง',
   'error.RATE_LIMITED': 'ขอเวลาสักครู่ แล้วลองอีกครั้ง',
+  'error.INVALID_INPUT': 'ข้อมูลบางช่องยังไม่ถูกต้อง ลองตรวจอีกครั้ง',
+  'error.INTERNAL_ERROR': 'ระบบขัดข้องชั่วคราว ข้อมูลของคุณยังอยู่ครบ ลองใหม่อีกครั้ง',
+  'error.network': 'ยังเชื่อมต่อไม่ได้ ลองตรวจอินเทอร์เน็ต แล้วลองใหม่',
+  'error.generic': 'มีบางอย่างผิดพลาด ลองใหม่อีกครั้ง',
 
   // --- ลบความทรงจำถาวร (กติกา 7 วัน) ---
   'memory.delete.locked': 'ลบถาวรได้ตั้งแต่ {วันที่} (หลังพักไว้ครบ 7 วัน)',
@@ -105,7 +109,7 @@ export const copy = {
   'members.action.make_admin': 'ตั้งเป็นผู้ดูแล',
   'members.make_admin.confirm':
     'ตั้ง {ชื่อ} เป็นผู้ดูแลใช่ไหม ผู้ดูแลชวนสมาชิกใหม่ แก้ข้อมูลหลักของความทรงจำ และพักไว้หรือลบความทรงจำได้ แต่แก้หรือลบเรื่องเล่าของคนอื่นไม่ได้',
-  'members.action.remove_admin': 'ถอนสิทธิ์ผู้ดูแล',
+  'members.action.remove_admin': 'ถอดบทบาทผู้ดูแล',
   'members.action.remove_member': 'นำออกจากครอบครัว',
   'members.remove.confirm':
     'นำ {ชื่อ} ออกจากครอบครัวใช่ไหม {ชื่อ} จะเปิดดูความทรงจำของครอบครัวนี้ไม่ได้อีก',
@@ -122,7 +126,6 @@ export const copy = {
   'error.LAST_ADMIN':
     'คุณเป็นผู้ดูแลคนเดียวของครอบครัวนี้ ตั้งสมาชิกคนอื่นเป็นผู้ดูแลก่อน แล้วค่อยทำต่อ',
   'error.LAST_ADMIN.other': '{ชื่อ} เป็นผู้ดูแลคนเดียวของครอบครัวนี้ ตั้งคนอื่นเป็นผู้ดูแลก่อน',
-  'LAST_ADMIN.action.members': 'ไปที่สมาชิกในครอบครัว',
   'LAST_ADMIN.action': 'ตั้งคนอื่นเป็นผู้ดูแล',
 
   // --- สมาชิกคนสุดท้ายออก / ลบบัญชี ---
@@ -150,6 +153,8 @@ export const copy = {
   'offline.title': 'ตอนนี้ยังเชื่อมต่อไม่ได้',
   'offline.body': 'ลองตรวจอินเทอร์เน็ต แล้วลองใหม่อีกครั้ง',
   'offline.action': 'ลองใหม่',
+  'offline.banner': 'ตอนนี้ออฟไลน์อยู่ บางอย่างอาจยังไม่อัปเดต',
+  'online.toast': 'กลับมาออนไลน์แล้ว',
 
   // --- ถอดบทบาทผู้ดูแล ---
   'member.menu.remove_admin': 'ถอดบทบาทผู้ดูแล',
@@ -167,26 +172,73 @@ export const copy = {
   'admin.set.success': 'ตั้ง {ชื่อ} เป็นผู้ดูแลแล้ว',
   'member.role.NOT_FOUND': 'ไม่พบ {ชื่อ} ในครอบครัวนี้แล้ว อาจออกจากครอบครัวไปแล้ว',
 
-  // Network uses the offline body (verbatim). Generic / INVALID_INPUT are missing from v0.2.
-  'error.network': 'ลองตรวจอินเทอร์เน็ต แล้วลองใหม่อีกครั้ง',
-  'error.INVALID_INPUT': 'TODO: missing copy v0.2 — INVALID_INPUT (generic validation)',
-  'error.generic': 'TODO: missing copy v0.2 — generic error',
+  // --- เข้าสู่ระบบ ---
+  'login.title': 'Still With You',
+  'login.tagline': 'พื้นที่เก็บความทรงจำของครอบครัว เล่าเรื่องเดียวกันจากมุมของแต่ละคน',
+  'login.google': 'เข้าสู่ระบบด้วย Google',
+  'auth.login.google': 'เข้าสู่ระบบด้วย Google',
+  'login.loading': 'กำลังเข้าสู่ระบบ',
+  'login.privacy_note': 'เฉพาะคนที่ครอบครัวชวนเท่านั้นที่เห็นความทรงจำของครอบครัว',
+  'login.error.cancelled': 'ยังไม่ได้เข้าสู่ระบบ ลองอีกครั้งได้เลย',
+  'login.error.failed': 'เข้าสู่ระบบไม่สำเร็จ ลองอีกครั้ง',
+  'session.expired': 'เข้าสู่ระบบไว้นานแล้ว เข้าสู่ระบบอีกครั้งเพื่อไปต่อ',
+  'logout.action': 'ออกจากระบบ',
+  'auth.logout': 'ออกจากระบบ',
+  'logout.confirm.title': 'ออกจากระบบไหม',
+  'logout.confirm.body': 'ความทรงจำทั้งหมดยังอยู่ครบ เข้าสู่ระบบด้วยบัญชีเดิมเมื่อไรก็ได้',
+  'logout.confirm.primary': 'ออกจากระบบ',
 
-  // --- Scaffolding screens (not in copy v0.2) ---
-  'auth.login.google': 'TODO: missing copy v0.2 — Google sign-in button',
-  'auth.logout': 'TODO: missing copy v0.2 — sign out',
-  'families.title': 'TODO: missing copy v0.2 — family list title',
-  'families.empty.title': 'TODO: missing copy v0.2 — empty family list title',
-  'families.empty.body': 'TODO: missing copy v0.2 — empty family list body',
-  'families.create.label': 'TODO: missing copy v0.2 — create family name label',
-  'families.create.action': 'TODO: missing copy v0.2 — create family button',
-  'families.create.placeholder': 'TODO: missing copy v0.2 — create family name placeholder',
-  'memories.empty.title': 'TODO: missing copy v0.2 — empty memory list title',
-  'memories.empty.body': 'TODO: missing copy v0.2 — empty memory list body',
-  'memories.create.label': 'TODO: missing copy v0.2 — create memory title label',
-  'memories.create.placeholder': 'TODO: missing copy v0.2 — create memory title placeholder',
-  'memories.create.action': 'TODO: missing copy v0.2 — create memory button',
-  'loading.body': 'TODO: missing copy v0.2 — loading illustration caption',
+  // --- เข้าใช้ครั้งแรก ---
+  'welcome.title': 'ยินดีต้อนรับ {ชื่อ}',
+  'welcome.body': 'ก่อนเริ่ม เลือกได้ว่าจะรับอีเมลจากเราหรือไม่ เปลี่ยนใจได้ทุกเมื่อในการตั้งค่า',
+
+  // --- หน้าแรก / ครอบครัว / ความทรงจำ ---
+  'nav.memories': 'ความทรงจำ',
+  'nav.family': 'ครอบครัว',
+  'nav.trash': 'ถังขยะของฉัน',
+  'nav.settings': 'ตั้งค่า',
+  'families.title': 'ครอบครัวของคุณ',
+  'family.list.title': 'ครอบครัวของคุณ',
+  'families.empty.title': 'ยังไม่ได้อยู่ในครอบครัวไหน',
+  'family.empty.title': 'ยังไม่ได้อยู่ในครอบครัวไหน',
+  'families.empty.body': 'เริ่มครอบครัวของคุณเอง หรือเปิดลิงก์คำชวนที่ได้รับจากคนในครอบครัว',
+  'family.empty.body': 'เริ่มครอบครัวของคุณเอง หรือเปิดลิงก์คำชวนที่ได้รับจากคนในครอบครัว',
+  'families.empty.action': 'เริ่มครอบครัวใหม่',
+  'family.create.action': 'เริ่มครอบครัวใหม่',
+  'families.create.title': 'เริ่มครอบครัวใหม่',
+  'families.create.name_label': 'ชื่อครอบครัว',
+  'family.create.name_label': 'ชื่อครอบครัว',
+  'families.create.name_placeholder': 'เช่น บ้านคุณยายสมศรี',
+  'family.create.name_placeholder': 'เช่น บ้านคุณยายสมศรี',
+  'families.create.submit': 'สร้างครอบครัว',
+  'family.create.success': 'เริ่มครอบครัว {ชื่อครอบครัว} แล้ว',
+  'memory.list.title': 'ความทรงจำ',
+  'memories.empty.title': 'ยังไม่มีความทรงจำ',
+  'memory.empty.title': 'ยังไม่มีความทรงจำ',
+  'memories.empty.body': 'เริ่มจากเรื่องเล็ก ๆ ที่ยังจำได้ แล้วชวนคนอื่นมาเล่าต่อจากมุมของเขา',
+  'memory.empty.body': 'เริ่มจากเรื่องเล็ก ๆ ที่ยังจำได้ แล้วชวนคนอื่นมาเล่าต่อจากมุมของเขา',
+  'memories.empty.action': 'เริ่มความทรงจำใหม่',
+  'memory.create.action': 'เริ่มความทรงจำใหม่',
+  'memories.create.title': 'เริ่มความทรงจำใหม่',
+  'memories.create.story_label': 'เรื่องเล่า (ต้องมี)',
+  'memories.create.story_placeholder': 'เล่าเรื่องนี้ในแบบที่คุณจำได้',
+  'memories.create.submit': 'บันทึกความทรงจำ',
+  'memories.create.title_label': 'ชื่อความทรงจำ',
+  'memories.create.title_placeholder': 'เช่น วันเกิดครบ 80 ปีของคุณยาย',
+  'memory.item.meta': '{จำนวน} เรื่องเล่า · เริ่มโดย {ชื่อ}',
+  'memory.item.meta.one': '1 เรื่องเล่า · เริ่มโดย {ชื่อ}',
+
+  // --- สถานะทั่วไป ---
+  'loading': 'กำลังโหลด',
+  'loading.body': 'กำลังโหลด',
+  'loading.slow': 'ใช้เวลานานกว่าปกติ รออีกสักครู่',
+  'retry': 'ลองใหม่',
+  'back_home': 'กลับหน้าแรก',
+  'page.not_found.title': 'ไม่พบหน้านี้',
+  'page.not_found.body': 'ลิงก์อาจไม่ถูกต้อง หรือหน้านี้ถูกย้ายไปแล้ว',
+  'pwa.update.body': 'มีเวอร์ชันใหม่พร้อมใช้',
+  'pwa.update.action': 'อัปเดตเลย',
+  'pwa.install.action': 'เพิ่มไว้ที่หน้าจอหลัก',
 } as const;
 
 export type CopyKey = keyof typeof copy;

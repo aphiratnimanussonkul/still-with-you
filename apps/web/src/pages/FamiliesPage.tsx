@@ -38,12 +38,12 @@ export function FamiliesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-h1 font-medium">{copy['families.title']}</h1>
+      <h1 className="text-h1 font-semibold">{copy['families.title']}</h1>
 
       {items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-6 text-center">
           <Illustration name="family-home" />
-          <p className="text-h3">{copy['families.empty.title']}</p>
+          <p className="text-h3 font-semibold">{copy['families.empty.title']}</p>
           <p className="text-body text-muted-foreground">{copy['families.empty.body']}</p>
         </div>
       ) : (
@@ -65,30 +65,30 @@ export function FamiliesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{copy['families.create.action']}</CardTitle>
+          <CardTitle>{copy['families.create.title']}</CardTitle>
         </CardHeader>
         <CardContent>
           <form
-            className="flex flex-col gap-6"
+            className="flex flex-col gap-4"
             onSubmit={(event) => {
               event.preventDefault();
               if (name.trim()) create.mutate();
             }}
           >
             <div className="flex flex-col gap-2">
-              <Label htmlFor="family-name">{copy['families.create.label']}</Label>
+              <Label htmlFor="family-name">{copy['families.create.name_label']}</Label>
               <Input
                 id="family-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder={copy['families.create.placeholder']}
+                placeholder={copy['families.create.name_placeholder']}
               />
             </div>
             {create.isError ? (
               <p className="text-caption text-destructive">{messageForError(create.error)}</p>
             ) : null}
             <Button type="submit" disabled={create.isPending || !name.trim()}>
-              {copy['families.create.action']}
+              {copy['families.create.submit']}
             </Button>
           </form>
         </CardContent>
