@@ -30,8 +30,16 @@ describe('isFirstUse', () => {
   });
 
   it('does not lock users out when the new field is omitted (old API)', () => {
-    expect(isFirstUse(base)).toBe(false);
-    expect(isFirstUse({ ...base, marketing_consent: true })).toBe(false);
+    const legacy = {
+      id: base.id,
+      email: base.email,
+      display_name: base.display_name,
+      marketing_consent: false,
+      marketing_consent_at: null,
+      created_at: base.created_at,
+    } as AccountResponse;
+    expect(isFirstUse(legacy)).toBe(false);
+    expect(isFirstUse({ ...legacy, marketing_consent: true })).toBe(false);
   });
 
   it('falls back to unanswered only when marketing_consent is null on a legacy payload', () => {
