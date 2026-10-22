@@ -21,6 +21,12 @@ describe('copy v0.4', () => {
     expect(copy['LAST_ADMIN.action']).toBe('ตั้งคนอื่นเป็นผู้ดูแล');
     expect(copy['error.network']).toBe('ยังเชื่อมต่อไม่ได้ ลองตรวจอินเทอร์เน็ต แล้วลองใหม่');
     expect(copy['error.unknown']).toBe('มีบางอย่างผิดพลาด ลองใหม่อีกครั้ง');
+    expect(copy['error.generic']).toBe('มีบางอย่างผิดพลาด ลองใหม่อีกครั้ง');
+    expect(copy['error.ANSWER_REQUIRED']).toBe('พิมพ์คำตอบสักนิดก่อนบันทึก');
+    expect(copy['memory.stories.load_error']).toBe('โหลดเรื่องเล่าไม่สำเร็จ ลองใหม่อีกครั้ง');
+    expect(copy['memory.stories.retry']).toBe('ลองอีกครั้ง');
+    expect(copy['home.focus.invite.title']).toBe('อยากระลึกถึงใครเป็นพิเศษ');
+    expect(copy['home.focus.invite.action']).toBe('เลือกคน');
   });
 
   it('uses specified photo-limit copy with placeholders', () => {

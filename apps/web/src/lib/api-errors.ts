@@ -96,8 +96,16 @@ export function messageForError(error: unknown): string {
       return copy['error.INVALID_INPUT'];
     }
 
+    if (error.code === 'ANSWER_REQUIRED') {
+      return copy['error.ANSWER_REQUIRED'];
+    }
+
     if (error.code === ErrorCode.INTERNAL_ERROR || error.status >= 500) {
       return copy['error.INTERNAL_ERROR'];
+    }
+
+    if (!error.code || error.code === 'GENERIC') {
+      return copy['error.generic'];
     }
 
     if (error.code === ErrorCode.SOURCE_ARCHIVED) {
@@ -111,7 +119,13 @@ export function messageForError(error: unknown): string {
     if (mapped) return mapped;
   }
 
-  return copy['error.unknown'];
+  return copy['error.generic'] ?? copy['error.unknown'];
+}
+
+export function codeForFailedResponse(status: number, code?: string): string {
+  if (code) return code;
+  if (status >= 500) return ErrorCode.INTERNAL_ERROR;
+  return 'GENERIC';
 }
 
 function isBrowserNetworkFailure(error: unknown): boolean {

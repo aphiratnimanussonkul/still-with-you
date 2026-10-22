@@ -3,11 +3,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { copy, interpolate } from '@/copy';
+import { ApiClientError } from '@/lib/api-errors';
 import { mockEvents, mockFamilies, mockPeople } from '@/mocks/data';
 
 vi.mock('@/lib/api-client', () => ({
   api: {
     listFamilies: vi.fn(),
+    listEvents: vi.fn(),
   },
 }));
 
@@ -73,6 +75,7 @@ describe('HomePage', () => {
 
   it('shows greeting, focus photos, question, recent memories, and start-new-memory', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(api.listEvents).mockResolvedValue({ events: mockEvents });
     vi.mocked(homeApi.getHome).mockResolvedValue(homePayload);
 
     renderPage();
@@ -93,8 +96,41 @@ describe('HomePage', () => {
     expect(screen.getByLabelText(copy['family.switcher'])).toBeTruthy();
   });
 
+  it('keeps greeting and memories when /home fails, and hides the question', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(api.listEvents).mockResolvedValue({ events: mockEvents });
+    vi.mocked(homeApi.getHome).mockRejectedValue(new ApiClientError('GENERIC', 'Route not found', 404));
+
+    renderPage();
+    expect(
+      await screen.findByText(interpolate(copy['welcome.title'], { ชื่อ: 'Atta' }))
+    ).toBeTruthy();
+    expect(await screen.findByText('ทริปทะเลกับคุณยาย')).toBeTruthy();
+    expect(screen.getByRole('link', { name: copy['memory.create.action'] })).toBeTruthy();
+    expect(screen.queryByText(copy['home.question.title'])).toBeNull();
+    expect(screen.getByText(copy['error.generic'])).toBeTruthy();
+  });
+
+  it('shows the focus invite card and hides the question when focus is empty', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(api.listEvents).mockResolvedValue({ events: mockEvents });
+    vi.mocked(homeApi.getHome).mockResolvedValue({
+      ...homePayload,
+      focus: [],
+      quick_question: homePayload.quick_question,
+    });
+
+    renderPage();
+    expect(await screen.findByText(copy['home.focus.invite.title'])).toBeTruthy();
+    expect(screen.getByRole('link', { name: copy['home.focus.invite.action'] }).getAttribute('href')).toBe(
+      '/family'
+    );
+    expect(screen.queryByText(copy['home.question.title'])).toBeNull();
+  });
+
   it('saves a Quick Question answer as a person fact, not a memory', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(api.listEvents).mockResolvedValue({ events: mockEvents });
     vi.mocked(homeApi.getHome).mockResolvedValue(homePayload);
     vi.mocked(homeApi.answerFact).mockResolvedValue({
       question_id: 'q-1',

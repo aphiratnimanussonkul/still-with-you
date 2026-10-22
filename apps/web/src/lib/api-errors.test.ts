@@ -106,4 +106,15 @@ describe('messageForError', () => {
       messageForError(new ApiClientError('SOMETHING_ELSE', 'nope', 502))
     ).toBe(copy['error.INTERNAL_ERROR']);
   });
+
+  it('maps a 4xx with no error.code to error.generic, never the 5xx copy', () => {
+    const fastifyRouteMissing = new ApiClientError('GENERIC', 'Route GET:/v1/events/x/contributions not found', 404);
+    expect(messageForError(fastifyRouteMissing)).toBe(copy['error.generic']);
+    expect(messageForError(fastifyRouteMissing)).not.toBe(copy['error.INTERNAL_ERROR']);
+    expect(messageForError(new ApiClientError('', 'Not Found', 404))).toBe(copy['error.generic']);
+  });
+
+  it('maps ANSWER_REQUIRED by code', () => {
+    expect(messageForError(apiError('ANSWER_REQUIRED'))).toBe(copy['error.ANSWER_REQUIRED']);
+  });
 });

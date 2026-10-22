@@ -38,12 +38,9 @@ export function MemoryDetailPage() {
     },
   });
 
-  if (event.isPending || stories.isPending) return <QueryLoading />;
+  if (event.isPending) return <QueryLoading />;
   if (event.isError) {
     return <p className="text-body text-destructive">{messageForError(event.error)}</p>;
-  }
-  if (stories.isError) {
-    return <p className="text-body text-destructive">{messageForError(stories.error)}</p>;
   }
   if (!event.data) return null;
 
@@ -65,11 +62,23 @@ export function MemoryDetailPage() {
 
       <section className="flex flex-col gap-3">
         <h3 className="text-h3 font-semibold">
-          {interpolate(copy['memory.stories.title'], { จำนวน: String(items.length) })}
+          {interpolate(copy['memory.stories.title'], {
+            จำนวน: String(stories.isSuccess ? items.length : 0),
+          })}
         </h3>
-        {items.length === 0 ? (
+        {stories.isPending ? <QueryLoading /> : null}
+        {stories.isError ? (
+          <div className="flex flex-col items-start gap-3">
+            <p className="text-body text-destructive">{copy['memory.stories.load_error']}</p>
+            <Button type="button" variant="secondary" onClick={() => void stories.refetch()}>
+              {copy['memory.stories.retry']}
+            </Button>
+          </div>
+        ) : null}
+        {stories.isSuccess && items.length === 0 ? (
           <p className="text-body text-muted-foreground">{copy['memory.empty.body']}</p>
-        ) : (
+        ) : null}
+        {stories.isSuccess && items.length > 0 ? (
           <ul className="flex flex-col gap-3">
             {items.map((item) => (
               <li key={item.id}>
@@ -91,7 +100,7 @@ export function MemoryDetailPage() {
               </li>
             ))}
           </ul>
-        )}
+        ) : null}
       </section>
 
       <Card>
