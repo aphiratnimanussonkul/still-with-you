@@ -105,7 +105,7 @@ describe('HomePage', () => {
     const input = await screen.findByLabelText('ยายสมศรี เกิดที่ไหน');
     fireEvent.change(input, { target: { value: 'อยุธยา' } });
     const save = screen.getByRole('button', { name: copy['home.question.save'] });
-    await waitFor(() => expect(save).not.toBeDisabled());
+    await waitFor(() => expect(save.hasAttribute('disabled')).toBe(false));
     fireEvent.click(save);
 
     await waitFor(() =>
