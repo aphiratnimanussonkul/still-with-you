@@ -934,36 +934,54 @@ In-app notifications. Rows live in `notifications` (`account_id`, `type`, `paylo
       "account_id": "…",
       "type": "contribution_added",
       "payload": {
-        "family_id": "…",
-        "event_id": "…",
-        "contribution_id": "…",
-        "actor_account_id": "…"
+        "actor_display_name": "Member",
+        "event_title": "วันเกิดยาย",
+        "event_id": "…"
       },
       "created_at": "2026-10-22T00:00:00.000Z",
+      "read_at": null
+    },
+    {
+      "id": "…",
+      "account_id": "…",
+      "type": "invite_accepted",
+      "payload": {
+        "actor_display_name": "Invitee",
+        "family_name": "บ้านนิมานัส",
+        "family_id": "…",
+        "person_id": null
+      },
+      "created_at": "2026-10-21T00:00:00.000Z",
       "read_at": null
     }
   ],
   "next_cursor": null,
-  "unread_count": 1
+  "unread_count": 2
 }
 
-// POST /v1/notifications/{id}/read — 200
+// POST /v1/notifications/{id}/read — 200 (same payload shape as GET)
 {
   "id": "…",
   "account_id": "…",
   "type": "contribution_added",
-  "payload": { "family_id": "…", "event_id": "…", "contribution_id": "…", "actor_account_id": "…" },
+  "payload": {
+    "actor_display_name": "Member",
+    "event_title": "วันเกิดยาย",
+    "event_id": "…"
+  },
   "created_at": "2026-10-22T00:00:00.000Z",
   "read_at": "2026-10-22T00:01:00.000Z"
 }
 ```
 
+Stored rows keep ids only (`actor_account_id`, `event_id`, `family_id`, `person_id`, …). **GET** (and the mark-read response) resolve names with **one joined query** (not N+1) so a later rename of the actor, event, or family is what the client sees. If the event is missing or permanently deleted, `event_title` is `null` (not 500). If the person is missing or soft-deleted, `person_id` is `null`.
+
 Types created by the API (keep this list small):
 
-| `type` | When | `payload` |
-|--------|------|-----------|
-| `contribution_added` | Another member adds a contribution to an event you created. Creating an event (first story) does **not** notify. Self-contribute does **not** notify | `{ family_id, event_id, contribution_id, actor_account_id }` |
-| `invite_accepted` | Someone accepts a family or person invite you sent | `{ family_id, invite_id, actor_account_id, person_id }` (`person_id` is `null` for family invites) |
+| `type` | When | GET `payload` |
+|--------|------|----------------|
+| `contribution_added` | Another member adds a contribution to an event you created. Creating an event (first story) does **not** notify. Self-contribute does **not** notify | `{ actor_display_name, event_title, event_id }` (`actor_display_name` / `event_title` null if that row is gone or the event is deleted) |
+| `invite_accepted` | Someone accepts a family or person invite you sent | `{ actor_display_name, family_name, family_id, person_id }` (`person_id` is the live person, or `null` when there is none / they were deleted) |
 
 ### 4.8 Focus people (NEW in v0.5; canonical in v0.8)
 
@@ -1133,7 +1151,7 @@ JWKS_URI=${SUPABASE_URL}/auth/v1/.well-known/jwks.json
 - `GET /v1/invites/{token}` public preview `{ family_name, inviter_display_name, person_display_name, expires_at }`, per-IP rate limit
 - `POST /v1/invites/{token}/accept` body `{}` → **200** `{ family_id, person_id }`
 - `GET /v1/people/{id}/events?cursor=` (family members; archived visibility matches family events)
-- `GET /v1/me/notifications?cursor=` (`{ notifications, next_cursor, unread_count }`) and `POST /v1/notifications/{id}/read` (owner; other account **404**). Types: `contribution_added`, `invite_accepted`
+- `GET /v1/me/notifications?cursor=` (`{ notifications, next_cursor, unread_count }`) and `POST /v1/notifications/{id}/read` (owner; other account **404**). Types: `contribution_added` `{ actor_display_name, event_title, event_id }`, `invite_accepted` `{ actor_display_name, family_name, family_id, person_id }`. Names resolved on read via joins
 - `GET /v1/families/{id}/people` returns `{ people, relationships }`
 - Media `purpose` `story` \| `avatar` (avatar limit 1 per person)
 - `person_relationships` composite FKs onto `people(id, family_id)` so both ends are the same family

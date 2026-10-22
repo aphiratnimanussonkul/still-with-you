@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
-import { db, familyMembers, notifications } from '../lib/db/index.js';
+import { db, accounts, events, families, familyMembers, notifications, people } from '../lib/db/index.js';
+import { eq } from 'drizzle-orm';
 import { tokenFromInviteUrl } from '../lib/invites.js';
 import { NotificationType } from '../lib/notifications.js';
 
@@ -173,12 +174,14 @@ describe('Notifications API', () => {
       type: 'contribution_added',
       read_at: null,
       payload: {
-        family_id: familyId,
+        actor_display_name: 'Member',
+        event_title: 'วันเกิด',
         event_id: eventId,
-        contribution_id: contributionId,
-        actor_account_id: member.id,
       },
     });
+    expect(creatorBody.notifications[0].payload.contribution_id).toBeUndefined();
+    expect(creatorBody.notifications[0].payload.actor_account_id).toBeUndefined();
+    expect(contributionId).toBeTruthy();
 
     const memberList = await server.inject({
       method: 'GET',
@@ -221,12 +224,14 @@ describe('Notifications API', () => {
       type: 'invite_accepted',
       read_at: null,
       payload: {
+        actor_display_name: 'Invitee',
+        family_name: 'Notification Family',
         family_id: familyId,
-        invite_id: inviteId,
-        actor_account_id: invitee.id,
         person_id: null,
       },
     });
+    expect(body.notifications[0].payload.invite_id).toBeUndefined();
+    expect(inviteId).toBeTruthy();
 
     const inviteeList = await server.inject({
       method: 'GET',
@@ -234,6 +239,125 @@ describe('Notifications API', () => {
       headers: await auth(inviteeToken),
     });
     expect(JSON.parse(inviteeList.body).notifications).toHaveLength(0);
+  });
+
+  it('resolves names at read time so renames show, and nulls deleted event/person without 500', async () => {
+    const created = await server.inject({
+      method: 'POST',
+      url: `/v1/families/${familyId}/events`,
+      headers: await auth(creatorToken),
+      payload: { title: 'วันเกิด', story: 'เรื่องแรก' },
+    });
+    const eventId = JSON.parse(created.body).id;
+    await server.inject({
+      method: 'POST',
+      url: `/v1/events/${eventId}/contributions`,
+      headers: await auth(memberToken),
+      payload: { story: 'เรื่องของฉัน' },
+    });
+
+    await db.update(accounts).set({ displayName: 'สมาชิกใหม่' }).where(eq(accounts.id, member.id));
+    await db.update(events).set({ title: 'วันเกิดยาย' }).where(eq(events.id, eventId));
+
+    const renamed = await server.inject({
+      method: 'GET',
+      url: '/v1/me/notifications',
+      headers: await auth(creatorToken),
+    });
+    expect(renamed.statusCode).toBe(200);
+    expect(JSON.parse(renamed.body).notifications[0].payload).toEqual({
+      actor_display_name: 'สมาชิกใหม่',
+      event_title: 'วันเกิดยาย',
+      event_id: eventId,
+    });
+
+    await db
+      .update(events)
+      .set({ status: 'deleted', title: null, deletedAt: new Date() })
+      .where(eq(events.id, eventId));
+    const deletedEvent = await server.inject({
+      method: 'GET',
+      url: '/v1/me/notifications',
+      headers: await auth(creatorToken),
+    });
+    expect(deletedEvent.statusCode).toBe(200);
+    expect(JSON.parse(deletedEvent.body).notifications[0].payload).toEqual({
+      actor_display_name: 'สมาชิกใหม่',
+      event_title: null,
+      event_id: eventId,
+    });
+
+    const personRes = await server.inject({
+      method: 'POST',
+      url: `/v1/families/${familyId}/people`,
+      headers: await auth(stewardToken),
+      payload: { name: 'ยาย' },
+    });
+    const personId = JSON.parse(personRes.body).id;
+    const invitee = await createTestAccount('n-linked', 'n-linked@example.com', 'Linked');
+    const inviteeToken = await generateTestToken(invitee.authId, invitee.email!);
+    const inviteRes = await server.inject({
+      method: 'POST',
+      url: `/v1/people/${personId}/invites`,
+      headers: await auth(stewardToken),
+      payload: { email: invitee.email },
+    });
+    expect(inviteRes.statusCode).toBe(201);
+    const token = tokenFromInviteUrl(JSON.parse(inviteRes.body).url);
+    const accepted = await server.inject({
+      method: 'POST',
+      url: `/v1/invites/${token}/accept`,
+      headers: await auth(inviteeToken),
+      payload: {},
+    });
+    expect(accepted.statusCode).toBe(200);
+
+    await db.update(families).set({ name: 'บ้านใหม่' }).where(eq(families.id, familyId));
+    await db.update(accounts).set({ displayName: 'คนที่ลิงก์' }).where(eq(accounts.id, invitee.id));
+
+    const livePerson = await server.inject({
+      method: 'GET',
+      url: '/v1/me/notifications',
+      headers: await auth(stewardToken),
+    });
+    expect(livePerson.statusCode).toBe(200);
+    expect(JSON.parse(livePerson.body).notifications[0].payload).toEqual({
+      actor_display_name: 'คนที่ลิงก์',
+      family_name: 'บ้านใหม่',
+      family_id: familyId,
+      person_id: personId,
+    });
+
+    await db.update(people).set({ deletedAt: new Date() }).where(eq(people.id, personId));
+    const deletedPerson = await server.inject({
+      method: 'GET',
+      url: '/v1/me/notifications',
+      headers: await auth(stewardToken),
+    });
+    expect(deletedPerson.statusCode).toBe(200);
+    expect(JSON.parse(deletedPerson.body).notifications[0].payload).toEqual({
+      actor_display_name: 'คนที่ลิงก์',
+      family_name: 'บ้านใหม่',
+      family_id: familyId,
+      person_id: null,
+    });
+
+    await db.insert(notifications).values({
+      accountId: creator.id,
+      type: NotificationType.CONTRIBUTION_ADDED,
+      payload: { actor_account_id: 'not-a-uuid', event_id: 'also-bad' },
+    });
+    const invalidIds = await server.inject({
+      method: 'GET',
+      url: '/v1/me/notifications',
+      headers: await auth(creatorToken),
+    });
+    expect(invalidIds.statusCode).toBe(200);
+    expect(JSON.parse(invalidIds.body).notifications[0].payload).toEqual({
+      actor_display_name: null,
+      event_title: null,
+      event_id: null,
+    });
   });
 
   it('marks a notification read, idempotently, and 404s for another account', async () => {
