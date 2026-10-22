@@ -51,7 +51,7 @@ still-with-you/
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 22+
 - pnpm 8+
 - Docker (optional, for local Supabase)
 - Supabase CLI (for local development)

@@ -2,6 +2,9 @@
   "name": "@still-with-you/worker",
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
@@ -11,7 +14,7 @@
   },
   "dependencies": {
     "@still-with-you/contracts": "workspace:*",
-    "@supabase/supabase-js": "^2.39.3",
+    "@supabase/supabase-js": "2.118.0",
     "drizzle-orm": "^0.29.3",
     "postgres": "^3.4.3"
   },
