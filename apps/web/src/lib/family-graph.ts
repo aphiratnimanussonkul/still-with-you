@@ -75,7 +75,7 @@ export const personInviteSchema = z.object({
   created_at: z.string().datetime(),
 });
 
-export const personGenderSchema = z.enum(['female', 'male', 'other']).nullable();
+export const personGenderSchema = z.enum(['female', 'male']).nullable();
 export const personInviteStatusSchema = z.enum(['none', 'pending', 'linked']);
 
 export const familyRelationshipSchema = z.object({
@@ -88,7 +88,7 @@ export const familyRelationshipSchema = z.object({
 export const createPersonSchema = z.object({
   display_name: z.string().trim().min(1),
   family_name: z.string().trim().optional(),
-  gender: z.enum(['female', 'male', 'other']).nullable().optional(),
+  gender: z.enum(['female', 'male']).nullable().optional(),
   birth_date: z.string().optional(),
   birth_date_precision: z.enum(['year', 'day']).optional(),
   bio: z.string().max(2000).optional(),

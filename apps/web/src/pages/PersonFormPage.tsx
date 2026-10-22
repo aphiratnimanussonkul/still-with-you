@@ -318,19 +318,7 @@ function PersonForm({
         </div>
 
         <fieldset className="flex flex-col gap-2">
-          <legend className="flex items-center gap-2 text-label font-medium">
-            {copy['person.gender.label']}
-            {gender !== null ? (
-              <Button
-                type="button"
-                variant="link"
-                className="h-auto min-h-0 px-0 text-caption font-normal"
-                onClick={() => setGender(null)}
-              >
-                {copy['person.gender.clear']}
-              </Button>
-            ) : null}
-          </legend>
+          <legend className="text-label font-medium">{copy['person.gender.label']}</legend>
           <RadioGroup
             className="flex flex-col gap-1"
             value={genderToRadio(gender)}

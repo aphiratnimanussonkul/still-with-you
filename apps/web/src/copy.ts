@@ -352,7 +352,6 @@ export const copy = {
   'person.gender.female': 'หญิง',
   'person.gender.male': 'ชาย',
   'person.gender.other': 'อื่นๆ',
-  'person.gender.clear': 'ล้างที่เลือก',
   'person.gender.unspecified': 'ไม่ระบุ',
   'person.birth.label': 'TODO: Eddy — person.birth.label (ไม่บังคับ)',
   'person.birth.hint': 'ใส่วันเกิดแล้วจะแสดงอายุให้เอง',

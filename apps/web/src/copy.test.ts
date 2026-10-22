@@ -37,8 +37,7 @@ describe('copy v0.4', () => {
     expect(copy['person.unjoined']).toBe('ยังไม่ได้เข้าร่วม');
     expect(copy['person.gender.male']).toBe('ชาย');
     expect(copy['person.gender.female']).toBe('หญิง');
-    expect(copy['person.gender.other']).toBe('อื่นๆ');
-    expect(copy['person.gender.clear']).toBe('ล้างที่เลือก');
+    expect(copy['person.gender.unspecified']).toBe('ไม่ระบุ');
     expect(copy['person.relationship.parent']).toBe('เป็นพ่อแม่ของ');
     expect(copy['person.relationship.spouse']).toBe('เป็นคู่ของ');
     expect(copy['relation.type.child']).toBe('เป็นลูกของ');
