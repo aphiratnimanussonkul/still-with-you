@@ -4,11 +4,17 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+const useMsw = process.env.VITE_USE_MSW === 'true';
+
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
     VitePWA({
+      // PWA sw.js and MSW's mockServiceWorker.js cannot share the page scope.
+      // When Pages is built with VITE_USE_MSW=true, skip the PWA worker entirely.
+      disable: useMsw,
+      injectRegister: false,
       registerType: 'autoUpdate',
       includeAssets: ['illustrations/error-offline.webp', 'favicon.svg'],
       manifest: {
@@ -33,6 +39,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,webp,svg,ico,woff2}'],
         globIgnores: ['**/mockServiceWorker.js'],
         navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/mockServiceWorker\.js$/],
       },
     }),
   ],

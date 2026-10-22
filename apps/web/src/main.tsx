@@ -7,18 +7,17 @@ import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/hooks/use-auth';
 import { env } from '@/lib/env';
 import { queryClient } from '@/lib/query-client';
+import { startMocks } from '@/lib/start-mocks';
 import { App } from './App';
 import './index.css';
 
-registerSW({ immediate: true });
+if (!env.useMsw) {
+  registerSW({ immediate: true });
+}
 
 async function bootstrap() {
   if (env.useMsw) {
-    const { worker } = await import('./mocks/browser');
-    await worker.start({
-      onUnhandledRequest: 'bypass',
-      serviceWorker: { url: '/mockServiceWorker.js' },
-    });
+    await startMocks();
   }
 
   createRoot(document.getElementById('root')!).render(

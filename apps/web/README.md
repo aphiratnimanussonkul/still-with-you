@@ -38,7 +38,9 @@ The app uses `supabase-js` `signInWithOAuth({ provider: 'google' })`. The projec
 
 ### MSW fallback
 
-The hosted API is not deployed. If the local API is not running, set `VITE_USE_MSW=true` in `apps/web/.env`. MSW handlers are shaped by contract v0.4 (`GET /v1/me`, consent, families, events).
+The hosted API is not deployed. If the local API is not running, set `VITE_USE_MSW=true` in `apps/web/.env` (or in the Cloudflare Pages build env). MSW handlers are shaped by contract v0.4 (`GET /v1/me`, consent, families, events).
+
+When `VITE_USE_MSW=true`, the PWA service worker is **not** registered or generated. `sw.js` and `mockServiceWorker.js` cannot share the same scope — that clash is what produced the production “mock fail” + reload loop. A failed MSW start logs a warning and still boots `/login`; it does not reload.
 
 ## Scripts
 
