@@ -67,6 +67,17 @@ describe('PhotoAttach', () => {
     expect(input.hasAttribute('multiple')).toBe(true);
   });
 
+  it('shows an optional hint under the add-photo control', () => {
+    render(
+      <PhotoAttach
+        familyId={familyId}
+        onStateChange={vi.fn()}
+        hint={copy['contribution.photos.hint']}
+      />
+    );
+    expect(screen.getByText(copy['contribution.photos.hint'])).toBeTruthy();
+  });
+
   it('uploads a photo then reports the ready media id', async () => {
     const onStateChange = vi.fn();
     render(<PhotoAttach familyId={familyId} onStateChange={onStateChange} />);

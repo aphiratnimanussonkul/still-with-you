@@ -286,6 +286,10 @@ export const copy = {
   'story.add.context': 'เล่าใน {ชื่อความทรงจำ} ไม่ทับเรื่องเล่าของใคร',
   'story.save': 'บันทึก',
   'story.action.edit': 'แก้ไข',
+  'contribution.photos.hint': 'แนบรูปได้ถ้ามี ไม่แนบก็ได้',
+  'contribution.photos.alt': 'TODO: Eddy — contribution.photos.alt',
+  'contribution.photos.viewer.counter': 'TODO: Eddy — contribution.photos.viewer.counter {i}/{n}',
+  'contribution.photos.image_failed': 'TODO: Eddy — contribution.photos.image_failed',
 
   // --- บุคคล / แผนผัง ---
   'person.add.action': 'เพิ่มคน',

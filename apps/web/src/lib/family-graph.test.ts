@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { personListResponseSchema, personResponseSchema } from '@still-with-you/contracts';
+import { mockContributions } from '@/mocks/data';
 import {
+  contributionItemSchema,
+  contributionListSchema,
   familyInviteSchema,
   familyInvitesSchema,
   familyMembersSchema,
@@ -99,5 +102,39 @@ describe('family-graph vs live API handlers', () => {
     expect(created.url).toContain('/invite/');
     expect(created.status).toBeUndefined();
     expect(created.created_at).toBeUndefined();
+  });
+});
+
+describe('contribution media contract', () => {
+  it('keeps listing when media is absent', () => {
+    const parsed = contributionListSchema.parse({
+      contributions: [
+        {
+          id: mockContributions[0].id,
+          event_id: mockContributions[0].event_id,
+          owner_account_id: mockContributions[0].owner_account_id,
+          owner_display_name: mockContributions[0].owner_display_name,
+          story: mockContributions[0].story,
+          created_at: mockContributions[0].created_at,
+        },
+      ],
+    });
+    expect(parsed.contributions[0]?.media).toBeUndefined();
+  });
+
+  it('reads signed media urls when present', () => {
+    const parsed = contributionItemSchema.parse({
+      ...mockContributions[0],
+      media: [
+        {
+          id: '55555555-5555-4555-8555-555555555555',
+          url: 'https://cdn.example.com/sea.jpg',
+          thumb_url: null,
+          status: 'ready',
+          expires_at: '2026-10-22T12:05:00.000Z',
+        },
+      ],
+    });
+    expect(parsed.media?.[0]?.url).toBe('https://cdn.example.com/sea.jpg');
   });
 });
