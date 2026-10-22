@@ -37,10 +37,13 @@ alter table family_members add column role member_role not null default 'member'
 alter table accounts add column email text unique;
 alter table accounts add column marketing_consent boolean not null default false;
 alter table accounts add column marketing_consent_at timestamptz;
+alter table accounts add column if not exists consent_answered_at timestamptz;
 
 -- Email comes from Google login
--- PATCH /v1/me/consent to change marketing_consent
--- Every change writes to audit_log (no content stored)
+-- PATCH /v1/me/consent records the answer (true or false)
+-- marketing_consent_at is the time the boolean last changed (stays null if the first answer is the default false)
+-- consent_answered_at is set once, on the first PATCH, and is the first-use gate
+-- Every change of marketing_consent writes to audit_log (no content stored)
 ```
 
 ### 2.3 Authentication Changes
@@ -48,7 +51,7 @@ alter table accounts add column marketing_consent_at timestamptz;
 - **No cookies** - Frontend sends `Authorization: Bearer <supabase_access_token>`
 - API verifies JWT via Supabase JWKS endpoint: `https://{SUPABASE_URL}/auth/v1/.well-known/jwks.json`
 - SUPABASE_URL is configurable via environment variable
-- CORS allowlist: only the web origin (env-configurable, dev: `http://localhost:5173`)
+- CORS allowlist: `WEB_ORIGIN` comma-separated browser origins (env-configurable, no `*`; dev default: `http://localhost:5173`)
 
 ### 2.4 Row Level Security
 
@@ -75,6 +78,7 @@ create table accounts (
   display_name text not null,
   marketing_consent boolean not null default false,
   marketing_consent_at timestamptz,
+  consent_answered_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -242,14 +246,25 @@ create table idempotency_keys (
 | Method | Path | Permission | Description |
 |--------|------|------------|-------------|
 | GET | `/v1/me` | Authenticated | Get current account info |
-| PATCH | `/v1/me/consent` | Authenticated | Update marketing_consent; writes audit_log |
+| PATCH | `/v1/me/consent` | Authenticated | Record marketing consent answer (true or false); writes audit_log when the boolean changes |
 
 ```json
 // PATCH /v1/me/consent
+{ "marketing_consent": true }
+
+// 200 — GET /v1/me and PATCH /v1/me/consent
 {
-  "marketing_consent": true
+  "id": "…",
+  "email": "user@example.com",
+  "display_name": "…",
+  "marketing_consent": false,
+  "marketing_consent_at": null,
+  "consent_answered_at": "2026-10-22T00:00:00.000Z",
+  "created_at": "2026-10-01T00:00:00.000Z"
 }
 ```
+
+`consent_answered_at` is null until the account has submitted PATCH `/v1/me/consent` (any boolean). First-use / the `/consent` gate is `consent_answered_at === null`, not `marketing_consent_at`. Declining (`false` when the default is already `false`) still stamps `consent_answered_at`. `marketing_consent_at` remains the time the boolean last changed.
 
 ### 4.2 Family & Members (NEW in v0.4)
 
@@ -439,7 +454,7 @@ POST /v1/notifications/{id}/read
 - ✅ RLS enabled on all tables, no policies for anon/authenticated
 - ✅ API uses privileged service role only
 - ✅ Private storage bucket, no direct frontend access
-- ✅ CORS allowlist (only WEB_ORIGIN)
+- ✅ CORS allowlist (`WEB_ORIGIN` comma-separated origins, no `*`)
 - ✅ Encrypted backups, 30-day retention after purge
 
 ## 7. Permission Matrix (v0.4)
@@ -475,7 +490,7 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54322/swy_test
 
 # CORS
-WEB_ORIGIN=http://localhost:5173
+WEB_ORIGIN=http://localhost:5173,https://stillwithyou.nimanussonkul.work,https://still-with-you-5b1.pages.dev
 
 # API
 API_PORT=3000
