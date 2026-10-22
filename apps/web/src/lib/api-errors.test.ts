@@ -75,10 +75,13 @@ describe('messageForError', () => {
     expect(messageForError(apiError('UNKNOWN_CODE'))).toBe(copy['error.unknown']);
   });
 
-  it('interpolates FILE_TOO_LARGE from details.max_bytes', () => {
+  it('interpolates FILE_TOO_LARGE from details.max_bytes or the 10MB default', () => {
     expect(
-      messageForError(apiError(ErrorCode.FILE_TOO_LARGE, { max_bytes: 20 * 1024 * 1024 }))
-    ).toBe(interpolate(copy['error.FILE_TOO_LARGE'], { max_mb: '20' }));
+      messageForError(apiError(ErrorCode.FILE_TOO_LARGE, { max_bytes: 10 * 1024 * 1024 }))
+    ).toBe(interpolate(copy['error.FILE_TOO_LARGE'], { max_mb: '10' }));
+    expect(messageForError(apiError(ErrorCode.FILE_TOO_LARGE))).toBe(
+      interpolate(copy['error.FILE_TOO_LARGE'], { max_mb: '10' })
+    );
   });
 
   it('interpolates TOO_MANY_PHOTOS from details.max_per_story', () => {

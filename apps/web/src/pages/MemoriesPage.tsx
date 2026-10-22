@@ -49,7 +49,7 @@ export function MemoriesPage() {
 
   const create = useMutation({
     mutationFn: () =>
-      api.createEvent(familyId, { title, story, person_ids: [], media_ids: photos.mediaIds }),
+      api.createEvent(familyId, { title, story, person_ids: [], media_ids: photos.mediaIds }), // first story
     onSuccess: async () => {
       setTitle('');
       setStory('');

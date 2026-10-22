@@ -1,5 +1,7 @@
 import {
   accountResponseSchema,
+  contributionResponseSchema,
+  createContributionSchema,
   createEventSchema,
   createFamilySchema,
   eventListResponseSchema,
@@ -7,14 +9,18 @@ import {
   familyListResponseSchema,
   familyResponseSchema,
   updateConsentSchema,
+  updateContributionSchema,
   type AccountResponse,
+  type CreateContribution,
   type CreateEvent,
   type CreateFamily,
+  type ContributionResponse,
   type EventListResponse,
   type EventResponse,
   type FamilyListResponse,
   type FamilyResponse,
   type UpdateConsent,
+  type UpdateContribution,
 } from '@still-with-you/contracts';
 import type { z } from 'zod';
 import { ApiClientError, NetworkError } from '@/lib/api-errors';
@@ -133,6 +139,21 @@ export const api = {
       method: 'POST',
       body: createEventSchema.parse(body),
       idempotent: true,
+    });
+  },
+
+  createContribution(eventId: string, body: CreateContribution): Promise<ContributionResponse> {
+    return request(`/v1/events/${eventId}/contributions`, contributionResponseSchema, {
+      method: 'POST',
+      body: createContributionSchema.parse(body),
+      idempotent: true,
+    });
+  },
+
+  updateContribution(contributionId: string, body: UpdateContribution): Promise<ContributionResponse> {
+    return request(`/v1/contributions/${contributionId}`, contributionResponseSchema, {
+      method: 'PATCH',
+      body: updateContributionSchema.parse(body),
     });
   },
 };

@@ -171,7 +171,10 @@ export const createContributionSchema = z.object({
 
 export const updateContributionSchema = z.object({
   story: nonEmptyStringSchema.optional(),
-  media_ids: z.array(uuidSchema).optional(),
+  media_ids: z.array(uuidSchema).max(20).optional(),
+  add_media_upload_ids: z.array(uuidSchema).optional(),
+  remove_media_ids: z.array(uuidSchema).optional(),
+  media_order: z.array(uuidSchema).optional(),
 });
 
 export const contributionResponseSchema = z.object({
