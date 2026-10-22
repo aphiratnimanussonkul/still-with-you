@@ -25,9 +25,8 @@ describe('isNavItemActive', () => {
 describe('appBarForPath', () => {
   it('uses the families title with no back on the list', () => {
     expect(appBarForPath('/families')).toEqual({
-      titleKey: 'families.title',
+      titleKey: 'family.list.title',
       backTo: null,
-      backLabelKey: null,
     });
   });
 
@@ -35,7 +34,6 @@ describe('appBarForPath', () => {
     expect(appBarForPath('/families/abc')).toEqual({
       titleKey: 'memory.list.title',
       backTo: '/families',
-      backLabelKey: 'nav.family',
     });
   });
 

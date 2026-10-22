@@ -84,7 +84,7 @@ describe('AppShell', () => {
 
   it('keeps logout out of the header', () => {
     renderAt('/families');
-    expect(screen.queryByRole('button', { name: copy['auth.logout'] })).toBeNull();
+    expect(screen.queryByRole('button', { name: copy['logout.action'] })).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
@@ -108,12 +108,12 @@ describe('AppShell', () => {
 
   it('shows a back control on family memories and not on the root list', () => {
     const { unmount } = renderAt('/families');
-    expect(screen.queryByLabelText(copy['nav.family'])).toBeNull();
-    expect(screen.getByRole('heading', { name: copy['families.title'] })).toBeTruthy();
+    expect(screen.queryByLabelText(copy['a11y.back'])).toBeNull();
+    expect(screen.getByRole('heading', { name: copy['family.list.title'] })).toBeTruthy();
     unmount();
 
     renderAt('/families/abc');
-    expect(screen.getByLabelText(copy['nav.family']).getAttribute('href')).toBe('/families');
+    expect(screen.getByLabelText(copy['a11y.back']).getAttribute('href')).toBe('/families');
     expect(screen.getByRole('heading', { name: copy['memory.list.title'] })).toBeTruthy();
   });
 

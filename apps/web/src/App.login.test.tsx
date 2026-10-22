@@ -33,7 +33,7 @@ describe('login route', () => {
   it('renders the login screen at /login', () => {
     renderAt('/login');
     expect(screen.getByRole('heading', { name: copy['login.title'] })).toBeTruthy();
-    expect(screen.getByRole('button', { name: copy['auth.login.google'] })).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy['login.google'] })).toBeTruthy();
   });
 
   it('sends an unknown path to /login when signed out', () => {

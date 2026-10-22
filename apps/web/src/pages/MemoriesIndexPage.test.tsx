@@ -35,8 +35,8 @@ describe('MemoriesIndexPage', () => {
   it('shows the memories empty copy when there is no family', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: [] });
     renderIndex();
-    expect(await screen.findByText(copy['memories.empty.title'])).toBeTruthy();
-    expect(screen.getByText(copy['memories.empty.body'])).toBeTruthy();
+    expect(await screen.findByText(copy['memory.empty.title'])).toBeTruthy();
+    expect(screen.getByText(copy['memory.empty.body'])).toBeTruthy();
   });
 
   it('redirects to the first family when one exists', async () => {

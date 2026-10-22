@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import { CircleNotchIcon } from '@phosphor-icons/react/CircleNotch';
 import { useLocation } from 'react-router-dom';
+import { GoogleLogo } from '@/components/GoogleLogo';
 import { Illustration } from '@/components/Illustration';
+import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { copy } from '@/copy';
 import { useAuth } from '@/hooks/use-auth';
@@ -44,7 +47,12 @@ export function LoginPage() {
       <h1 className="text-h1 font-semibold">{copy['login.title']}</h1>
       <p className="text-body text-muted-foreground">{copy['login.tagline']}</p>
       <Button type="button" size="lg" disabled={pending} onClick={() => void handleLogin()}>
-        {pending ? copy['login.loading'] : copy['auth.login.google']}
+        {pending ? (
+          <Icon as={CircleNotchIcon} size={20} className="animate-spin motion-reduce:animate-none" />
+        ) : (
+          <GoogleLogo />
+        )}
+        {pending ? copy['login.loading'] : copy['login.google']}
       </Button>
       <p className="text-caption text-muted-foreground">{copy['login.privacy_note']}</p>
       {error ? <p className="text-caption text-destructive">{error}</p> : null}

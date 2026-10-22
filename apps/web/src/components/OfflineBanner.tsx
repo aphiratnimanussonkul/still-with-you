@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
+import { WifiSlashIcon } from '@phosphor-icons/react/WifiSlash';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 import { copy } from '@/copy';
 import { useOnline } from '@/hooks/use-online';
 
@@ -23,8 +25,9 @@ export function OfflineBanner() {
   return (
     <div
       role="status"
-      className="border-b border-border bg-warning px-4 py-3 text-center text-body text-warning-foreground"
+      className="flex items-center justify-center gap-2 border-b border-border bg-warning px-4 py-3 text-center text-body text-warning-foreground"
     >
+      <Icon as={WifiSlashIcon} size={20} />
       {copy['offline.banner']}
     </div>
   );

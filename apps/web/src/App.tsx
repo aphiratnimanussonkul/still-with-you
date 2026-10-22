@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { PwaUpdatePrompt } from '@/components/PwaUpdatePrompt';
 import { QueryLoading } from '@/components/QueryLoading';
+import { IconProvider } from '@/components/ui/icon';
 import { useAuth } from '@/hooks/use-auth';
 import { AUTH_CALLBACK_PATH, hasAuthCallbackParams } from '@/lib/auth-callback';
 import { AuthCallbackPage } from '@/pages/AuthCallbackPage';
@@ -24,7 +25,7 @@ export function App() {
     : '/login';
 
   return (
-    <>
+    <IconProvider>
       <PwaUpdatePrompt />
       <OfflineBanner />
       {loading ? (
@@ -50,7 +51,7 @@ export function App() {
           <Route path="*" element={session ? <NotFoundPage /> : <Navigate to={signedOutTo} replace />} />
         </Routes>
       )}
-    </>
+    </IconProvider>
   );
 }
 

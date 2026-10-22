@@ -1,7 +1,9 @@
 import { Navigate } from 'react-router-dom';
+import { BookOpenTextIcon } from '@phosphor-icons/react/BookOpenText';
 import { useQuery } from '@tanstack/react-query';
 import { Illustration } from '@/components/Illustration';
 import { QueryLoading } from '@/components/QueryLoading';
+import { Icon } from '@/components/ui/icon';
 import { copy } from '@/copy';
 import { api } from '@/lib/api-client';
 import { messageForError } from '@/lib/api-errors';
@@ -27,9 +29,10 @@ export function MemoriesIndexPage() {
 
   return (
     <div className="flex flex-col items-center gap-3 py-6 text-center">
+      <Icon as={BookOpenTextIcon} size={48} weight="duotone" className="text-primary" />
       <Illustration name="memory-story" />
-      <p className="text-h3 font-semibold">{copy['memories.empty.title']}</p>
-      <p className="text-body text-muted-foreground">{copy['memories.empty.body']}</p>
+      <p className="text-h3 font-semibold">{copy['memory.empty.title']}</p>
+      <p className="text-body text-muted-foreground">{copy['memory.empty.body']}</p>
     </div>
   );
 }

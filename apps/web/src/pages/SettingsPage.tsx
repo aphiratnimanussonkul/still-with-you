@@ -1,13 +1,15 @@
 import { useState } from 'react';
+import { EnvelopeSimpleIcon } from '@phosphor-icons/react/EnvelopeSimple';
+import { SignOutIcon } from '@phosphor-icons/react/SignOut';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LogoutDialog } from '@/components/LogoutDialog';
-import { LogOut } from '@/components/icons';
 import { QueryLoading } from '@/components/QueryLoading';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Icon } from '@/components/ui/icon';
 import { Label } from '@/components/ui/label';
-import { copy, interpolate } from '@/copy';
+import { copy, interpolate, truncateName } from '@/copy';
 import { useMe } from '@/hooks/use-me';
 import { api } from '@/lib/api-client';
 import { messageForError } from '@/lib/api-errors';
@@ -39,9 +41,18 @@ export function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {me.data.display_name ? (
-        <p className="text-body text-muted-foreground">{me.data.display_name}</p>
-      ) : null}
+      <div className="flex flex-col gap-2">
+        <h2 className="text-h3 font-semibold">{copy['settings.account.title']}</h2>
+        {me.data.display_name ? (
+          <p className="truncate text-body text-muted-foreground">{truncateName(me.data.display_name)}</p>
+        ) : null}
+        {email ? (
+          <p className="flex items-center gap-2 truncate text-body text-muted-foreground">
+            <Icon as={EnvelopeSimpleIcon} size={20} />
+            <span className="truncate">{email}</span>
+          </p>
+        ) : null}
+      </div>
 
       <Card>
         <CardContent className="pt-4">
@@ -68,8 +79,8 @@ export function SettingsPage() {
       </Card>
 
       <Button type="button" variant="ghost" className="self-start" onClick={() => setConfirmLogout(true)}>
-        <LogOut data-icon="inline-start" />
-        {copy['auth.logout']}
+        <Icon as={SignOutIcon} size={20} />
+        {copy['logout.action']}
       </Button>
 
       {confirmLogout ? <LogoutDialog onClose={() => setConfirmLogout(false)} /> : null}

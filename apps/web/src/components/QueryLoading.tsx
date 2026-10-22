@@ -26,7 +26,7 @@ export function QueryLoading() {
   return (
     <div className="flex flex-col items-center gap-3 py-10" role="status">
       <Illustration name="loading" />
-      <p className="text-caption text-muted-foreground">{copy['loading.body']}</p>
+      <p className="text-caption text-muted-foreground">{copy['loading']}</p>
     </div>
   );
 }

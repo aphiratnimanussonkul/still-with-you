@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { ArrowClockwiseIcon } from '@phosphor-icons/react/ArrowClockwise';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { copy } from '@/copy';
 import { env } from '@/lib/env';
 
@@ -41,6 +43,7 @@ export function PwaUpdatePrompt() {
           void update.current?.(true);
         }}
       >
+        <Icon as={ArrowClockwiseIcon} size={20} />
         {copy['pwa.update.action']}
       </Button>
     </div>
