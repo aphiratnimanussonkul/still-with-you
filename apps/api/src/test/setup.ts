@@ -31,7 +31,7 @@ beforeAll(async () => {
   await guardTestDatabase(dbUrl);
 
   // Clean up test data
-  await pgSql`TRUNCATE TABLE family_members, families, accounts, audit_log, invites, outbox CASCADE`;
+  await pgSql`TRUNCATE TABLE media, family_members, families, accounts, audit_log, invites, outbox CASCADE`;
 });
 
 /**

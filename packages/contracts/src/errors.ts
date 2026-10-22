@@ -1,6 +1,6 @@
 /**
  * Error codes for Still With You API
- * Based on backend-contract-v0.4.md
+ * Based on backend-contract-v0.5.md
  */
 
 export const ErrorCode = {
@@ -11,6 +11,9 @@ export const ErrorCode = {
   FILE_TYPE_NOT_ALLOWED: 'FILE_TYPE_NOT_ALLOWED',
   TOO_MANY_PHOTOS: 'TOO_MANY_PHOTOS',
   INVALID_INPUT: 'INVALID_INPUT',
+  UNSUPPORTED_TYPE: 'UNSUPPORTED_TYPE',
+  UPLOAD_MISMATCH: 'UPLOAD_MISMATCH',
+  MEDIA_NOT_READY: 'MEDIA_NOT_READY',
 
   // 401 Unauthorized
   UNAUTHENTICATED: 'UNAUTHENTICATED',
@@ -84,6 +87,9 @@ export const errorMessages: Record<ErrorCode, string> = {
   FILE_TYPE_NOT_ALLOWED: 'File type is not allowed',
   TOO_MANY_PHOTOS: 'Too many photos attached',
   INVALID_INPUT: 'Invalid input provided',
+  UNSUPPORTED_TYPE: 'This file type is not supported',
+  UPLOAD_MISMATCH: 'Uploaded object does not match the declared type or size',
+  MEDIA_NOT_READY: 'One or more photos are not ready to attach',
   UNAUTHENTICATED: 'Authentication required',
   FORBIDDEN: 'You do not have permission to perform this action',
   ADMIN_REQUIRED: 'This action requires admin role',

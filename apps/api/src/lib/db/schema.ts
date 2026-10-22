@@ -23,6 +23,7 @@ import {
 export const eventStatusEnum = pgEnum('event_status', ['active', 'archived', 'deleted']);
 export const contributionStatusEnum = pgEnum('contribution_status', ['published', 'trashed', 'purged']);
 export const trashReasonEnum = pgEnum('trash_reason', ['owner', 'event_deleted']);
+export const mediaStatusEnum = pgEnum('media_status', ['pending', 'uploaded', 'ready', 'failed']);
 // admin = family steward (no separate table)
 export const memberRoleEnum = pgEnum('member_role', ['member', 'admin']);
 
@@ -170,19 +171,28 @@ export const blobs = pgTable(
   })
 );
 
-// Media table
+// Media table — signed-URL uploads (v0.5). story_id = contributions.id
 export const media = pgTable(
   'media',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    contributionId: uuid('contribution_id').notNull().references(() => contributions.id),
-    blobId: uuid('blob_id').notNull().references(() => blobs.id),
-    blurredBlobId: uuid('blurred_blob_id').references(() => blobs.id),
-    takenByPersonId: uuid('taken_by_person_id').references(() => people.id),
-    sortOrder: integer('sort_order').notNull(),
+    familyId: uuid('family_id').notNull().references(() => families.id),
+    uploaderAccountId: uuid('uploader_account_id').notNull().references(() => accounts.id),
+    storyId: uuid('story_id').references(() => contributions.id, { onDelete: 'set null' }),
+    storageKey: text('storage_key').notNull().unique(),
+    contentType: text('content_type').notNull(),
+    sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
+    width: integer('width'),
+    height: integer('height'),
+    thumbKey: text('thumb_key'),
+    status: mediaStatusEnum('status').notNull().default('pending'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => ({
-    contributionIdx: index('idx_media_contribution').on(table.contributionId),
+    familyIdx: index('idx_media_family').on(table.familyId),
+    storyIdx: index('idx_media_story').on(table.storyId),
+    uploaderIdx: index('idx_media_uploader').on(table.uploaderAccountId),
   })
 );
 

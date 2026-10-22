@@ -5,6 +5,7 @@ import accountDeletionRoutes from './account-deletion.js';
 import familyRoutes from './family.js';
 import eventRoutes from './events.js';
 import contributionRoutes from './contributions.js';
+import mediaRoutes from './media.js';
 
 /**
  * Register all API routes
@@ -21,9 +22,9 @@ const routes: FastifyPluginAsync = async (fastify) => {
       await fastify.register(familyRoutes);
       await fastify.register(eventRoutes);
       await fastify.register(contributionRoutes);
+      await fastify.register(mediaRoutes);
 
       // TODO: Add routes for:
-      // - /uploads
       // - /me/trash
       // - /me/notifications
       // - /notifications/:id/read
