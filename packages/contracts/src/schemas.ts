@@ -101,7 +101,7 @@ export const createEventSchema = z.object({
   date_precision: z.string().optional(),
   location: z.string().optional(),
   person_ids: z.array(uuidSchema).default([]),
-  media_ids: z.array(uuidSchema).max(20).default([]),
+  media_ids: z.array(uuidSchema).default([]),
   source_contribution_ids: z.array(uuidSchema).optional(),
 });
 
@@ -166,12 +166,12 @@ export const storyMediaItemSchema = z.object({
 export const createContributionSchema = z.object({
   story: nonEmptyStringSchema,
   narrator_person_id: uuidSchema.optional(),
-  media_ids: z.array(uuidSchema).max(20).default([]),
+  media_ids: z.array(uuidSchema).default([]),
 });
 
 export const updateContributionSchema = z.object({
   story: nonEmptyStringSchema.optional(),
-  media_ids: z.array(uuidSchema).max(20).optional(),
+  media_ids: z.array(uuidSchema).optional(),
   add_media_upload_ids: z.array(uuidSchema).optional(),
   remove_media_ids: z.array(uuidSchema).optional(),
   media_order: z.array(uuidSchema).optional(),
