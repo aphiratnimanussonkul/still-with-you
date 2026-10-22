@@ -45,7 +45,7 @@ function renderPage() {
       <MemoryRouter initialEntries={['/consent']}>
         <Routes>
           <Route path="/consent" element={<ConsentPage />} />
-          <Route path="/families" element={<p>families</p>} />
+          <Route path="/home" element={<p>home</p>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
@@ -96,7 +96,7 @@ describe('ConsentPage submit', () => {
       expect(api.updateConsent).toHaveBeenCalledTimes(1);
     });
     expect(api.updateConsent).toHaveBeenCalledWith({ marketing_consent: false });
-    expect(await screen.findByText('families')).toBeTruthy();
+    expect(await screen.findByText('home')).toBeTruthy();
   });
 
   it('shows error copy when the PATCH fails and stays on consent', async () => {

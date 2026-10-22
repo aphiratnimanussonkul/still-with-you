@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PhotoAttachState } from '@/components/PhotoAttach';
 import { copy } from '@/copy';
 import { mockEvents, mockFamilies } from '@/mocks/data';
@@ -36,6 +36,12 @@ import { api } from '@/lib/api-client';
 import { MemoriesPage } from '@/pages/MemoriesPage';
 
 const familyId = mockFamilies[0].id;
+
+beforeEach(() => {
+  sessionStorage.clear();
+  createEvent.mockReset();
+  latestOnStateChange = undefined;
+});
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
