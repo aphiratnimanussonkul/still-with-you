@@ -34,7 +34,18 @@ The publishable key is public. Never put `SUPABASE_SERVICE_ROLE_KEY` in any `VIT
 
 ### Google login
 
-The app uses `supabase-js` `signInWithOAuth({ provider: 'google' })`. The project owner must enable the Google provider in the hosted Supabase project and add `http://localhost:5173` (and the Cloudflare Pages origin) to the redirect allowlist. This repository cannot do that.
+The app uses `supabase-js` `signInWithOAuth({ provider: 'google' })` with **PKCE** (`flowType: 'pkce'`, `detectSessionInUrl: true`). `redirectTo` is `${origin}/auth/callback` (not the bare origin). `/auth/callback` waits for `getSession()` — which awaits the `?code=` exchange — before any `<Navigate>` that would strip the query or hash.
+
+Supabase dashboard (Authentication → URL configuration). This repo cannot change it:
+
+| Setting | Value |
+|---|---|
+| Site URL | `https://still-with-you-5b1.pages.dev` (root — **not** `/login`) |
+| Redirect URLs | keep `https://still-with-you-5b1.pages.dev/**` and `http://localhost:5173/**`. Optional exact rows: `https://still-with-you-5b1.pages.dev/auth/callback`, `http://localhost:5173/auth/callback` |
+
+Site URL is only the fallback when `redirectTo` is omitted or rejected. `…/login` as Site URL still works if the `/**` allowlist covers `/auth/callback`, but root is the safer default. No Implicit/PKCE toggle is required; the client sends a code challenge.
+
+MSW handlers do not mock `*.supabase.co`. The worker starts with `onUnhandledRequest: 'bypass'` and an explicit `passthrough()` for the project URL so the PKCE `POST /auth/v1/token` is not swallowed. Auth `initialize()` runs **after** MSW is listening.
 
 ### MSW fallback
 

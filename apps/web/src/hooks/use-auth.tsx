@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { oauthRedirectTo } from '@/lib/auth-callback';
 import { supabase } from '@/lib/supabase';
 
 type AuthContextValue = {
@@ -18,6 +19,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
+    // getSession() awaits initialize() (URL PKCE/implicit exchange). Do not
+    // ungate on onAuthStateChange — INITIAL_SESSION can fire with null first.
     void supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       setSession(data.session);
@@ -25,8 +28,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+      if (!mounted) return;
       setSession(next);
-      setLoading(false);
     });
 
     return () => {
@@ -43,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: window.location.origin,
+            redirectTo: oauthRedirectTo(),
           },
         });
         if (error) throw error;

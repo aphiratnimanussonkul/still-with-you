@@ -7,6 +7,7 @@ import { AuthProvider } from '@/hooks/use-auth';
 import { env } from '@/lib/env';
 import { queryClient } from '@/lib/query-client';
 import { startMocks } from '@/lib/start-mocks';
+import { initializeAuth } from '@/lib/supabase';
 import { App } from './App';
 import './index.css';
 
@@ -22,6 +23,7 @@ async function bootstrap() {
   } else {
     await registerPwa();
   }
+  await initializeAuth();
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
