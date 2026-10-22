@@ -1,7 +1,7 @@
 # Still With You — Backend Contract v0.7
 
 **Updated:** Oct 22, 2026  
-**Status:** Canonical. Matches the deployed API after this revision.  
+**Status:** Superseded by [v0.8](./backend-contract-v0.8.md). This revision still matches the currently **deployed** API until v0.8 family-tree routes ship.  
 **Supersedes:** [v0.5](./backend-contract-v0.5.md). **[v0.6](./backend-contract-v0.6.md) is cancelled** (never deployed; do not use `/quick-question` or `/persons/{id}/answers`).  
 **Changes from v0.5:** `GET /v1/events/{id}/contributions`; people list/create/`GET /v1/people/{id}`; `GET /v1/families/{id}/members`; unknown-route `NOT_FOUND` envelope; `ANSWER_REQUIRED` for empty fact answers  
 **Requirements v1.2 (AC-19..AC-27):** family steward, `archived_at` / `deletable_at`, 7-day permanent delete, `canManageEvent`, owner-only stories  
