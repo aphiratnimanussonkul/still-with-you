@@ -70,8 +70,15 @@ describe('messageForError', () => {
     expect(messageForError(new TypeError('Failed to fetch'))).toBe(copy['error.network']);
   });
 
-  it('maps unknown errors to the generic TODO', () => {
+  it('maps unknown errors to the generic fallback', () => {
     expect(messageForError(new Error('boom'))).toBe(copy['error.generic']);
     expect(messageForError(apiError('UNKNOWN_CODE'))).toBe(copy['error.generic']);
+  });
+
+  it('maps INTERNAL_ERROR and 5xx to the 5xx copy', () => {
+    expect(messageForError(apiError(ErrorCode.INTERNAL_ERROR))).toBe(copy['error.INTERNAL_ERROR']);
+    expect(
+      messageForError(new ApiClientError('SOMETHING_ELSE', 'nope', 502))
+    ).toBe(copy['error.INTERNAL_ERROR']);
   });
 });

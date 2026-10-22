@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { AUTH_CALLBACK_PATH, hasAuthCallbackParams, oauthRedirectTo } from '@/lib/auth-callback';
+import {
+  AUTH_CALLBACK_PATH,
+  hasAuthCallbackParams,
+  oauthCallbackError,
+  oauthRedirectTo,
+} from '@/lib/auth-callback';
 
 describe('hasAuthCallbackParams', () => {
   it('detects a PKCE code in the query string', () => {
@@ -20,6 +25,21 @@ describe('hasAuthCallbackParams', () => {
   it('is false for a normal login or home URL', () => {
     expect(hasAuthCallbackParams({ search: '', hash: '' })).toBe(false);
     expect(hasAuthCallbackParams({ search: '?from=banner', hash: '' })).toBe(false);
+  });
+});
+
+describe('oauthCallbackError', () => {
+  it('maps access_denied to cancelled', () => {
+    expect(oauthCallbackError({ search: '?error=access_denied', hash: '' })).toBe('cancelled');
+  });
+
+  it('maps other provider errors to failed', () => {
+    expect(oauthCallbackError({ search: '?error=server_error', hash: '' })).toBe('failed');
+    expect(oauthCallbackError({ search: '', hash: '#error_description=oops' })).toBe('failed');
+  });
+
+  it('is null when there is no error param', () => {
+    expect(oauthCallbackError({ search: '?code=abc', hash: '' })).toBeNull();
   });
 });
 

@@ -59,17 +59,17 @@ export function MemoriesPage() {
         <Button variant="ghost" size="sm" asChild className="w-fit px-0">
           <Link to="/families">
             <ChevronLeft data-icon="inline-start" />
-            {copy['families.title']}
+            {copy['nav.family']}
           </Link>
         </Button>
-        <h1 className="text-h1 font-medium">{copy['glossary.event']}</h1>
+        <h1 className="text-h1 font-semibold">{copy['memory.list.title']}</h1>
         <p className="text-body text-muted-foreground">{family.data?.name}</p>
       </div>
 
       {items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-6 text-center">
           <Illustration name="memory-story" />
-          <p className="text-h3">{copy['memories.empty.title']}</p>
+          <p className="text-h3 font-semibold">{copy['memories.empty.title']}</p>
           <p className="text-body text-muted-foreground">{copy['memories.empty.body']}</p>
         </div>
       ) : (
@@ -103,39 +103,39 @@ export function MemoriesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{copy['memories.create.action']}</CardTitle>
+          <CardTitle>{copy['memories.create.title']}</CardTitle>
         </CardHeader>
         <CardContent>
           <form
-            className="flex flex-col gap-6"
+            className="flex flex-col gap-4"
             onSubmit={(event) => {
               event.preventDefault();
               if (title.trim() && story.trim()) create.mutate();
             }}
           >
             <div className="flex flex-col gap-2">
-              <Label htmlFor="memory-title">{copy['memories.create.label']}</Label>
+              <Label htmlFor="memory-title">{copy['memories.create.title_label']}</Label>
               <Input
                 id="memory-title"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                placeholder={copy['memories.create.placeholder']}
+                placeholder={copy['memories.create.title_placeholder']}
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="memory-story">{copy['story.label.required']}</Label>
+              <Label htmlFor="memory-story">{copy['memories.create.story_label']}</Label>
               <Textarea
                 id="memory-story"
                 value={story}
                 onChange={(event) => setStory(event.target.value)}
-                placeholder={copy['story.placeholder']}
+                placeholder={copy['memories.create.story_placeholder']}
               />
             </div>
             {create.isError ? (
               <p className="text-caption text-destructive">{messageForError(create.error)}</p>
             ) : null}
             <Button type="submit" disabled={create.isPending || !title.trim() || !story.trim()}>
-              {copy['memories.create.action']}
+              {copy['memories.create.submit']}
             </Button>
           </form>
         </CardContent>

@@ -39,7 +39,7 @@ const CODE_COPY: Partial<Record<string, string>> = {
 };
 
 /**
- * Map an API / network error to copy v0.2 by error `code` only.
+ * Map an API / network error to copy v0.3 by error `code` only.
  * The only details inspection allowed is NOT_YET_DELETABLE.deletable_at
  * (date vs null) and INVALID_INPUT.field for the generic validation suffix.
  */
@@ -77,6 +77,10 @@ export function messageForError(error: unknown): string {
       const field =
         error.field ?? (typeof error.details?.field === 'string' ? error.details.field : undefined);
       return field ? `${copy['error.INVALID_INPUT']} (${field})` : copy['error.INVALID_INPUT'];
+    }
+
+    if (error.code === ErrorCode.INTERNAL_ERROR || error.status >= 500) {
+      return copy['error.INTERNAL_ERROR'];
     }
 
     if (error.code === ErrorCode.SOURCE_ARCHIVED) {

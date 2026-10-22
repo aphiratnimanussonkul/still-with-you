@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '@/App';
+import { copy } from '@/copy';
 import { AUTH_CALLBACK_PATH } from '@/lib/auth-callback';
 
 const authState = {
@@ -92,5 +93,22 @@ describe('auth gate and OAuth callback', () => {
     renderAt('/families');
     expect(screen.getByRole('status')).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Still With You' })).toBeNull();
+  });
+
+  it('shows cancelled copy when the callback returns access_denied', () => {
+    renderAt(`${AUTH_CALLBACK_PATH}?error=access_denied`);
+    expect(screen.getByText(copy['login.error.cancelled'])).toBeTruthy();
+  });
+
+  it('shows failed copy when the callback returns a provider error', () => {
+    renderAt(`${AUTH_CALLBACK_PATH}?error=server_error`);
+    expect(screen.getByText(copy['login.error.failed'])).toBeTruthy();
+  });
+
+  it('shows the 404 page for an unknown path when signed in', () => {
+    authState.session = { access_token: 'tok' };
+    renderAt('/no-such-page');
+    expect(screen.getByRole('heading', { name: copy['page.not_found.title'] })).toBeTruthy();
+    expect(screen.getByText(copy['page.not_found.body'])).toBeTruthy();
   });
 });
