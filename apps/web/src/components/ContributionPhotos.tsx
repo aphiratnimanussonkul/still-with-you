@@ -23,7 +23,13 @@ export function visibleContributionPhotos(media: ContributionPhoto[] | undefined
   return (media ?? []).filter((photo) => Boolean(srcOf(photo) || photo.id));
 }
 
-export function ContributionPhotos({ media }: { media?: ContributionPhoto[] | null }) {
+export function ContributionPhotos({
+  media,
+  ownerName,
+}: {
+  media?: ContributionPhoto[] | null;
+  ownerName: string;
+}) {
   const photos = visibleContributionPhotos(media);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
@@ -46,11 +52,16 @@ export function ContributionPhotos({ media }: { media?: ContributionPhoto[] | nu
                   'relative block w-full overflow-hidden rounded-md',
                   photos.length === 1 ? 'aspect-[4/3]' : 'aspect-square'
                 )}
+                aria-label={
+                  isOverflowTile
+                    ? interpolate(copy['contribution.photos.more'], { n: String(overflow) })
+                    : undefined
+                }
                 onClick={() => setViewerIndex(index)}
               >
                 <SafePhoto
                   src={srcOf(photo)}
-                  alt={copy['contribution.photos.alt']}
+                  alt={photoAlt(ownerName, index, photos.length)}
                   className="size-full"
                 />
                 {isOverflowTile ? (
@@ -66,6 +77,7 @@ export function ContributionPhotos({ media }: { media?: ContributionPhoto[] | nu
       {viewerIndex !== null ? (
         <PhotoViewer
           photos={photos}
+          ownerName={ownerName}
           index={viewerIndex}
           onIndexChange={setViewerIndex}
           onClose={() => setViewerIndex(null)}
@@ -75,13 +87,23 @@ export function ContributionPhotos({ media }: { media?: ContributionPhoto[] | nu
   );
 }
 
+function photoAlt(ownerName: string, index: number, total: number): string {
+  return interpolate(copy['contribution.photo.alt'], {
+    ชื่อผู้เล่า: ownerName,
+    i: String(index + 1),
+    n: String(total),
+  });
+}
+
 function PhotoViewer({
   photos,
+  ownerName,
   index,
   onIndexChange,
   onClose,
 }: {
   photos: ContributionPhoto[];
+  ownerName: string;
   index: number;
   onIndexChange: (index: number) => void;
   onClose: () => void;
@@ -128,7 +150,7 @@ function PhotoViewer({
         {photo ? (
           <SafePhoto
             src={srcOf(photo)}
-            alt={copy['contribution.photos.alt']}
+            alt={photoAlt(ownerName, index, photos.length)}
             className="max-h-full max-w-full"
           />
         ) : null}
@@ -146,9 +168,9 @@ function SafePhoto({ src, alt, className }: { src: string | null; alt: string; c
 
   if (!src || status === 'failed') {
     return (
-      <div className={cn('flex flex-col items-center justify-center bg-muted text-muted-foreground', className)}>
-        <Icon as={ImageBrokenIcon} size={32} />
-        <span className="sr-only">{copy['contribution.photos.image_failed']}</span>
+      <div className={cn('flex flex-col items-center justify-center gap-1 bg-muted p-2 text-muted-foreground', className)}>
+        <Icon as={ImageBrokenIcon} size={32} label={copy['photo.load_error']} />
+        <p className="text-caption text-center">{copy['photo.load_error']}</p>
       </div>
     );
   }

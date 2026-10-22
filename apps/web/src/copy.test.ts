@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { copy, familyItemMeta, interpolate, interpolateHeading, personRelationLabel, truncateName } from '@/copy';
 
 describe('copy v0.4', () => {
-  it('has no remaining TODO placeholders except draft people-CRUD and photo-viewer keys', () => {
+<<<<<<< HEAD
+  it('has no remaining TODO placeholders except draft people-CRUD keys', () => {
     const leftovers = Object.entries(copy)
       .filter(([, value]) => value.startsWith('TODO:'))
       .map(([key]) => key);
@@ -19,9 +20,6 @@ describe('copy v0.4', () => {
       'person.edit.action',
       'person.delete.action',
       'person.delete.confirm.primary',
-      'contribution.photos.alt',
-      'contribution.photos.viewer.counter',
-      'contribution.photos.image_failed',
     ]);
   });
 
@@ -115,11 +113,12 @@ describe('copy v0.4', () => {
     expect(copy['error.RATE_LIMITED.invite']).toBe('ลองหลายครั้งเกินไป รอสักครู่แล้วลองอีกครั้ง');
   });
 
-  it('uses the locked contribution photo hint and leaves viewer copy to Eddy', () => {
-    expect(copy['contribution.photos.hint']).toBe('แนบรูปได้ถ้ามี ไม่แนบก็ได้');
-    expect(copy['contribution.photos.alt'].startsWith('TODO:')).toBe(true);
-    expect(copy['contribution.photos.viewer.counter']).toContain('{i}/{n}');
-    expect(copy['contribution.photos.image_failed'].startsWith('TODO:')).toBe(true);
+  it('uses Eddy contribution-photo copy', () => {
+    expect(copy['contribution.photos.label']).toBe('รูปภาพ (ไม่บังคับ)');
+    expect(copy['contribution.photo.alt']).toBe('รูปที่ {ชื่อผู้เล่า} แนบไว้ {i} จาก {n}');
+    expect(copy['contribution.photos.viewer.counter']).toBe('{i}/{n}');
+    expect(copy['photo.load_error']).toBe('โหลดรูปนี้ไม่ได้');
+    expect(copy['contribution.photos.more']).toBe('ดูรูปอีก {n} รูป');
   });
 
   it('uses locked v0.4 wording for create, tree, cancel, and admin confirm split', () => {
