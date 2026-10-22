@@ -388,6 +388,9 @@ SUPABASE_ANON_KEY=sb_publishable_TODq1gSkK5bu8InyIJRtVQ_vB7u8zsZ
 # Database
 DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres
 
+# Tests — dedicated database only
+TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54322/swy_test
+
 # CORS
 WEB_ORIGIN=http://localhost:5173
 

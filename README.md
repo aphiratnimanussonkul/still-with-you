@@ -80,7 +80,8 @@ cp .env.example .env
 Required variables:
 - `SUPABASE_URL` - Your Supabase project URL
 - `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (keep secret!)
-- `DATABASE_URL` - PostgreSQL connection string
+- `DATABASE_URL` - PostgreSQL connection string (app / local Supabase)
+- `TEST_DATABASE_URL` - Dedicated `swy_test` database for tests (never `postgres` or a hosted URL)
 
 ### Development
 
@@ -100,8 +101,16 @@ pnpm dev
 
 ### Testing
 
+Tests connect only to a dedicated `swy_test` database (via `TEST_DATABASE_URL`) and refuse to run against `postgres` or any hosted Supabase URL.
+
 ```bash
-# Run all tests
+# After `pnpm db:start`, create the test database once and apply migrations:
+psql postgresql://postgres:postgres@localhost:54322/postgres -c "CREATE DATABASE swy_test;"
+for f in supabase/migrations/*.sql; do
+  psql postgresql://postgres:postgres@localhost:54322/swy_test -f "$f"
+done
+
+# Run all tests (requires TEST_DATABASE_URL, see .env.example)
 pnpm test
 
 # Run tests for specific package

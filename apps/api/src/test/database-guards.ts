@@ -6,7 +6,7 @@ import postgres from 'postgres';
  */
 
 const ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'db', 'postgres'];
-const ALLOWED_DATABASES = ['swy_test', 'postgres', 'test'];
+const ALLOWED_DATABASES = ['swy_test'];
 const FORBIDDEN_PATTERNS = ['supabase.co', 'pooler.supabase.com'];
 
 export async function guardTestDatabase(connectionString: string): Promise<void> {
@@ -15,10 +15,10 @@ export async function guardTestDatabase(connectionString: string): Promise<void>
     throw new Error('Test database operations are only allowed when NODE_ENV=test');
   }
 
-  // 2. Must use TEST_DATABASE_URL, not DATABASE_URL in production
-  if (!process.env.TEST_DATABASE_URL && process.env.DATABASE_URL) {
+  // 2. Tests must use TEST_DATABASE_URL only (never DATABASE_URL)
+  if (!process.env.TEST_DATABASE_URL) {
     throw new Error(
-      'Tests must use TEST_DATABASE_URL environment variable, not DATABASE_URL'
+      'Tests must set TEST_DATABASE_URL. DATABASE_URL is not used for test connections.'
     );
   }
 

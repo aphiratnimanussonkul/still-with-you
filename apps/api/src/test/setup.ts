@@ -3,7 +3,6 @@ import { sql as pgSql } from '../lib/db/index.js';
 import { initializeTestKeys, getTestJWKS } from './test-keys.js';
 import { createLocalJWKSet } from 'jose';
 import { guardTestDatabase } from './database-guards.js';
-import { env } from '../lib/env.js';
 
 /**
  * Test setup - runs before each test file
@@ -24,8 +23,11 @@ beforeAll(async () => {
   process.env.JWT_ISSUER = 'http://localhost:54321/auth/v1';
   process.env.NODE_ENV = 'test';
 
-  // Guard against truncating production databases
-  const dbUrl = process.env.TEST_DATABASE_URL || env.DATABASE_URL;
+  // Guard against truncating production databases (TEST_DATABASE_URL only)
+  const dbUrl = process.env.TEST_DATABASE_URL;
+  if (!dbUrl) {
+    throw new Error('TEST_DATABASE_URL is required for tests');
+  }
   await guardTestDatabase(dbUrl);
 
   // Clean up test data

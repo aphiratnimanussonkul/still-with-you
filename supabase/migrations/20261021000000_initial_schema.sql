@@ -467,16 +467,26 @@ where c.status = 'published';
 
 revoke all on ai_eligible_contributions from anon, authenticated;
 
--- Setup storage bucket
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values (
-  'private-media',
-  'private-media',
-  false,
-  20971520,
-  array['image/jpeg', 'image/png', 'image/webp', 'image/heic']
-)
-on conflict (id) do nothing;
+-- Setup storage bucket (no-op when storage schema is absent, e.g. swy_test)
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'storage' and table_name = 'buckets'
+  ) then
+    insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+    values (
+      'private-media',
+      'private-media',
+      false,
+      20971520,
+      array['image/jpeg', 'image/png', 'image/webp', 'image/heic']
+    )
+    on conflict (id) do nothing;
+  end if;
+end
+$$;
 
 -- Comments
 comment on table accounts is 'User accounts from Supabase Auth';
@@ -493,3 +503,33 @@ comment on column blobs.ref_count is 'Number of media entries referencing this b
 comment on table audit_log is 'Audit trail without content (privacy)';
 comment on table outbox is 'Async job queue for worker';
 comment on table invites is 'Pending family invitations with secure tokens';
+
+-- Revoke PostgREST role privileges. The API (service role) is the only access path.
+-- Idempotent and a no-op when anon/authenticated are absent (vanilla Postgres).
+-- Already applied manually to the live project.
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon')
+     and exists (select 1 from pg_roles where rolname = 'authenticated') then
+    revoke all on all tables in schema public from anon, authenticated;
+    revoke all on all sequences in schema public from anon, authenticated;
+    revoke all on all functions in schema public from anon, authenticated;
+
+    alter default privileges in schema public
+      revoke all on tables from anon, authenticated;
+    alter default privileges in schema public
+      revoke all on sequences from anon, authenticated;
+    alter default privileges in schema public
+      revoke all on functions from anon, authenticated;
+
+    if exists (select 1 from pg_roles where rolname = 'postgres') then
+      alter default privileges for role postgres in schema public
+        revoke all on tables from anon, authenticated;
+      alter default privileges for role postgres in schema public
+        revoke all on sequences from anon, authenticated;
+      alter default privileges for role postgres in schema public
+        revoke all on functions from anon, authenticated;
+    end if;
+  end if;
+end
+$$;

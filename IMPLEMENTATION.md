@@ -170,7 +170,8 @@ The following endpoints return 501 Not Implemented:
 Required:
 - `SUPABASE_URL` - Supabase project URL
 - `SUPABASE_SERVICE_ROLE_KEY` - Service role key (secret!)
-- `DATABASE_URL` - PostgreSQL connection string
+- `DATABASE_URL` - PostgreSQL connection string (app / local Supabase)
+- `TEST_DATABASE_URL` - Dedicated `swy_test` database (tests only; never `postgres` or hosted URLs)
 - `WEB_ORIGIN` - CORS allowlist origin
 
 Optional (with defaults):
@@ -194,7 +195,13 @@ pnpm db:start
 # Apply migrations
 pnpm db:reset
 
-# Run tests
+# Create the dedicated test database and apply the same migrations
+psql postgresql://postgres:postgres@localhost:54322/postgres -c "CREATE DATABASE swy_test;"
+for f in supabase/migrations/*.sql; do
+  psql postgresql://postgres:postgres@localhost:54322/swy_test -f "$f"
+done
+
+# Run tests (TEST_DATABASE_URL must point at swy_test)
 pnpm test
 ```
 

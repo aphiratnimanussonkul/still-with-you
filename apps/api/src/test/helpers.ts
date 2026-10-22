@@ -80,10 +80,12 @@ export async function generateTestToken(authId: string, email: string): Promise<
 
 export async function cleanupTestData() {
   const { guardTestDatabase } = await import('./database-guards.js');
-  const { env } = await import('../lib/env.js');
-  
-  // Guard against truncating production databases
-  const dbUrl = process.env.TEST_DATABASE_URL || env.DATABASE_URL;
+
+  // Guard against truncating production databases (TEST_DATABASE_URL only)
+  const dbUrl = process.env.TEST_DATABASE_URL;
+  if (!dbUrl) {
+    throw new Error('TEST_DATABASE_URL is required for tests');
+  }
   await guardTestDatabase(dbUrl);
 
   // Use TRUNCATE to avoid triggering last-admin check

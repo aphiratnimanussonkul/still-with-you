@@ -88,11 +88,20 @@ jobs:
       - name: Build contracts
         run: pnpm --filter @still-with-you/contracts build
 
+      - name: Create swy_test database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          # supabase/postgres initializes cluster objects on the default
+          # `postgres` database; creating swy_test keeps tests off that DB.
+          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE DATABASE swy_test;"
+
       - name: Run migrations
         run: |
           cd supabase/migrations
           for f in *.sql; do
-            PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -f "$f"
+            PGPASSWORD=postgres psql -h localhost -U postgres -d swy_test -f "$f"
           done
         env:
           PGPASSWORD: postgres
@@ -100,8 +109,8 @@ jobs:
       - name: Run tests
         run: pnpm test
         env:
-          TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/swy_test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/swy_test
           SUPABASE_URL: http://localhost:54321
           SUPABASE_SERVICE_ROLE_KEY: test-key
           SUPABASE_ANON_KEY: test-anon-key
