@@ -7,18 +7,15 @@ describe('copy v0.4', () => {
       .filter(([, value]) => value.startsWith('TODO:'))
       .map(([key]) => key);
     expect(leftovers).toEqual([
-      'error.NAME_REQUIRED',
+      'error.INVALID_RELATIONSHIP',
+      'error.RELATIONSHIP_EXISTS',
       'person.family_name.label',
       'person.gender.label',
       'person.birth.label',
       'person.bio.label',
       'person.avatar.label',
       'person.relationship.label',
-      'person.relationship.child',
       'person.relationship.related',
-      'person.status.uninvited',
-      'person.status.pending',
-      'person.status.linked',
       'person.invite.share',
       'person.edit.title',
       'person.edit.action',
@@ -34,15 +31,29 @@ describe('copy v0.4', () => {
     expect(copy['person.invite.action']).toBe('ชวน {name} เข้าครอบครัว');
     expect(copy['person.delete.confirm.title']).toBe('ลบ {name} ออกจากผังไหม');
     expect(copy['person.delete.confirm.body']).toBe(
-      '{name} จะหายไปจากผัง และกู้คืนเองไม่ได้ ส่วนเรื่องเล่าที่พูดถึง {name} ยังอยู่ครบ'
+      '{name} จะหายไปจากผังพร้อมคำตอบเรื่องที่รู้เกี่ยวกับ{name} และกู้คืนไม่ได้ ส่วนความทรงจำและเรื่องเล่าที่มี {name} จะยังอยู่'
+    );
+    expect(copy['person.delete.linked']).toBe(
+      '{name} เป็นสมาชิกครอบครัวแล้ว ถ้าจะลบออกจากผัง ต้องเอาออกจากสมาชิกก่อน'
     );
     expect(copy['person.unjoined']).toBe('ยังไม่ได้เข้าร่วม');
     expect(copy['person.gender.male']).toBe('ชาย');
     expect(copy['person.gender.female']).toBe('หญิง');
-    expect(copy['person.gender.other']).toBe('อื่นๆ');
     expect(copy['person.gender.unspecified']).toBe('ไม่ระบุ');
-    expect(copy['person.relationship.parent']).toBe('เป็นพ่อหรือแม่ของ');
-    expect(copy['person.relationship.spouse']).toBe('เป็นคู่ชีวิตของ');
+    expect(copy['person.relationship.parent']).toBe('เป็นพ่อแม่ของ');
+    expect(copy['person.relationship.spouse']).toBe('เป็นคู่ของ');
+    expect(copy['person.relationship.child']).toBe('เป็นลูกของ');
+    expect(copy['person.status.uninvited']).toBe('ยังไม่ได้เชิญ');
+    expect(copy['person.status.pending']).toBe('รอตอบรับคำเชิญ');
+    expect(copy['person.status.linked']).toBe('เป็นสมาชิกแล้ว');
+    expect(copy['person.age.approx']).toBe('อายุประมาณ {age} ปี');
+    expect(copy['person.birth.mode.day']).toBe('รู้วันที่');
+    expect(copy['person.birth.mode.year']).toBe('รู้แค่ปี');
+    expect(copy['person.unsaved.title']).toBe('ทิ้งข้อมูลที่กรอกไว้ไหม');
+    expect(copy['person.unsaved.body']).toBe('ถ้าออกตอนนี้ ข้อมูลที่กรอกไว้จะหายไป');
+    expect(copy['person.unsaved.leave']).toBe('ทิ้งข้อมูล');
+    expect(copy['person.unsaved.stay']).toBe('กรอกต่อ');
+    expect(copy['error.NAME_REQUIRED']).toBe('ใส่ชื่อก่อนบันทึก');
     expect(copy['person.relation_label.label']).toBe('ชื่อที่ครอบครัวเรียก (ไม่บังคับ)');
     expect(copy['person.relation_label.placeholder']).toBe('เช่น ยาย ลุงหนึ่ง');
     expect(copy['person.bio.counter']).toBe('{count}/2000');

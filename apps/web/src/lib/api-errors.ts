@@ -120,6 +120,14 @@ export function messageForError(error: unknown, vars?: Record<string, string>): 
       return copy['error.INVALID_BIRTH_DATE'];
     }
 
+    if (error.code === 'INVALID_RELATIONSHIP') {
+      return copy['error.INVALID_RELATIONSHIP'];
+    }
+
+    if (error.code === 'RELATIONSHIP_EXISTS') {
+      return copy['error.RELATIONSHIP_EXISTS'];
+    }
+
     if (error.code === 'PERSON_LINKED') {
       return interpolate(copy['error.PERSON_LINKED'], { name: vars?.name ?? vars?.ชื่อ ?? '' });
     }

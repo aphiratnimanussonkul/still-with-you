@@ -1,3 +1,5 @@
+const BE_OFFSET = 543;
+
 function bangkokYmd(now = new Date()): { year: number; month: number; day: number; iso: string } {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Bangkok',
@@ -23,11 +25,28 @@ export type BirthInput = {
   birth_date_precision: BirthDatePrecision;
 };
 
-export function parseBirthInput(value: string): BirthInput | 'invalid' | null {
+export function ceYearToBe(year: number): number {
+  return year + BE_OFFSET;
+}
+
+export function beYearToCe(year: number): number {
+  return year - BE_OFFSET;
+}
+
+export function parseBirthInput(
+  value: string,
+  precision: BirthDatePrecision | ''
+): BirthInput | 'invalid' | null {
   const trimmed = value.trim();
-  if (!trimmed) return null;
-  if (/^\d{4}$/.test(trimmed)) {
-    return { birth_date: `${trimmed}-01-01`, birth_date_precision: 'year' };
+  if (!precision || !trimmed) return null;
+  if (precision === 'year') {
+    if (!/^\d{4}$/.test(trimmed)) return 'invalid';
+    const ce = beYearToCe(Number(trimmed));
+    if (!Number.isInteger(ce) || ce < 1) return 'invalid';
+    return {
+      birth_date: `${String(ce).padStart(4, '0')}-01-01`,
+      birth_date_precision: 'year',
+    };
   }
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
     return { birth_date: trimmed, birth_date_precision: 'day' };
@@ -40,12 +59,26 @@ export function formatBirthInput(
   precision?: BirthDatePrecision | null
 ): string {
   if (!birthDate) return '';
-  if (precision === 'year') return birthDate.slice(0, 4);
+  if (precision === 'year') return String(ceYearToBe(Number(birthDate.slice(0, 4))));
   return birthDate;
 }
 
-export function ageYearsFromBirthDate(birthDate: string, now = new Date()): number | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDate);
+/** Mock API only — the UI never computes age. */
+export function computePersonAge(
+  person: {
+    birth_date?: string | null;
+    birth_date_precision?: BirthDatePrecision | null;
+  },
+  now = new Date()
+): number | null {
+  if (!person.birth_date) return null;
+  if (person.birth_date_precision === 'year') {
+    const year = Number(person.birth_date.slice(0, 4));
+    if (!Number.isFinite(year)) return null;
+    const age = bangkokYmd(now).year - year;
+    return age >= 0 ? age : null;
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(person.birth_date);
   if (!match) return null;
   const birthYear = Number(match[1]);
   const birthMonth = Number(match[2]);
@@ -58,27 +91,10 @@ export function ageYearsFromBirthDate(birthDate: string, now = new Date()): numb
   return age >= 0 ? age : null;
 }
 
-export function ageFromYearOnly(birthDate: string, now = new Date()): number | null {
-  const year = Number(birthDate.slice(0, 4));
-  if (!Number.isFinite(year)) return null;
-  const age = bangkokYmd(now).year - year;
-  return age >= 0 ? age : null;
-}
-
-export function displayPersonAge(
-  person: {
-    age?: number | null;
-    birth_date?: string | null;
-    birth_date_precision?: BirthDatePrecision | null;
-  },
-  now = new Date()
-): number | null {
-  if (typeof person.age === 'number' && Number.isFinite(person.age) && person.age >= 0) {
-    return person.age;
-  }
-  if (!person.birth_date) return null;
-  if (person.birth_date_precision === 'year') return ageFromYearOnly(person.birth_date, now);
-  return ageYearsFromBirthDate(person.birth_date, now);
+export function apiPersonAge(person: { age?: number | null }): number | null {
+  return typeof person.age === 'number' && Number.isFinite(person.age) && person.age >= 0
+    ? person.age
+    : null;
 }
 
 export function isFutureBirthDate(

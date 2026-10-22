@@ -137,8 +137,9 @@ describe('messageForError', () => {
       interpolate(copy['error.PERSON_ALREADY_LINKED'], { name: 'ยายสมศรี' })
     );
     expect(messageForError(apiError('INVITE_INVALID'))).toBe(copy['error.INVITE_INVALID']);
+    expect(messageForError(apiError('INVALID_RELATIONSHIP'))).toBe(copy['error.INVALID_RELATIONSHIP']);
+    expect(messageForError(apiError('RELATIONSHIP_EXISTS'))).toBe(copy['error.RELATIONSHIP_EXISTS']);
     expect(messageForError(apiError('PERSON_SELF_LINK'))).toBe(copy['error.generic']);
-    expect(messageForError(apiError('DUPLICATE_RELATIONSHIP'))).toBe(copy['error.generic']);
     expect(fieldForError(apiError('NAME_REQUIRED', undefined, 'display_name'))).toBe('display_name');
     expect(fieldForError(apiError('INVALID_BIRTH_DATE', undefined, 'birth_date'))).toBe('birth_date');
   });

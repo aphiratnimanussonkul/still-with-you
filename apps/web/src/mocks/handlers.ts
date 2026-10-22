@@ -51,7 +51,7 @@ import {
   skipFactSchema,
   updateFactSchema,
 } from '@/lib/home-api';
-import { displayPersonAge, isFutureBirthDate } from '@/lib/person-age';
+import { computePersonAge, isFutureBirthDate } from '@/lib/person-age';
 import { HOME_QUESTION_TEMPLATES, fillQuestionText, homeQuestionId } from '@/mocks/home-questions';
 
 const api = env.apiUrl.replace(/\/$/, '');
@@ -202,11 +202,16 @@ function toContributionResponse(item: (typeof contributions)[number]) {
 }
 
 function toPersonResponse(person: FamilyPerson) {
+  const pending = invites.some(
+    (invite) => invite.person_id === person.id && invite.status === 'pending'
+  );
+  const invite_status = person.account_id ? 'linked' : pending ? 'pending' : person.invite_status ?? 'none';
   return familyPersonSchema.parse({
     ...person,
     display_name: person.display_name,
     name: person.display_name,
-    age: displayPersonAge(person),
+    age: person.age ?? computePersonAge(person),
+    invite_status,
   });
 }
 
@@ -554,6 +559,7 @@ export const handlers = [
       created_at: new Date().toISOString(),
     };
     created.url = `${origin}/invites/${created.id}`;
+    person.invite_status = 'pending';
     invites.push(created);
     const family = families.find((row) => row.id === person.family_id);
     return HttpResponse.json(
@@ -618,6 +624,7 @@ export const handlers = [
       );
     }
     person.account_id = account.id;
+    person.invite_status = 'linked';
     invite.status = 'accepted';
     const family = families.find((row) => row.id === invite.family_id);
     return HttpResponse.json({
@@ -713,6 +720,7 @@ export const handlers = [
         : null,
       relation_label: parsed.data.relation_label ?? null,
       account_id: null,
+      invite_status: 'none',
       created_by_account_id: account.id,
       updated_at: now,
     };
@@ -803,6 +811,29 @@ export const handlers = [
     );
     if (!ids.has(parsed.data.person_id) || !ids.has(parsed.data.related_person_id)) {
       return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Person not found' } }, { status: 404 });
+    }
+    if (parsed.data.person_id === parsed.data.related_person_id) {
+      return HttpResponse.json(
+        { error: { code: 'INVALID_RELATIONSHIP', message: 'invalid relationship' } },
+        { status: 400 }
+      );
+    }
+    const duplicate = relationships.some((row) => {
+      if (row.type !== parsed.data.type) return false;
+      if (row.person_id === parsed.data.person_id && row.related_person_id === parsed.data.related_person_id) {
+        return true;
+      }
+      return (
+        parsed.data.type === 'spouse' &&
+        row.person_id === parsed.data.related_person_id &&
+        row.related_person_id === parsed.data.person_id
+      );
+    });
+    if (duplicate) {
+      return HttpResponse.json(
+        { error: { code: 'RELATIONSHIP_EXISTS', message: 'relationship exists' } },
+        { status: 409 }
+      );
     }
     const created = familyRelationshipSchema.parse({
       id: crypto.randomUUID(),

@@ -38,15 +38,15 @@ import { useMe } from '@/hooks/use-me';
 import { useSelectedFamily } from '@/hooks/use-selected-family';
 import { messageForError } from '@/lib/api-errors';
 import { familyGraph, personDisplayName, type FamilyPerson, type PersonInvite } from '@/lib/family-graph';
-import { displayPersonAge } from '@/lib/person-age';
+import { apiPersonAge } from '@/lib/person-age';
 import { canEditPerson, isFamilySteward } from '@/lib/person-permissions';
 import { relationshipUiType } from '@/lib/person-relationship';
 import { queryKeys } from '@/lib/query-client';
 
-function accountStatus(person: FamilyPerson, pendingPersonIds: Set<string>) {
+function inviteStatus(person: FamilyPerson) {
+  if (person.invite_status) return person.invite_status;
   if (person.account_id) return 'linked' as const;
-  if (pendingPersonIds.has(person.id)) return 'pending' as const;
-  return 'uninvited' as const;
+  return 'none' as const;
 }
 
 export function PersonPage() {
@@ -70,11 +70,6 @@ export function PersonPage() {
     queryFn: () => familyGraph.listMembers(familyId!),
     enabled: Boolean(familyId),
   });
-  const invites = useQuery({
-    queryKey: queryKeys.invites(familyId ?? ''),
-    queryFn: () => familyGraph.listInvites(familyId!),
-    enabled: Boolean(familyId),
-  });
   const memories = useQuery({
     queryKey: queryKeys.personEvents(personId),
     queryFn: () => familyGraph.listPersonEvents(personId),
@@ -85,13 +80,8 @@ export function PersonPage() {
   const name = person ? personDisplayName(person) : '';
   const canEdit = person ? canEditPerson(person, me.data?.id, members.data?.members) : false;
   const steward = isFamilySteward(members.data?.members, me.data?.id);
-  const age = person ? displayPersonAge(person) : null;
-  const pendingIds = new Set(
-    (invites.data?.invites ?? [])
-      .filter((row) => row.status === 'pending' && row.person_id)
-      .map((row) => row.person_id as string)
-  );
-  const status = person ? accountStatus(person, pendingIds) : 'uninvited';
+  const age = person ? apiPersonAge(person) : null;
+  const status = person ? inviteStatus(person) : 'none';
   const relationships =
     people.data?.relationships.filter(
       (row) => row.person_id === personId || row.related_person_id === personId
@@ -102,7 +92,7 @@ export function PersonPage() {
     onSuccess: async (created) => {
       setCreatedInvite(created);
       setInviteOpen(true);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.invites(familyId!) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.people(familyId!) });
     },
   });
 
@@ -145,6 +135,12 @@ export function PersonPage() {
       : status === 'pending'
         ? copy['person.status.pending']
         : copy['person.status.uninvited'];
+  const ageLabel =
+    age === null
+      ? null
+      : interpolate(person.birth_date_precision === 'year' ? copy['person.age.approx'] : copy['person.age'], {
+          age: String(age),
+        });
   const featured = memories.data?.events ?? [];
 
   return (
@@ -175,7 +171,7 @@ export function PersonPage() {
                     <DropdownMenuItem asChild>
                       <Link to={`/family/people/${person.id}/edit`}>{copy['person.edit.action']}</Link>
                     </DropdownMenuItem>
-                    {!person.account_id ? (
+                    {status !== 'linked' ? (
                       <DropdownMenuItem
                         onSelect={() => {
                           setMenuOpen(false);
@@ -193,9 +189,7 @@ export function PersonPage() {
           {person.family_name ? (
             <p className="text-body text-muted-foreground">{person.family_name}</p>
           ) : null}
-          {age !== null ? (
-            <p className="text-body">{interpolate(copy['person.age'], { age: String(age) })}</p>
-          ) : null}
+          {ageLabel ? <p className="text-body">{ageLabel}</p> : null}
           <Badge variant={status === 'linked' ? 'default' : 'secondary'}>{statusLabel}</Badge>
         </div>
       </div>
@@ -222,15 +216,15 @@ export function PersonPage() {
         </ul>
       ) : null}
 
-      {person.account_id ? (
+      {status === 'linked' ? (
         <p className="text-caption text-muted-foreground">
-          {interpolate(copy['error.PERSON_LINKED'], { name })}
+          {interpolate(copy['person.delete.linked'], { name })}
         </p>
       ) : null}
 
       {person.bio ? <p className="text-body whitespace-pre-wrap">{person.bio}</p> : null}
 
-      {steward && !person.account_id ? (
+      {steward && status !== 'linked' ? (
         <div className="flex flex-col gap-2">
           <Button type="button" onClick={() => invite.mutate()} disabled={invite.isPending}>
             {interpolate(copy['person.invite.action'], { name })}

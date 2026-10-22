@@ -4,7 +4,6 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { copy, interpolate, interpolateHeading } from '@/copy';
 import { ApiClientError } from '@/lib/api-errors';
-import { displayPersonAge } from '@/lib/person-age';
 import { mockAccount, mockEvents, mockFamilies, mockMembers, mockPeople } from '@/mocks/data';
 
 const meState = { id: mockAccount.id };
@@ -22,7 +21,6 @@ vi.mock('@/lib/family-graph', async () => {
     familyGraph: {
       listPeople: vi.fn(),
       listMembers: vi.fn(),
-      listInvites: vi.fn(),
       listPersonEvents: vi.fn(),
       createPersonInvite: vi.fn(),
       deletePerson: vi.fn(),
@@ -68,7 +66,6 @@ describe('PersonPage', () => {
     meState.id = mockAccount.id;
     vi.mocked(familyGraph.listPeople).mockReset();
     vi.mocked(familyGraph.listMembers).mockReset();
-    vi.mocked(familyGraph.listInvites).mockReset();
     vi.mocked(familyGraph.listPersonEvents).mockReset();
     vi.mocked(familyGraph.createPersonInvite).mockReset();
     vi.mocked(familyGraph.deletePerson).mockReset();
@@ -76,7 +73,6 @@ describe('PersonPage', () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
     vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
     vi.mocked(familyGraph.listMembers).mockResolvedValue({ members: mockMembers });
-    vi.mocked(familyGraph.listInvites).mockResolvedValue({ invites: [] });
     vi.mocked(familyGraph.listPersonEvents).mockResolvedValue({ events: [] });
     vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
     vi.mocked(familyGraph.createPersonInvite).mockResolvedValue({
@@ -100,7 +96,7 @@ describe('PersonPage', () => {
     expect(
       screen.getByText(
         interpolate(copy['person.age'], {
-          age: String(displayPersonAge(mockPeople[0])),
+          age: String(mockPeople[0].age),
         })
       )
     ).toBeTruthy();
@@ -119,21 +115,24 @@ describe('PersonPage', () => {
     expect(screen.getByRole('menuitem', { name: copy['person.delete.action'] })).toBeTruthy();
   });
 
-  it('shows a pending invite badge', async () => {
-    vi.mocked(familyGraph.listInvites).mockResolvedValue({
-      invites: [
-        {
-          id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
-          email: '',
-          person_id: mockPeople[0].id,
-          status: 'pending',
-          expires_at: '2026-10-29T00:00:00.000Z',
-          created_at: '2026-10-22T00:00:00.000Z',
-        },
-      ],
+  it('shows a pending invite badge from invite_status', async () => {
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({
+      people: [{ ...mockPeople[0], invite_status: 'pending' }, mockPeople[1]],
+      relationships: [],
     });
     renderPerson();
     expect(await screen.findByText(copy['person.status.pending'])).toBeTruthy();
+  });
+
+  it('shows approximate age when birth precision is year', async () => {
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({
+      people: [{ ...mockPeople[0], birth_date_precision: 'year', age: 78 }, mockPeople[1]],
+      relationships: [],
+    });
+    renderPerson();
+    expect(
+      await screen.findByText(interpolate(copy['person.age.approx'], { age: '78' }))
+    ).toBeTruthy();
   });
 
   it('hides age when birth_date is missing', async () => {
@@ -159,12 +158,13 @@ describe('PersonPage', () => {
     const linked = {
       ...mockPeople[0],
       account_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      invite_status: 'linked' as const,
     };
     vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: [linked, mockPeople[1]], relationships: [] });
     renderPerson();
     const name = linked.display_name;
     expect(await screen.findByText(copy['person.status.linked'])).toBeTruthy();
-    expect(screen.getByText(interpolate(copy['error.PERSON_LINKED'], { name }))).toBeTruthy();
+    expect(screen.getByText(interpolate(copy['person.delete.linked'], { name }))).toBeTruthy();
     expect(
       screen.queryByRole('button', { name: interpolate(copy['person.invite.action'], { name }) })
     ).toBeNull();

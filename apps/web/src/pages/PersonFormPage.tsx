@@ -29,7 +29,12 @@ import {
   type FamilyPerson,
   type FamilyRelationship,
 } from '@/lib/family-graph';
-import { formatBirthInput, isFutureBirthDate, parseBirthInput } from '@/lib/person-age';
+import {
+  formatBirthInput,
+  isFutureBirthDate,
+  parseBirthInput,
+  type BirthDatePrecision,
+} from '@/lib/person-age';
 import { PERSON_GENDER_OPTIONS, genderFromRadio, genderToRadio, type PersonGender } from '@/lib/person-gender';
 import { canEditPerson } from '@/lib/person-permissions';
 import {
@@ -50,6 +55,7 @@ function personWriteBody(input: {
   relation_label: string;
   gender: PersonGender;
   birth: string;
+  birthMode: BirthDatePrecision | '';
   bio: string;
   avatar_media_id?: string;
 }): CreatePerson | { field: 'display_name' | 'birth_date'; message: string } {
@@ -57,7 +63,7 @@ function personWriteBody(input: {
   if (!display_name) {
     return { field: 'display_name', message: copy['error.NAME_REQUIRED'] };
   }
-  const parsedBirth = parseBirthInput(input.birth);
+  const parsedBirth = parseBirthInput(input.birth, input.birthMode);
   if (parsedBirth === 'invalid') {
     return { field: 'birth_date', message: copy['error.INVALID_BIRTH_DATE'] };
   }
@@ -148,6 +154,7 @@ function PersonForm({
   const [familyName, setFamilyName] = useState(person?.family_name ?? '');
   const [relationLabel, setRelationLabel] = useState(person?.relation_label ?? '');
   const [gender, setGender] = useState<PersonGender>(person?.gender ?? null);
+  const [birthMode, setBirthMode] = useState<BirthDatePrecision | ''>(person?.birth_date_precision ?? '');
   const [birth, setBirth] = useState(formatBirthInput(person?.birth_date, person?.birth_date_precision));
   const [bio, setBio] = useState(person?.bio ?? '');
   const [relatedPersonId, setRelatedPersonId] = useState(relatedPrefill);
@@ -168,6 +175,7 @@ function PersonForm({
     if (familyName !== (person?.family_name ?? '')) return true;
     if (relationLabel !== (person?.relation_label ?? '')) return true;
     if (gender !== (person?.gender ?? null)) return true;
+    if (birthMode !== (person?.birth_date_precision ?? '')) return true;
     if (birth !== formatBirthInput(person?.birth_date, person?.birth_date_precision)) return true;
     if (bio !== (person?.bio ?? '')) return true;
     if (relatedPersonId !== relatedPrefill) return true;
@@ -180,6 +188,7 @@ function PersonForm({
     familyName,
     relationLabel,
     gender,
+    birthMode,
     birth,
     bio,
     relatedPersonId,
@@ -209,6 +218,7 @@ function PersonForm({
         relation_label: relationLabel,
         gender,
         birth,
+        birthMode,
         bio,
         avatar_media_id: photos.mediaIds[0],
       });
@@ -318,20 +328,53 @@ function PersonForm({
           </RadioGroup>
         </fieldset>
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="person-birth-date">{copy['person.birth.label']}</Label>
-          <Input
-            id="person-birth-date"
-            inputMode="numeric"
-            value={birth}
-            aria-invalid={Boolean(fieldErrors.birth_date)}
-            onChange={(event) => setBirth(event.target.value)}
-          />
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-label font-medium">{copy['person.birth.label']}</legend>
+          <RadioGroup
+            className="flex flex-col gap-1"
+            value={birthMode}
+            onValueChange={(value) => {
+              setBirthMode(value as BirthDatePrecision);
+              setBirth('');
+            }}
+          >
+            <label htmlFor="person-birth-mode-day" className="flex min-h-11 items-center gap-3 text-body">
+              <RadioGroupItem id="person-birth-mode-day" value="day" />
+              {copy['person.birth.mode.day']}
+            </label>
+            <label htmlFor="person-birth-mode-year" className="flex min-h-11 items-center gap-3 text-body">
+              <RadioGroupItem id="person-birth-mode-year" value="year" />
+              {copy['person.birth.mode.year']}
+            </label>
+          </RadioGroup>
+          {birthMode === 'day' ? (
+            <Input
+              id="person-birth-date"
+              type="date"
+              value={birth}
+              aria-label={copy['person.birth.label']}
+              aria-invalid={Boolean(fieldErrors.birth_date)}
+              onChange={(event) => setBirth(event.target.value)}
+            />
+          ) : null}
+          {birthMode === 'year' ? (
+            <div className="flex items-center gap-2">
+              <span className="text-body text-muted-foreground">พ.ศ.</span>
+              <Input
+                id="person-birth-date"
+                inputMode="numeric"
+                value={birth}
+                aria-label={copy['person.birth.label']}
+                aria-invalid={Boolean(fieldErrors.birth_date)}
+                onChange={(event) => setBirth(event.target.value)}
+              />
+            </div>
+          ) : null}
           <p className="text-caption text-muted-foreground">{copy['person.birth.hint']}</p>
           {fieldErrors.birth_date ? (
             <p className="text-caption text-destructive">{fieldErrors.birth_date}</p>
           ) : null}
-        </div>
+        </fieldset>
 
         {ownRelationships.length > 0 ? (
           <ul className="flex flex-col gap-2">
@@ -445,11 +488,11 @@ function PersonForm({
       <AlertDialog open={blocker.state === 'blocked'} onOpenChange={(open) => !open && blocker.reset?.()}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{copy['unsaved.title']}</AlertDialogTitle>
-            <AlertDialogDescription>{copy['unsaved.body']}</AlertDialogDescription>
+            <AlertDialogTitle>{copy['person.unsaved.title']}</AlertDialogTitle>
+            <AlertDialogDescription>{copy['person.unsaved.body']}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => blocker.reset?.()}>{copy['unsaved.stay']}</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => blocker.reset?.()}>{copy['person.unsaved.stay']}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
@@ -457,7 +500,7 @@ function PersonForm({
                 blocker.proceed?.();
               }}
             >
-              {copy['unsaved.leave']}
+              {copy['person.unsaved.leave']}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
