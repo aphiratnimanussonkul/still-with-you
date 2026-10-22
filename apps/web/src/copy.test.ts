@@ -26,6 +26,9 @@ describe('copy v0.4', () => {
   it('uses specified photo-limit copy with placeholders', () => {
     expect(copy['error.FILE_TOO_LARGE']).toBe('รูปนี้ใหญ่เกิน {max_mb}MB ลองเลือกรูปอื่น');
     expect(copy['error.TOO_MANY_PHOTOS']).toBe('เพิ่มรูปได้สูงสุด {max} รูปต่อเรื่องเล่า');
+    expect(copy['error.UNSUPPORTED_TYPE']).toBe('ใช้ไฟล์นี้ไม่ได้ เลือกรูปแบบ JPEG, PNG, HEIC หรือ WebP');
+    expect(copy['error.UPLOAD_MISMATCH']).toBe('อัปโหลดรูปนี้ไม่สำเร็จ ลองเลือกรูปนี้อีกครั้ง');
+    expect(copy['error.MEDIA_NOT_READY']).toBe('รูปบางรูปยังอัปโหลดไม่เสร็จ รอสักครู่แล้วบันทึกอีกครั้ง');
     expect(copy['photo.count']).toBe('{n}/{max} รูป');
     expect(copy['photo.upload.wait']).toBe('รอรูปอัปโหลดให้เสร็จก่อน จึงจะบันทึกได้');
     expect(copy['photo.label']).toBe('เพิ่มรูป (ถ้ามี)');

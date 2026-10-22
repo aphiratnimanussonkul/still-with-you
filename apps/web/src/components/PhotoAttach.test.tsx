@@ -95,7 +95,7 @@ describe('PhotoAttach', () => {
 
     expect(
       await screen.findByText(
-        interpolate(copy['error.FILE_TOO_LARGE'], { max_mb: '10' })
+        interpolate(copy['error.FILE_TOO_LARGE'], { max_mb: '20' })
       )
     ).toBeTruthy();
     expect(prepareImage).not.toHaveBeenCalled();
