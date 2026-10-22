@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "include": ["/*"],
+  "exclude": [
+    "/mockServiceWorker.js",
+    "/sw.js",
+    "/assets/*",
+    "/illustrations/*",
+    "/favicon.svg",
+    "/manifest.webmanifest"
+  ]
+}
