@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { AppError, ErrorCode, createContributionSchema, updateContributionSchema } from '@still-with-you/contracts';
-import { eq } from 'drizzle-orm';
-import { db, events, contributions, auditLog } from '../lib/db/index.js';
+import { and, asc, eq } from 'drizzle-orm';
+import { db, events, contributions, accounts, auditLog } from '../lib/db/index.js';
 import { findActiveMember, getActiveMember, assertContributionOwner } from '../lib/authz.js';
 import { attachMediaToStory, hardDeleteStoryMedia } from '../lib/media/attach.js';
 import { presentStoryMedia } from '../lib/media/present.js';
@@ -20,10 +20,12 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
   }
 
   async function toContributionResponse(contrib: typeof contributions.$inferSelect, accountId: string) {
+    const [owner] = await db.select().from(accounts).where(eq(accounts.id, contrib.ownerAccountId)).limit(1);
     return {
       id: contrib.id,
       family_id: contrib.familyId,
       owner_account_id: contrib.ownerAccountId,
+      owner_display_name: owner?.displayName ?? '',
       narrator_person_id: contrib.narratorPersonId,
       event_id: contrib.eventId,
       origin_event_id: contrib.originEventId,
@@ -47,6 +49,28 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
       throw new AppError(ErrorCode.NOT_FOUND, 'Contribution not found', 404);
     }
     return reply.send(await toContributionResponse(contrib, request.user!.id));
+  });
+
+  fastify.get<{ Params: { id: string } }>('/events/:id/contributions', async (request, reply) => {
+    const [event] = await db.select().from(events).where(eq(events.id, request.params.id)).limit(1);
+    if (!event || event.status === 'deleted') {
+      throw new AppError(ErrorCode.NOT_FOUND, 'Event not found', 404);
+    }
+
+    const member = await findActiveMember(event.familyId, request.user!.id);
+    if (!member) {
+      throw new AppError(ErrorCode.NOT_FOUND, 'Event not found', 404);
+    }
+
+    const rows = await db
+      .select()
+      .from(contributions)
+      .where(and(eq(contributions.eventId, event.id), eq(contributions.status, 'published')))
+      .orderBy(asc(contributions.createdAt));
+
+    return reply.send({
+      contributions: await Promise.all(rows.map((row) => toContributionResponse(row, request.user!.id))),
+    });
   });
 
   // Add contribution — story required (AC-27)

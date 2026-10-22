@@ -18,7 +18,7 @@ import {
 
 /**
  * Drizzle schema matching Supabase migrations
- * Based on backend-contract-v0.5.md
+ * Based on backend-contract-v0.7.md
  */
 
 // Enums

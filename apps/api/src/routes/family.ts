@@ -17,6 +17,7 @@ import crypto from 'crypto';
  * PATCH /v1/families/:fid/members/:aid - Update role (family steward / admin only)
  * PATCH /v1/families/:fid/members/:aid/role - Same as above (AC-25)
  * DELETE /v1/families/:fid/members/:aid - Remove member (admin only)
+ * GET /v1/families/:fid/members - List active members (family member)
  * POST /v1/families/:fid/leave - Leave family (self)
  */
 const familyRoutes: FastifyPluginAsync = async (fastify) => {
@@ -327,6 +328,37 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     return reply.status(204).send();
+  });
+
+  fastify.get<{ Params: { fid: string } }>('/families/:fid/members', async (request, reply) => {
+    const { fid } = request.params;
+    const [familyRow] = await db.select().from(families).where(eq(families.id, fid)).limit(1);
+    const caller = familyRow ? await findActiveMember(fid, request.user!.id) : null;
+    if (!familyRow || !caller) {
+      throw new AppError(ErrorCode.NOT_FOUND, 'Family not found', 404);
+    }
+
+    const rows = await db
+      .select({
+        accountId: familyMembers.accountId,
+        familyId: familyMembers.familyId,
+        role: familyMembers.role,
+        joinedAt: familyMembers.joinedAt,
+        displayName: accounts.displayName,
+      })
+      .from(familyMembers)
+      .innerJoin(accounts, eq(accounts.id, familyMembers.accountId))
+      .where(and(eq(familyMembers.familyId, fid), isNull(familyMembers.leftAt)));
+
+    return reply.send({
+      members: rows.map((row) => ({
+        account_id: row.accountId,
+        family_id: row.familyId,
+        role: row.role,
+        display_name: row.displayName,
+        joined_at: row.joinedAt.toISOString(),
+      })),
+    });
   });
 
   // Update member role (family steward / admin only). Last-admin rules unchanged (AC-25).

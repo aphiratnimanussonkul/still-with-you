@@ -140,7 +140,7 @@ The web PWA is built for Cloudflare Pages. Build settings, `VITE_*` env vars, an
 
 ## Database Schema
 
-See [docs/backend-contract-v0.4.md](docs/backend-contract-v0.4.md) for the complete API contract and database schema.
+See [docs/backend-contract-v0.7.md](docs/backend-contract-v0.7.md) for the complete API contract and database schema. v0.6 is cancelled.
 
 ### Key Tables
 

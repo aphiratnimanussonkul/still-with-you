@@ -1,5 +1,7 @@
 # Still With You — Backend Contract v0.5
 
+**Status:** Historical. Canonical contract is [v0.7](./backend-contract-v0.7.md). v0.6 was cancelled.
+
 **Updated:** Oct 22, 2026  
 **Changes from v0.4:** Optional photo uploads on stories via signed URLs; focus people (max 10) and quick questions / person facts  
 **Requirements v1.2 (AC-19..AC-27):** family steward, `archived_at` / `deletable_at`, 7-day permanent delete, `canManageEvent`, owner-only stories  
