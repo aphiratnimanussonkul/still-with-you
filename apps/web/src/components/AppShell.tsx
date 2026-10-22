@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
+import { CaretLeftIcon } from '@phosphor-icons/react/CaretLeft';
 import { Link, useLocation } from 'react-router-dom';
 import { AppNav } from '@/components/AppNav';
-import { ChevronLeft } from '@/components/icons';
+import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
-import { copy } from '@/copy';
+import { copy, truncateName } from '@/copy';
 import { useMe } from '@/hooks/use-me';
 import { appBarForPath } from '@/lib/nav';
 
@@ -20,7 +21,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="hidden lg:flex lg:w-56 lg:shrink-0 lg:flex-col lg:border-r lg:border-border lg:bg-card"
       >
         <div className="flex h-14 items-center px-4">
-          <Link to="/families" className="text-h3 font-semibold text-foreground">
+          <Link to="/families" className="truncate text-h3 font-semibold text-foreground">
             {copy['login.title']}
           </Link>
         </div>
@@ -30,17 +31,19 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex min-h-dvh min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-40 border-b border-border bg-card pt-[env(safe-area-inset-top,0px)]">
           <div className="mx-auto flex h-14 max-w-2xl items-center gap-2 px-4 lg:max-w-none">
-            {bar.backTo && bar.backLabelKey ? (
-              <Button variant="ghost" size="icon" className="[&_svg]:size-6" asChild>
-                <Link to={bar.backTo} aria-label={copy[bar.backLabelKey]}>
-                  <ChevronLeft aria-hidden="true" strokeWidth={1.75} />
+            {bar.backTo ? (
+              <Button variant="ghost" size="icon" asChild>
+                <Link to={bar.backTo} aria-label={copy['a11y.back']}>
+                  <Icon as={CaretLeftIcon} size={24} />
                 </Link>
               </Button>
             ) : null}
-            <h1 className={bar.backTo ? 'text-h3 font-semibold' : 'text-h2 font-semibold'}>{title}</h1>
+            <h1 className={`min-w-0 truncate ${bar.backTo ? 'text-h3 font-semibold' : 'text-h2 font-semibold'}`}>
+              {title}
+            </h1>
             {me.data?.display_name ? (
               <span className="ml-auto hidden max-w-40 truncate text-caption text-muted-foreground lg:inline">
-                {me.data.display_name}
+                {truncateName(me.data.display_name)}
               </span>
             ) : null}
           </div>

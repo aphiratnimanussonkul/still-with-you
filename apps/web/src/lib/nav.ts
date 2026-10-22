@@ -20,7 +20,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
 export type AppBarState = {
   titleKey: CopyKey;
   backTo: string | null;
-  backLabelKey: Extract<CopyKey, 'nav.family'> | null;
 };
 
 export function isNavItemActive(id: NavId, pathname: string): boolean {
@@ -34,19 +33,19 @@ export function isNavItemActive(id: NavId, pathname: string): boolean {
 
 export function appBarForPath(pathname: string): AppBarState {
   if (pathname === '/families') {
-    return { titleKey: 'families.title', backTo: null, backLabelKey: null };
+    return { titleKey: 'family.list.title', backTo: null };
   }
   if (/^\/families\/[^/]+/.test(pathname)) {
-    return { titleKey: 'memory.list.title', backTo: '/families', backLabelKey: 'nav.family' };
+    return { titleKey: 'memory.list.title', backTo: '/families' };
   }
   if (pathname === '/memories') {
-    return { titleKey: 'memory.list.title', backTo: null, backLabelKey: null };
+    return { titleKey: 'memory.list.title', backTo: null };
   }
   if (pathname === '/trash' || pathname.startsWith('/trash/')) {
-    return { titleKey: 'trash.title', backTo: null, backLabelKey: null };
+    return { titleKey: 'trash.title', backTo: null };
   }
   if (pathname === '/settings' || pathname.startsWith('/settings/')) {
-    return { titleKey: 'nav.settings', backTo: null, backLabelKey: null };
+    return { titleKey: 'nav.settings', backTo: null };
   }
-  return { titleKey: 'login.title', backTo: null, backLabelKey: null };
+  return { titleKey: 'login.title', backTo: null };
 }

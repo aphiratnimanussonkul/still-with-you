@@ -1,14 +1,13 @@
 /**
- * All UI copy. Strings marked verbatim come from voice-and-copy-v0.3.md
- * (Eddy, locked 21 Oct 2026) plus Eddy's first-PR key mapping.
+ * All UI copy. Strings are verbatim from voice-and-copy-v0.4.md
+ * (Eddy, locked with Aphirat 21 Oct 2026; v0.4 + aria-label keys 22 Oct 2026).
  * Never invent Thai copy here — missing strings are prefixed with TODO.
  */
 
 export const copy = {
-  // --- Glossary (user-facing terms) ---
+  // --- Glossary (user-facing terms from v0.4 §2) ---
   'glossary.event': 'ความทรงจำ',
   'glossary.contribution': 'เรื่องเล่า',
-  'glossary.contribution_count': 'เรื่องเล่า ({จำนวน})',
   'glossary.event_creator': '{ชื่อ} เริ่มความทรงจำนี้',
   'glossary.event_creator_fallback': 'คนเริ่มความทรงจำ',
   'glossary.contribution_owner': 'เล่าโดย {ชื่อ}',
@@ -39,6 +38,7 @@ export const copy = {
   'contribution.trash.confirm.body':
     'เรื่องเล่าของคนอื่นและตัวความทรงจำยังอยู่เหมือนเดิม คุณกู้คืนได้จากถังขยะของฉัน',
   'contribution.trash.confirm.primary': 'ย้ายไปถังขยะ',
+  'contribution.trash.toast': 'ย้ายไปถังขยะของฉันแล้ว',
   'trash.title': 'ถังขยะของฉัน',
   'trash.item.active.meta': 'ย้ายมาจาก {ชื่อความทรงจำ}',
   'trash.item.active.restore': 'กู้คืน',
@@ -55,19 +55,27 @@ export const copy = {
     'ตอนนี้คุณยังเปิดดูเรื่องเล่านี้ไม่ได้เพราะความทรงจำถูกพักไว้ แต่ถ้าลบแล้ว จะกู้คืนไม่ได้อีก',
   'trash.delete.confirm.primary': 'ลบถาวร',
   'trash.delete.confirm.secondary': 'เก็บไว้ก่อน',
+  'trash.select.title': 'เลือกแล้ว {จำนวน}',
+  'trash.restore.success': 'กู้คืนไปที่ {ชื่อความทรงจำ} แล้ว',
 
   // --- พักและลบความทรงจำ ---
   'memory.pause.action': 'พักความทรงจำไว้',
+  'memory.pause.confirm.title': 'พัก "{ชื่อความทรงจำ}" ไว้ใช่ไหม',
   'memory.pause.confirm.body':
     'ระหว่างพักไว้ คนอื่นจะเปิดดูหรือแก้เรื่องเล่าในความทรงจำนี้ไม่ได้ คุณนำกลับมาได้ทุกเมื่อ',
+  'memory.pause.confirm.note': 'ถ้าต้องการลบถาวร ต้องพักไว้ครบ 7 วันก่อน',
+  'memory.pause.success': 'พัก {ชื่อความทรงจำ} ไว้แล้ว',
   'memory.paused.badge': 'พักไว้',
+  'memory.paused.banner':
+    'ความทรงจำนี้ถูกพักไว้ คนอื่นมองไม่เห็น และตอนนี้เปิดดูได้อย่างเดียว',
   'memory.unpause.action': 'นำความทรงจำกลับมา',
   'memory.delete.confirm.title': 'ลบ "{ชื่อความทรงจำ}" ถาวรใช่ไหม',
   'memory.delete.confirm.body':
     'ความทรงจำนี้จะกลับมาไม่ได้อีก ส่วนเรื่องเล่าและรูปที่แต่ละคนเพิ่มไว้จะไม่หายไป เจ้าของยังเก็บไว้ในถังขยะของตัวเองได้',
   'memory.delete.confirm.input_label': 'พิมพ์ "ลบเรื่องนี้" เพื่อยืนยัน',
   'memory.delete.confirm.primary': 'ลบถาวร',
-  'memory.delete.confirm.secondary': 'ยกเลิก',
+  'memory.delete.locked': 'ลบถาวรได้ตั้งแต่ {วันที่} (หลังพักไว้ครบ 7 วัน)',
+  'memory.delete.success': 'ลบถาวรแล้ว เรื่องเล่าแต่ละคนอยู่ในถังขยะของเจ้าของ',
   'notify.memory_deleted':
     '{ชื่อคนเริ่ม} ลบความทรงจำ {ชื่อความทรงจำ} แล้ว แต่เรื่องเล่าและรูปของคุณยังอยู่ครบในถังขยะของคุณ',
   'notify.memory_deleted.action': 'ไปที่ถังขยะของฉัน',
@@ -94,21 +102,22 @@ export const copy = {
   'error.INVALID_INPUT': 'ข้อมูลบางช่องยังไม่ถูกต้อง ลองตรวจอีกครั้ง',
   'error.INTERNAL_ERROR': 'ระบบขัดข้องชั่วคราว ข้อมูลของคุณยังอยู่ครบ ลองใหม่อีกครั้ง',
   'error.network': 'ยังเชื่อมต่อไม่ได้ ลองตรวจอินเทอร์เน็ต แล้วลองใหม่',
-  'error.generic': 'มีบางอย่างผิดพลาด ลองใหม่อีกครั้ง',
-
-  // --- ลบความทรงจำถาวร (กติกา 7 วัน) ---
-  'memory.delete.locked': 'ลบถาวรได้ตั้งแต่ {วันที่} (หลังพักไว้ครบ 7 วัน)',
+  'error.unknown': 'มีบางอย่างผิดพลาด ลองใหม่อีกครั้ง',
   'error.NOT_YET_DELETABLE.has_date':
     'ความทรงจำนี้ต้องพักไว้ครบ 7 วันก่อน จึงจะลบถาวรได้ ลบได้ตั้งแต่ {วันที่}',
   'error.NOT_YET_DELETABLE.null': 'ต้องพักความทรงจำนี้ไว้ก่อน แล้วรอครบ 7 วัน จึงจะลบถาวรได้',
-  'memory.pause.confirm.note': 'ถ้าต้องการลบถาวร ต้องพักไว้ครบ 7 วันก่อน',
+  'error.LAST_ADMIN':
+    'คุณเป็นผู้ดูแลคนเดียวของครอบครัวนี้ ตั้งสมาชิกคนอื่นเป็นผู้ดูแลก่อน แล้วค่อยทำต่อ',
+  'error.LAST_ADMIN.other': '{ชื่อ} เป็นผู้ดูแลคนเดียวของครอบครัวนี้ ตั้งคนอื่นเป็นผู้ดูแลก่อน',
 
   // --- สมาชิกและผู้ดูแล ---
   'members.title': 'สมาชิกในครอบครัว',
   'members.role.admin': 'ผู้ดูแล',
+  'members.you': '(คุณ)',
   'members.action.make_admin': 'ตั้งเป็นผู้ดูแล',
-  'members.make_admin.confirm':
-    'ตั้ง {ชื่อ} เป็นผู้ดูแลใช่ไหม ผู้ดูแลชวนสมาชิกใหม่ แก้ข้อมูลหลักของความทรงจำ และพักไว้หรือลบความทรงจำได้ แต่แก้หรือลบเรื่องเล่าของคนอื่นไม่ได้',
+  'members.make_admin.confirm.title': 'ตั้ง {ชื่อ} เป็นผู้ดูแลใช่ไหม',
+  'members.make_admin.confirm.body':
+    'ผู้ดูแลชวนสมาชิกใหม่ แก้ข้อมูลหลักของความทรงจำ และพักไว้หรือลบความทรงจำได้ แต่แก้หรือลบเรื่องเล่าของคนอื่นไม่ได้',
   'members.action.remove_admin': 'ถอดบทบาทผู้ดูแล',
   'members.action.remove_member': 'นำออกจากครอบครัว',
   'members.remove.confirm':
@@ -119,13 +128,25 @@ export const copy = {
   'invite.status.revoked': 'ยกเลิกคำชวนแล้ว',
   'invite.status.expired': 'คำชวนหมดอายุแล้ว',
   'invite.expiry_note': 'คำชวนนี้ใช้ได้ถึง {วันที่}',
+  'invite.action': 'ชวนสมาชิก',
   'invite.action.revoke': 'ยกเลิกคำชวน',
   'invite.action.resend': 'ชวนอีกครั้ง',
+  'invite.title': 'ชวนคนในครอบครัว',
+  'invite.body': 'ส่งลิงก์ให้คนในครอบครัวมาเห็นและเล่าความทรงจำด้วยกัน ลิงก์ใช้ได้ 7 วัน',
+  'invite.email_label': 'อีเมลของคนที่จะชวน',
+  'invite.send': 'ส่งคำชวน',
+  'invite.copy_link': 'คัดลอกลิงก์',
+  'invite.list.title': 'คำชวนที่รอตอบรับ',
+  'invite.copied.toast': 'คัดลอกลิงก์แล้ว',
+  'invite.landing.title': '{ชื่อผู้ชวน} ชวนคุณเข้าครอบครัว {ชื่อครอบครัว}',
+  'invite.landing.body':
+    'เปิดดูความทรงจำของครอบครัว และเล่าเรื่องเดียวกันจากมุมของคุณเอง เห็นกันแค่คนในครอบครัว',
+  'invite.landing.accept': 'เข้าร่วมครอบครัว',
+  'invite.landing.decline': 'ไว้ทีหลัง',
   'invite.landing.expired': 'คำชวนนี้หมดอายุแล้ว ลองขอให้ {ชื่อผู้ชวน} ชวนใหม่อีกครั้ง',
   'invite.landing.revoked': 'คำชวนนี้ใช้ไม่ได้แล้ว ลองติดต่อ {ชื่อผู้ชวน}',
-  'error.LAST_ADMIN':
-    'คุณเป็นผู้ดูแลคนเดียวของครอบครัวนี้ ตั้งสมาชิกคนอื่นเป็นผู้ดูแลก่อน แล้วค่อยทำต่อ',
-  'error.LAST_ADMIN.other': '{ชื่อ} เป็นผู้ดูแลคนเดียวของครอบครัวนี้ ตั้งคนอื่นเป็นผู้ดูแลก่อน',
+  'invite.accepted.title': 'ยินดีต้อนรับสู่ {ชื่อครอบครัว}',
+  'invite.accepted.next': 'ไปดูความทรงจำ',
   'LAST_ADMIN.action': 'ตั้งคนอื่นเป็นผู้ดูแล',
 
   // --- สมาชิกคนสุดท้ายออก / ลบบัญชี ---
@@ -134,18 +155,18 @@ export const copy = {
     'คุณเป็นสมาชิกคนสุดท้าย ถ้าทำต่อ ครอบครัวนี้ ความทรงจำ เรื่องเล่า และรูปทั้งหมดจะถูกลบถาวร และกู้คืนไม่ได้',
   'family.last_member.confirm.input_label': 'พิมพ์ "ลบเรื่องนี้" เพื่อยืนยัน',
   'family.last_member.confirm.primary': 'ลบครอบครัวถาวร',
-  'family.last_member.confirm.secondary': 'ยกเลิก',
 
-  // --- ยินยอมรับอีเมล ---
+  // --- ยินยอมรับอีเมล / ตั้งค่า ---
   'consent.checkbox': 'ส่งอีเมลมาบอกเมื่อ Still With You มีฟีเจอร์ใหม่',
   'consent.helper': 'ส่งไปที่ {อีเมล} ไม่บ่อย และยกเลิกได้ทุกเมื่อในหน้าตั้งค่า',
   'consent.continue': 'ไปต่อ',
+  'settings.account.title': 'บัญชีของคุณ',
   'settings.consent.toggle': 'อีเมลแจ้งฟีเจอร์ใหม่',
   'settings.consent.on': 'เปิดรับแล้ว จะส่งไปที่ {อีเมล}',
   'settings.consent.off': 'ปิดรับแล้ว จะไม่ส่งอีเมลแนะนำฟีเจอร์ใหม่อีก',
   'email.unsubscribe': 'ยกเลิกรับอีเมลแบบนี้',
 
-  // --- Empty / offline states ---
+  // --- Empty / offline ---
   'trash.empty.title': 'ถังขยะของฉันว่างอยู่',
   'trash.empty.body': 'เรื่องเล่าที่คุณลบหรือที่มาจากความทรงจำที่ถูกลบ จะมาอยู่ที่นี่',
   'archived.empty.title': 'ยังไม่มีความทรงจำที่พักไว้',
@@ -157,7 +178,6 @@ export const copy = {
   'online.toast': 'กลับมาออนไลน์แล้ว',
 
   // --- ถอดบทบาทผู้ดูแล ---
-  'member.menu.remove_admin': 'ถอดบทบาทผู้ดูแล',
   'admin.remove.other.title': 'ถอด {ชื่อ} ออกจากผู้ดูแลไหม',
   'admin.remove.other.body':
     '{ชื่อ} ยังอยู่ในครอบครัวและเห็นความทรงจำเหมือนเดิม แต่จะชวนสมาชิกหรือจัดการความทรงจำของคนอื่นไม่ได้แล้ว',
@@ -166,7 +186,6 @@ export const copy = {
   'admin.remove.self.body':
     'คุณยังอยู่ในครอบครัวและเห็นความทรงจำเหมือนเดิม แต่จะชวนสมาชิกหรือจัดการความทรงจำของคนอื่นไม่ได้แล้ว ถ้าอยากกลับมาเป็นผู้ดูแล ต้องให้ผู้ดูแลคนอื่นตั้งให้',
   'admin.remove.self.confirm': 'ถอดบทบาทของฉัน',
-  'admin.remove.cancel': 'ยกเลิก',
   'admin.remove.other.success': '{ชื่อ} ไม่ได้เป็นผู้ดูแลแล้ว',
   'admin.remove.self.success': 'คุณไม่ได้เป็นผู้ดูแลแล้ว',
   'admin.set.success': 'ตั้ง {ชื่อ} เป็นผู้ดูแลแล้ว',
@@ -176,14 +195,12 @@ export const copy = {
   'login.title': 'Still With You',
   'login.tagline': 'พื้นที่เก็บความทรงจำของครอบครัว เล่าเรื่องเดียวกันจากมุมของแต่ละคน',
   'login.google': 'เข้าสู่ระบบด้วย Google',
-  'auth.login.google': 'เข้าสู่ระบบด้วย Google',
   'login.loading': 'กำลังเข้าสู่ระบบ',
   'login.privacy_note': 'เฉพาะคนที่ครอบครัวชวนเท่านั้นที่เห็นความทรงจำของครอบครัว',
   'login.error.cancelled': 'ยังไม่ได้เข้าสู่ระบบ ลองอีกครั้งได้เลย',
   'login.error.failed': 'เข้าสู่ระบบไม่สำเร็จ ลองอีกครั้ง',
   'session.expired': 'เข้าสู่ระบบไว้นานแล้ว เข้าสู่ระบบอีกครั้งเพื่อไปต่อ',
   'logout.action': 'ออกจากระบบ',
-  'auth.logout': 'ออกจากระบบ',
   'logout.confirm.title': 'ออกจากระบบไหม',
   'logout.confirm.body': 'ความทรงจำทั้งหมดยังอยู่ครบ เข้าสู่ระบบด้วยบัญชีเดิมเมื่อไรก็ได้',
   'logout.confirm.primary': 'ออกจากระบบ',
@@ -197,40 +214,85 @@ export const copy = {
   'nav.family': 'ครอบครัว',
   'nav.trash': 'ถังขยะของฉัน',
   'nav.settings': 'ตั้งค่า',
-  'families.title': 'ครอบครัวของคุณ',
   'family.list.title': 'ครอบครัวของคุณ',
-  'families.empty.title': 'ยังไม่ได้อยู่ในครอบครัวไหน',
   'family.empty.title': 'ยังไม่ได้อยู่ในครอบครัวไหน',
-  'families.empty.body': 'เริ่มครอบครัวของคุณเอง หรือเปิดลิงก์คำชวนที่ได้รับจากคนในครอบครัว',
   'family.empty.body': 'เริ่มครอบครัวของคุณเอง หรือเปิดลิงก์คำชวนที่ได้รับจากคนในครอบครัว',
-  'families.empty.action': 'เริ่มครอบครัวใหม่',
   'family.create.action': 'เริ่มครอบครัวใหม่',
-  'families.create.title': 'เริ่มครอบครัวใหม่',
-  'families.create.name_label': 'ชื่อครอบครัว',
+  'family.create.title': 'เริ่มครอบครัวใหม่',
+  'family.create.helper': 'เปลี่ยนชื่อทีหลังได้ และคุณจะเป็นผู้ดูแลคนแรก',
   'family.create.name_label': 'ชื่อครอบครัว',
-  'families.create.name_placeholder': 'เช่น บ้านคุณยายสมศรี',
   'family.create.name_placeholder': 'เช่น บ้านคุณยายสมศรี',
-  'families.create.submit': 'สร้างครอบครัว',
+  'family.create.name_required': 'ตั้งชื่อครอบครัวก่อน แล้วค่อยสร้าง',
+  'family.create.submit': 'สร้างครอบครัว',
   'family.create.success': 'เริ่มครอบครัว {ชื่อครอบครัว} แล้ว',
+  'family.item.meta': '{จำนวน} คน · {บทบาทของฉัน}',
+  'family.tab.tree': 'แผนผังครอบครัว',
+  'family.tab.members': 'สมาชิก',
   'memory.list.title': 'ความทรงจำ',
-  'memories.empty.title': 'ยังไม่มีความทรงจำ',
   'memory.empty.title': 'ยังไม่มีความทรงจำ',
-  'memories.empty.body': 'เริ่มจากเรื่องเล็ก ๆ ที่ยังจำได้ แล้วชวนคนอื่นมาเล่าต่อจากมุมของเขา',
   'memory.empty.body': 'เริ่มจากเรื่องเล็ก ๆ ที่ยังจำได้ แล้วชวนคนอื่นมาเล่าต่อจากมุมของเขา',
-  'memories.empty.action': 'เริ่มความทรงจำใหม่',
   'memory.create.action': 'เริ่มความทรงจำใหม่',
-  'memories.create.title': 'เริ่มความทรงจำใหม่',
-  'memories.create.story_label': 'เรื่องเล่า (ต้องมี)',
-  'memories.create.story_placeholder': 'เล่าเรื่องนี้ในแบบที่คุณจำได้',
-  'memories.create.submit': 'บันทึกความทรงจำ',
-  'memories.create.title_label': 'ชื่อความทรงจำ',
-  'memories.create.title_placeholder': 'เช่น วันเกิดครบ 80 ปีของคุณยาย',
+  'memory.create.title': 'เริ่มความทรงจำใหม่',
+  'memory.create.submit': 'บันทึก',
+  'memory.title_label': 'ชื่อความทรงจำ',
+  'memory.title_placeholder': 'เช่น ทริปหัวหินปี 2539',
+  'memory.title_required': 'ตั้งชื่อความทรงจำก่อน แล้วค่อยบันทึก',
+  'memory.date_label': 'เกิดขึ้นเมื่อไร',
+  'memory.date_placeholder': 'ไม่แน่ใจ ใส่แค่ปีก็ได้',
+  'memory.people_label': 'ใครอยู่ในความทรงจำนี้',
   'memory.item.meta': '{จำนวน} เรื่องเล่า · เริ่มโดย {ชื่อ}',
   'memory.item.meta.one': '1 เรื่องเล่า · เริ่มโดย {ชื่อ}',
+  'memory.stories.title': 'เรื่องเล่า ({จำนวน})',
+  'memory.search.placeholder': 'ค้นชื่อความทรงจำหรือคน',
+  'memory.filter.all': 'ทั้งหมด',
+  'memory.filter.paused': 'พักไว้',
+  'memory.edit.title': 'แก้ไขความทรงจำ',
+  'memory.detail.meta': '{ชื่อคนเริ่ม} เริ่มความทรงจำนี้ · {ปี/วันที่}',
+  'memory.action.edit': 'แก้ข้อมูลความทรงจำ',
+  'search.empty.title': 'ไม่พบความทรงจำที่ตรงกับ "{คำค้น}"',
+  'search.empty.body': 'ลองค้นด้วยคำอื่น หรือชื่อคนที่อยู่ในความทรงจำนั้น',
+  'story.add.action': 'เล่าจากมุมของคุณ',
+  'story.add.title': 'เล่าจากมุมของคุณ',
+  'story.add.context': 'เล่าใน {ชื่อความทรงจำ} ไม่ทับเรื่องเล่าของใคร',
+  'story.save': 'บันทึก',
+  'story.action.edit': 'แก้ไข',
+
+  // --- บุคคล / แผนผัง ---
+  'person.add.action': 'เพิ่มคน',
+  'tree.empty.title': 'แผนผังครอบครัวยังว่างอยู่',
+  'tree.empty.body':
+    'เพิ่มคนในครอบครัวได้ แม้คนนั้นจะไม่ได้ใช้แอป เช่น คุณยายหรือคนที่จากไปแล้ว',
+  'person.add.title': 'เพิ่มคนในครอบครัว',
+  'person.name_label': 'ชื่อที่ใช้เรียก',
+  'person.name_placeholder': 'เช่น ยายสมศรี',
+  'person.relation_label': 'เกี่ยวข้องกับใคร อย่างไร',
+  'person.relation_placeholder': 'เลือกความสัมพันธ์',
+  'person.save': 'บันทึก',
+  'person.relation.meta': '{ความสัมพันธ์} · ไม่มีบัญชี',
+  'person.memories.title': 'ความทรงจำ ({จำนวน})',
+  'person.saved.title': 'เพิ่ม {ชื่อ} ในครอบครัวแล้ว',
+  'person.saved.next': 'เริ่มความทรงจำของเขา',
+
+  // --- อัปโหลด / ร่าง / อื่น ๆ จาก wireframe 82 ---
+  'photo.upload.progress': 'อัปโหลดรูป {เสร็จ}/{ทั้งหมด}',
+  'photo.upload.failed': 'อัปโหลดรูปนี้ไม่สำเร็จ',
+  'photo.upload.wait': 'รอรูปอัปโหลดให้เสร็จก่อน จึงจะบันทึกได้',
+  'person_ids.invalid': 'มีบางคนที่เลือกไว้ไม่ได้อยู่ในครอบครัวนี้แล้ว ลองเลือกใหม่',
+  'unsaved.title': 'ออกโดยยังไม่บันทึกใช่ไหม',
+  'unsaved.body': 'สิ่งที่พิมพ์ไว้และรูปที่เพิ่มในหน้านี้จะหายไป',
+  'unsaved.stay': 'แก้ต่อ',
+  'unsaved.leave': 'ออกโดยไม่บันทึก',
+  'conflict.reload': 'โหลดเวอร์ชันล่าสุด',
+  'archived.title': 'ความทรงจำที่พักไว้',
+  'archived.item.deletable': 'พักไว้ครบ 7 วัน ลบถาวรได้แล้ว',
+  'draft.title': 'ร่างความทรงจำใหม่',
+  'draft.banner': 'เรื่องเล่าต้นฉบับยังอยู่ในถังขยะของฉัน ตรวจชื่อและวันที่ก่อนบันทึก',
+  'forbidden.title': 'หน้านี้ยังเปิดดูไม่ได้',
+  'pwa.install.body': 'เพิ่มไว้ที่หน้าจอหลัก เปิดความทรงจำได้ในแตะเดียว',
 
   // --- สถานะทั่วไป ---
+  'common.cancel': 'ยกเลิก',
   'loading': 'กำลังโหลด',
-  'loading.body': 'กำลังโหลด',
   'loading.slow': 'ใช้เวลานานกว่าปกติ รออีกสักครู่',
   'retry': 'ลองใหม่',
   'back_home': 'กลับหน้าแรก',
@@ -239,12 +301,52 @@ export const copy = {
   'pwa.update.body': 'มีเวอร์ชันใหม่พร้อมใช้',
   'pwa.update.action': 'อัปเดตเลย',
   'pwa.install.action': 'เพิ่มไว้ที่หน้าจอหลัก',
+
+  // --- aria-label ของปุ่มไอคอนเดี่ยว ---
+  'a11y.back': 'ย้อนกลับ',
+  'a11y.more': 'ตัวเลือกเพิ่มเติม',
+  'a11y.close': 'ปิด',
+  'a11y.clear_search': 'ล้างคำค้น',
+  'a11y.remove_photo': 'เอารูปนี้ออก',
+  'a11y.add_photo': 'เพิ่มรูป',
+  'a11y.member_more': 'ตัวเลือกของ {ชื่อ}',
+  'a11y.memory_more': 'ตัวเลือกของความทรงจำ {ชื่อความทรงจำ}',
 } as const;
 
 export type CopyKey = keyof typeof copy;
 
+const NAME_VAR_KEYS = new Set([
+  'ชื่อ',
+  'ชื่อความทรงจำ',
+  'ชื่อครอบครัว',
+  'ชื่อคนเริ่ม',
+  'ชื่อเจ้าของ',
+  'ชื่อผู้ดูแล',
+  'ชื่อผู้ชวน',
+  'ข้อความต้นของเรื่องเล่า',
+]);
+
+export const DISPLAY_NAME_MAX = 20;
+
+export function truncateName(value: string, max = DISPLAY_NAME_MAX): string {
+  if (value.length <= max) return value;
+  if (max <= 1) return '…';
+  return `${value.slice(0, max - 1)}…`;
+}
+
 export function interpolate(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{([^}]+)\}/g, (match, key: string) =>
-    Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : match
-  );
+  return template.replace(/\{([^}]+)\}/g, (match, key: string) => {
+    if (!Object.prototype.hasOwnProperty.call(vars, key)) return match;
+    const value = vars[key];
+    return NAME_VAR_KEYS.has(key) ? truncateName(value) : value;
+  });
+}
+
+/** family.item.meta — hide {บทบาทของฉัน} unless the viewer is an admin. */
+export function familyItemMeta(memberCount: number, isAdmin: boolean): string {
+  const withRole = interpolate(copy['family.item.meta'], {
+    จำนวน: String(memberCount),
+    บทบาทของฉัน: isAdmin ? copy['members.role.admin'] : '',
+  });
+  return withRole.replace(/\s*·\s*$/u, '');
 }

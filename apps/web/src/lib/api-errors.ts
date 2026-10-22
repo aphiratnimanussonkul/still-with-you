@@ -39,9 +39,9 @@ const CODE_COPY: Partial<Record<string, string>> = {
 };
 
 /**
- * Map an API / network error to copy v0.3 by error `code` only.
+ * Map an API / network error to copy v0.4 by error `code` only.
  * The only details inspection allowed is NOT_YET_DELETABLE.deletable_at
- * (date vs null) and INVALID_INPUT.field for the generic validation suffix.
+ * (date vs null). Field names are never appended to user-facing copy.
  */
 export function messageForError(error: unknown): string {
   if (error instanceof NetworkError) {
@@ -74,9 +74,7 @@ export function messageForError(error: unknown): string {
     }
 
     if (error.code === ErrorCode.INVALID_INPUT) {
-      const field =
-        error.field ?? (typeof error.details?.field === 'string' ? error.details.field : undefined);
-      return field ? `${copy['error.INVALID_INPUT']} (${field})` : copy['error.INVALID_INPUT'];
+      return copy['error.INVALID_INPUT'];
     }
 
     if (error.code === ErrorCode.INTERNAL_ERROR || error.status >= 500) {
@@ -94,7 +92,7 @@ export function messageForError(error: unknown): string {
     if (mapped) return mapped;
   }
 
-  return copy['error.generic'];
+  return copy['error.unknown'];
 }
 
 function isBrowserNetworkFailure(error: unknown): boolean {

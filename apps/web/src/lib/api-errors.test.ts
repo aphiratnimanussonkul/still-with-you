@@ -55,13 +55,13 @@ describe('messageForError', () => {
     expect(messageForError(apiError(ErrorCode.STORY_REQUIRED))).toBe(copy['error.STORY_REQUIRED']);
   });
 
-  it('maps INVALID_INPUT generically and appends field from details', () => {
+  it('maps INVALID_INPUT generically without leaking field names', () => {
     expect(messageForError(apiError(ErrorCode.INVALID_INPUT))).toBe(copy['error.INVALID_INPUT']);
     expect(messageForError(apiError(ErrorCode.INVALID_INPUT, { field: 'person_ids' }))).toBe(
-      `${copy['error.INVALID_INPUT']} (person_ids)`
+      copy['error.INVALID_INPUT']
     );
     expect(messageForError(apiError(ErrorCode.INVALID_INPUT, undefined, 'title'))).toBe(
-      `${copy['error.INVALID_INPUT']} (title)`
+      copy['error.INVALID_INPUT']
     );
   });
 
@@ -71,8 +71,8 @@ describe('messageForError', () => {
   });
 
   it('maps unknown errors to the generic fallback', () => {
-    expect(messageForError(new Error('boom'))).toBe(copy['error.generic']);
-    expect(messageForError(apiError('UNKNOWN_CODE'))).toBe(copy['error.generic']);
+    expect(messageForError(new Error('boom'))).toBe(copy['error.unknown']);
+    expect(messageForError(apiError('UNKNOWN_CODE'))).toBe(copy['error.unknown']);
   });
 
   it('maps INTERNAL_ERROR and 5xx to the 5xx copy', () => {

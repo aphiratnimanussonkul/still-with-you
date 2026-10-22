@@ -43,9 +43,11 @@ function renderPage() {
 describe('SettingsPage', () => {
   it('moves logout into settings and opens the confirm dialog', () => {
     renderPage();
+    expect(screen.getByText(copy['settings.account.title'])).toBeTruthy();
     expect(screen.getByText(copy['settings.consent.toggle'])).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: copy['auth.logout'] }));
+    fireEvent.click(screen.getByRole('button', { name: copy['logout.action'] }));
     const dialog = screen.getByRole('dialog', { name: copy['logout.confirm.title'] });
+    expect(within(dialog).getByRole('button', { name: copy['common.cancel'] })).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: copy['logout.confirm.primary'] }));
     expect(signOut).toHaveBeenCalled();
   });

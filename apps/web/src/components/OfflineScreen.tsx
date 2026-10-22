@@ -1,5 +1,7 @@
+import { ArrowClockwiseIcon } from '@phosphor-icons/react/ArrowClockwise';
 import { Illustration } from '@/components/Illustration';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { copy } from '@/copy';
 
 export function OfflineScreen({ onRetry }: { onRetry?: () => void }) {
@@ -9,6 +11,7 @@ export function OfflineScreen({ onRetry }: { onRetry?: () => void }) {
       <h1 className="text-h2 font-medium">{copy['offline.title']}</h1>
       <p className="text-body text-muted-foreground">{copy['offline.body']}</p>
       <Button type="button" onClick={onRetry ?? (() => window.location.reload())}>
+        <Icon as={ArrowClockwiseIcon} size={20} />
         {copy['offline.action']}
       </Button>
     </main>

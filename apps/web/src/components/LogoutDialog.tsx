@@ -19,7 +19,7 @@ export function LogoutDialog({ onClose }: { onClose: () => void }) {
         <p className="mt-3 text-body text-muted-foreground">{copy['logout.confirm.body']}</p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
           <Button type="button" variant="ghost" onClick={onClose}>
-            {copy['admin.remove.cancel']}
+            {copy['common.cancel']}
           </Button>
           <Button
             type="button"
