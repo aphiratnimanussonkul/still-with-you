@@ -2,11 +2,17 @@
  * Isolated Home / focus / facts client. Backend draft is still pending review.
  * Keep these shapes here (and in MSW) — do not fold them into api-client yet.
  */
-import { eventResponseSchema, type EventResponse } from '@still-with-you/contracts';
+import {
+  FOCUS_MAX_PER_FAMILY,
+  eventResponseSchema,
+  focusListResponseSchema,
+  type EventResponse,
+  type FocusListResponse,
+} from '@still-with-you/contracts';
 import { z } from 'zod';
 import { request } from '@/lib/api-client';
 
-export const FOCUS_MAX = 10;
+export const FOCUS_MAX = FOCUS_MAX_PER_FAMILY;
 
 const personCardSchema = z.object({
   person: z.object({
@@ -29,9 +35,12 @@ export const familyHomeSchema = z.object({
   recent_memories: z.array(eventResponseSchema).max(5),
 });
 
-export const familyFocusSchema = z.object({
+/** PUT /v1/families/{id}/focus request body. Response is `focusListResponseSchema`. */
+export const familyFocusRequestSchema = z.object({
   person_ids: z.array(z.string().uuid()).max(FOCUS_MAX),
 });
+
+export const familyFocusResponseSchema = focusListResponseSchema;
 
 export const createFactSchema = z.object({
   question_id: z.string().min(1),
@@ -79,7 +88,7 @@ export const personFactsSchema = z.object({
 });
 
 export type FamilyHome = z.infer<typeof familyHomeSchema>;
-export type FamilyFocus = z.infer<typeof familyFocusSchema>;
+export type FamilyFocus = FocusListResponse;
 export type PersonFacts = z.infer<typeof personFactsSchema>;
 export type HomeMemory = EventResponse;
 
@@ -89,13 +98,13 @@ export const homeApi = {
   },
 
   getFocus(familyId: string): Promise<FamilyFocus> {
-    return request(`/v1/families/${familyId}/focus`, familyFocusSchema);
+    return request(`/v1/families/${familyId}/focus`, familyFocusResponseSchema);
   },
 
   putFocus(familyId: string, personIds: string[]): Promise<FamilyFocus> {
-    return request(`/v1/families/${familyId}/focus`, familyFocusSchema, {
+    return request(`/v1/families/${familyId}/focus`, familyFocusResponseSchema, {
       method: 'PUT',
-      body: familyFocusSchema.parse({ person_ids: personIds }),
+      body: familyFocusRequestSchema.parse({ person_ids: personIds }),
     });
   },
 

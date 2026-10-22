@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { mockEvents, mockPeople } from '@/mocks/data';
 import { HOME_QUESTION_TEMPLATES, fillQuestionText } from '@/mocks/home-questions';
+import { focusListResponseSchema } from '@still-with-you/contracts';
 import {
   FOCUS_MAX,
   createFactSchema,
-  familyFocusSchema,
+  familyFocusRequestSchema,
+  familyFocusResponseSchema,
   familyHomeSchema,
   personFactsSchema,
   skipFactSchema,
@@ -47,13 +49,38 @@ describe('home draft contract', () => {
     ).toThrow();
   });
 
-  it('limits PUT /focus to 10 uuids and keeps display order', () => {
+  it('limits PUT /focus request body to 10 uuids and keeps display order', () => {
     const ids = [mockPeople[1].id, mockPeople[0].id];
-    expect(familyFocusSchema.parse({ person_ids: ids }).person_ids).toEqual(ids);
-    expect(familyFocusSchema.safeParse({ person_ids: Array.from({ length: FOCUS_MAX + 1 }, () => ids[0]) }).success).toBe(
-      false
-    );
-    expect(familyFocusSchema.safeParse({ person_ids: ['not-a-uuid'] }).success).toBe(false);
+    expect(familyFocusRequestSchema.parse({ person_ids: ids }).person_ids).toEqual(ids);
+    expect(
+      familyFocusRequestSchema.safeParse({ person_ids: Array.from({ length: FOCUS_MAX + 1 }, () => ids[0]) }).success
+    ).toBe(false);
+    expect(familyFocusRequestSchema.safeParse({ person_ids: ['not-a-uuid'] }).success).toBe(false);
+  });
+
+  it('parses GET/PUT /focus contract responses as { items }', () => {
+    const payload = {
+      items: [
+        {
+          person: { id: mockPeople[1].id, display_name: mockPeople[1].name },
+          photo_url: null,
+          memory_count: 0,
+          position: 0,
+        },
+        {
+          person: { id: mockPeople[0].id, display_name: mockPeople[0].name },
+          photo_url: 'https://cdn.example.com/yay.jpg',
+          memory_count: 2,
+          position: 1,
+        },
+      ],
+    };
+    expect(familyFocusResponseSchema.parse(payload)).toEqual(payload);
+    expect(focusListResponseSchema.parse(payload).items.map((item) => item.person.id)).toEqual([
+      mockPeople[1].id,
+      mockPeople[0].id,
+    ]);
+    expect(familyFocusResponseSchema.safeParse({ person_ids: [mockPeople[0].id] }).success).toBe(false);
   });
 
   it('requires an answer on POST /facts and a question_id on skip', () => {

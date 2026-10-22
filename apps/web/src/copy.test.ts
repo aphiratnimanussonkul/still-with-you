@@ -69,6 +69,8 @@ describe('copy v0.4', () => {
     expect(copy['home.question.skip']).toBe('ข้ามคำถามนี้');
     expect(copy['family.focus.toggle']).toBe('แสดงบนหน้าแรก');
     expect(copy['family.focus.note']).toBe('เห็นเฉพาะคุณ');
+    expect(copy['family.focus.load_error']).toBe('โหลดรายชื่อบนหน้าแรกไม่สำเร็จ');
+    expect(copy['family.focus.load_error.action']).toBe('ลองอีกครั้ง');
   });
 
   it('includes Eddy aria-label keys for icon-only controls', () => {
