@@ -8,9 +8,12 @@ import { AuthCallbackPage } from '@/pages/AuthCallbackPage';
 import { ConsentPage } from '@/pages/ConsentPage';
 import { FamiliesPage } from '@/pages/FamiliesPage';
 import { LoginPage } from '@/pages/LoginPage';
+import { MemoriesIndexPage } from '@/pages/MemoriesIndexPage';
 import { MemoriesPage } from '@/pages/MemoriesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { RequireSession } from '@/pages/RequireSession';
+import { SettingsPage } from '@/pages/SettingsPage';
+import { TrashPage } from '@/pages/TrashPage';
 
 export function App() {
   const { session, loading } = useAuth();
@@ -39,6 +42,9 @@ export function App() {
             <Route path="/consent" element={<ConsentPage />} />
             <Route path="/families" element={<FamiliesPage />} />
             <Route path="/families/:familyId" element={<MemoriesPage />} />
+            <Route path="/memories" element={<MemoriesIndexPage />} />
+            <Route path="/trash" element={<TrashPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
           <Route path="/" element={<Navigate to={session ? '/families' : signedOutTo} replace />} />
           <Route path="*" element={session ? <NotFoundPage /> : <Navigate to={signedOutTo} replace />} />

@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
-import { ChevronLeft } from '@/components/icons';
+import { useParams } from 'react-router-dom';
 import { Illustration } from '@/components/Illustration';
 import { QueryLoading } from '@/components/QueryLoading';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +13,7 @@ import { copy } from '@/copy';
 import { api } from '@/lib/api-client';
 import { messageForError } from '@/lib/api-errors';
 import { formatThaiDate } from '@/lib/dates';
+import { rememberFamilyId } from '@/lib/last-family';
 import { queryKeys } from '@/lib/query-client';
 
 export function MemoriesPage() {
@@ -21,6 +21,10 @@ export function MemoriesPage() {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
   const [story, setStory] = useState('');
+
+  useEffect(() => {
+    if (familyId) rememberFamilyId(familyId);
+  }, [familyId]);
 
   const family = useQuery({
     queryKey: queryKeys.family(familyId),
@@ -55,16 +59,9 @@ export function MemoriesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <Button variant="ghost" size="sm" asChild className="w-fit px-0">
-          <Link to="/families">
-            <ChevronLeft data-icon="inline-start" />
-            {copy['nav.family']}
-          </Link>
-        </Button>
-        <h1 className="text-h1 font-semibold">{copy['memory.list.title']}</h1>
-        <p className="text-body text-muted-foreground">{family.data?.name}</p>
-      </div>
+      {family.data?.name ? (
+        <p className="text-body text-muted-foreground">{family.data.name}</p>
+      ) : null}
 
       {items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-6 text-center">

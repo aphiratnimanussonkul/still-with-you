@@ -111,4 +111,12 @@ describe('auth gate and OAuth callback', () => {
     expect(screen.getByRole('heading', { name: copy['page.not_found.title'] })).toBeTruthy();
     expect(screen.getByText(copy['page.not_found.body'])).toBeTruthy();
   });
+
+  it('renders the trash empty state at /trash when signed in', () => {
+    authState.session = { access_token: 'tok' };
+    renderAt('/trash');
+    expect(screen.getByRole('heading', { name: copy['trash.title'] })).toBeTruthy();
+    expect(screen.getByText(copy['trash.empty.title'])).toBeTruthy();
+    expect(screen.getAllByRole('link', { name: copy['nav.trash'] }).length).toBeGreaterThan(0);
+  });
 });
