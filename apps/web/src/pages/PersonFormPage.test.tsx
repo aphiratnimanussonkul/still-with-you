@@ -114,8 +114,9 @@ describe('PersonFormPage', () => {
     expect(screen.getByTestId('photo-attach').textContent).toBe(copy['person.avatar.label']);
     expect(screen.getByLabelText(copy['person.gender.female'])).toBeTruthy();
     expect(screen.getByLabelText(copy['person.gender.male'])).toBeTruthy();
+    expect(screen.getByLabelText(copy['person.gender.other'])).toBeTruthy();
     expect(screen.getByLabelText(copy['person.gender.unspecified'])).toBeTruthy();
-    expect(screen.queryByLabelText(copy['person.gender.other'])).toBeNull();
+    expect(screen.queryByRole('button', { name: 'ล้างที่เลือก' })).toBeNull();
     expect(screen.getByLabelText(copy['person.birth.label'])).toHaveAttribute('type', 'date');
     expect(screen.getByRole('switch', { name: copy['person.birth.mode.year'] })).toBeTruthy();
     expect(screen.getByText(interpolate(copy['person.bio.counter'], { count: '0' }))).toBeTruthy();
@@ -153,6 +154,22 @@ describe('PersonFormPage', () => {
       })
     );
     expect(await screen.findByText('person-page')).toBeTruthy();
+  });
+
+  it('saves gender other', async () => {
+    renderAt('/family/people/new');
+    fireEvent.change(await screen.findByLabelText(copy['person.display_name.label']), {
+      target: { value: 'น้องใหม่' },
+    });
+    fireEvent.click(screen.getByLabelText(copy['person.gender.other']));
+    fireEvent.click(screen.getByRole('button', { name: copy['person.save'] }));
+
+    await waitFor(() =>
+      expect(familyGraph.createPerson).toHaveBeenCalledWith(mockFamilies[0].id, {
+        display_name: 'น้องใหม่',
+        gender: 'other',
+      })
+    );
   });
 
   it('sends child-of as a reversed parent relationship', async () => {

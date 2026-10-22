@@ -178,9 +178,8 @@ describe('family people contract v0.8', () => {
     expect(createPersonSchema.safeParse({ name: 'ยายสมศรี' }).success).toBe(false);
     expect(createPersonSchema.parse({ display_name: ' ยายสมศรี ' }).display_name).toBe('ยายสมศรี');
     expect(createPersonSchema.parse({ display_name: 'ยายสมศรี', gender: null }).gender).toBeNull();
-    expect(createPersonSchema.safeParse({ display_name: 'ยายสมศรี', gender: 'other' }).success).toBe(
-      false
-    );
+    expect(createPersonSchema.parse({ display_name: 'ยายสมศรี', gender: 'other' }).gender).toBe('other');
+    expect(familyPeopleSchema.parse({ people: [mockPersonOther] }).people[0]?.gender).toBe('other');
     expect(createPersonSchema.safeParse({ display_name: 'ยาย', bio: 'x'.repeat(2001) }).success).toBe(
       false
     );
