@@ -55,22 +55,27 @@ function renderPage() {
   );
 }
 
+const homeQuestionId = 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001';
+
 const homePayload = {
   focus: [
     {
-      person: { id: mockPeople[0].id, name: mockPeople[0].name },
+      person: { id: mockPeople[0].id, display_name: mockPeople[0].display_name },
       photo_url: 'https://cdn.example.com/yay.jpg',
       memory_count: 2,
+      position: 0,
     },
     {
-      person: { id: mockPeople[1].id, name: mockPeople[1].name },
+      person: { id: mockPeople[1].id, display_name: mockPeople[1].display_name },
       photo_url: null,
       memory_count: 1,
+      position: 1,
     },
   ],
   quick_question: {
-    question_id: 'q-1',
-    person_id: mockPeople[0].id,
+    question_id: homeQuestionId,
+    key: 'birthplace',
+    person: { id: mockPeople[0].id, display_name: mockPeople[0].display_name },
     text: 'ยายสมศรี เกิดที่ไหน',
   },
   recent_memories: [mockEvents[0]],
@@ -144,7 +149,7 @@ describe('HomePage', () => {
     vi.mocked(api.listEvents).mockResolvedValue({ events: mockEvents });
     vi.mocked(homeApi.getHome).mockResolvedValue(homePayload);
     vi.mocked(homeApi.answerFact).mockResolvedValue({
-      question_id: 'q-1',
+      question_id: homeQuestionId,
       answer_text: 'อยุธยา',
     });
 
@@ -157,7 +162,7 @@ describe('HomePage', () => {
 
     await waitFor(() =>
       expect(homeApi.answerFact).toHaveBeenCalledWith(mockPeople[0].id, {
-        question_id: 'q-1',
+        question_id: homeQuestionId,
         answer_text: 'อยุธยา',
       })
     );
@@ -172,7 +177,7 @@ describe('HomePage', () => {
 
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: copy['home.question.skip'] }));
-    await waitFor(() => expect(homeApi.skipFact).toHaveBeenCalledWith(mockPeople[0].id, 'q-1'));
+    await waitFor(() => expect(homeApi.skipFact).toHaveBeenCalledWith(mockPeople[0].id, homeQuestionId));
     expect(toast).toHaveBeenCalledWith(copy['home.question.skipped.toast']);
   });
 
@@ -184,7 +189,7 @@ describe('HomePage', () => {
       new ApiClientError(ErrorCode.ALREADY_ANSWERED, 'already', 409, undefined, { fact_id: 'fact-1' })
     );
     vi.mocked(homeApi.updateFact).mockResolvedValue({
-      question_id: 'q-1',
+      question_id: homeQuestionId,
       answer_text: 'อยุธยา',
     });
 

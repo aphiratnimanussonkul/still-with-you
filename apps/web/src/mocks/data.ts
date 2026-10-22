@@ -69,6 +69,7 @@ export const mockPeople: FamilyPerson[] = [
   {
     id: '77777777-7777-4777-8777-777777777777',
     family_id: mockFamilies[0].id,
+    display_name: 'ยายสมศรี',
     name: 'ยายสมศรี',
     relation_label: 'ยาย',
     account_id: null,
@@ -76,6 +77,7 @@ export const mockPeople: FamilyPerson[] = [
   {
     id: '87878787-8787-4878-8878-878787878787',
     family_id: mockFamilies[0].id,
+    display_name: 'ปู่สมชาย',
     name: 'ปู่สมชาย',
     relation_label: 'ปู่',
     account_id: null,

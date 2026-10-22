@@ -4,36 +4,18 @@
  */
 import {
   FOCUS_MAX_PER_FAMILY,
-  eventResponseSchema,
   focusListResponseSchema,
+  homeResponseSchema,
+  personFactsResponseSchema,
   type EventResponse,
   type FocusListResponse,
+  type HomeResponse,
+  type PersonFactsResponse,
 } from '@still-with-you/contracts';
 import { z } from 'zod';
 import { request } from '@/lib/api-client';
 
 export const FOCUS_MAX = FOCUS_MAX_PER_FAMILY;
-
-const personCardSchema = z.object({
-  person: z.object({
-    id: z.string().uuid(),
-    name: z.string(),
-  }),
-  photo_url: z.string().url().nullable(),
-  memory_count: z.number().int(),
-});
-
-const quickQuestionSchema = z.object({
-  question_id: z.string(),
-  person_id: z.string().uuid(),
-  text: z.string(),
-});
-
-export const familyHomeSchema = z.object({
-  focus: z.array(personCardSchema),
-  quick_question: quickQuestionSchema.nullable(),
-  recent_memories: z.array(eventResponseSchema).max(5),
-});
 
 /** PUT /v1/families/{id}/focus request body. Response is `focusListResponseSchema`. */
 export const familyFocusRequestSchema = z.object({
@@ -59,37 +41,12 @@ export const updateFactSchema = z.object({
   answer_text: z.string().trim().min(1),
 });
 
-const factAuthorSchema = z.object({
-  account_id: z.string(),
-  display_name: z.string(),
-});
+export const familyHomeSchema = homeResponseSchema;
+export const personFactsSchema = personFactsResponseSchema;
 
-const factAnswerSchema = z.object({
-  id: z.string(),
-  answer_text: z.string(),
-  author: factAuthorSchema.optional(),
-  created_at: z.string().optional(),
-  updated_at: z.string().optional(),
-});
-
-export const personFactsSchema = z.object({
-  groups: z
-    .array(
-      z.object({
-        question: z.object({
-          id: z.string(),
-          key: z.string().optional(),
-          text: z.string(),
-        }),
-        answers: z.array(factAnswerSchema),
-      })
-    )
-    .default([]),
-});
-
-export type FamilyHome = z.infer<typeof familyHomeSchema>;
+export type FamilyHome = HomeResponse;
 export type FamilyFocus = FocusListResponse;
-export type PersonFacts = z.infer<typeof personFactsSchema>;
+export type PersonFacts = PersonFactsResponse;
 export type HomeMemory = EventResponse;
 
 export const homeApi = {
