@@ -371,13 +371,9 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
       await insertNotification(tx, {
         accountId: invite.invitedBy,
         actorAccountId: request.user!.id,
+        familyId: invite.familyId,
         type: NotificationType.INVITE_ACCEPTED,
-        payload: {
-          family_id: invite.familyId,
-          invite_id: invite.id,
-          actor_account_id: request.user!.id,
-          person_id: invite.personId ?? null,
-        },
+        personId: invite.personId ?? null,
       });
 
       return { familyId: invite.familyId, personId: invite.personId ?? null };

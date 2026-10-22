@@ -4,6 +4,12 @@ import { db, accounts, events, families, familyMembers, notifications, people } 
 import { eq } from 'drizzle-orm';
 import { tokenFromInviteUrl } from '../lib/invites.js';
 import { NotificationType } from '../lib/notifications.js';
+import {
+  contributionAddedPayloadSchema,
+  inviteAcceptedPayloadSchema,
+  notificationIdParamSchema,
+  notificationResponseSchema,
+} from '@still-with-you/contracts';
 
 describe('Notifications API', () => {
   let server: Awaited<ReturnType<typeof createTestServer>>;
@@ -17,6 +23,24 @@ describe('Notifications API', () => {
 
   async function auth(token: string) {
     return { authorization: `Bearer ${token}` };
+  }
+
+  async function seedNotification(
+    accountId: string,
+    type: string,
+    payload: Record<string, unknown>,
+    createdAt?: Date
+  ) {
+    const [row] = await db
+      .insert(notifications)
+      .values({
+        accountId,
+        type,
+        payload,
+        ...(createdAt ? { createdAt } : {}),
+      })
+      .returning();
+    return row;
   }
 
   beforeEach(async () => {
@@ -61,28 +85,35 @@ describe('Notifications API', () => {
       unread_count: 0,
     });
 
-    const older = await db
-      .insert(notifications)
-      .values({
-        accountId: creator.id,
-        type: NotificationType.INVITE_ACCEPTED,
-        payload: { family_id: familyId },
-        createdAt: new Date('2026-01-01T00:00:00.000Z'),
-      })
-      .returning();
-    const newer = await db
-      .insert(notifications)
-      .values({
-        accountId: creator.id,
-        type: NotificationType.CONTRIBUTION_ADDED,
-        payload: { family_id: familyId },
-        createdAt: new Date('2026-02-01T00:00:00.000Z'),
-      })
-      .returning();
-    await db.insert(notifications).values({
-      accountId: member.id,
-      type: NotificationType.INVITE_ACCEPTED,
-      payload: { family_id: familyId },
+    const older = await seedNotification(
+      creator.id,
+      NotificationType.INVITE_ACCEPTED,
+      {
+        actor_display_name: 'Invitee',
+        family_name: 'Notification Family',
+        family_id: familyId,
+        person_id: null,
+        person_display_name: null,
+      },
+      new Date('2026-01-01T00:00:00.000Z')
+    );
+    const newer = await seedNotification(
+      creator.id,
+      NotificationType.CONTRIBUTION_ADDED,
+      {
+        actor_display_name: 'Member',
+        event_title: 'วันเกิด',
+        event_id: '00000000-0000-4000-a000-000000000001',
+        family_id: familyId,
+      },
+      new Date('2026-02-01T00:00:00.000Z')
+    );
+    await seedNotification(member.id, NotificationType.INVITE_ACCEPTED, {
+      actor_display_name: 'Invitee',
+      family_name: 'Notification Family',
+      family_id: familyId,
+      person_id: null,
+      person_display_name: null,
     });
 
     const list = await server.inject({
@@ -94,20 +125,30 @@ describe('Notifications API', () => {
     const body = JSON.parse(list.body);
     expect(body.unread_count).toBe(2);
     expect(body.next_cursor).toBeNull();
-    expect(body.notifications.map((row: { id: string }) => row.id)).toEqual([newer[0].id, older[0].id]);
-    expect(body.notifications.every((row: { account_id: string }) => row.account_id === creator.id)).toBe(
-      true
+    expect(body.notifications.map((row: { id: string }) => row.id)).toEqual([newer.id, older.id]);
+    expect(body.notifications[0]).not.toHaveProperty('account_id');
+    expect(body.notifications[0]).toEqual(
+      expect.objectContaining({
+        id: newer.id,
+        type: 'contribution_added',
+        read_at: null,
+      })
     );
   });
 
   it('paginates with cursor', async () => {
     for (let i = 0; i < 3; i += 1) {
-      await db.insert(notifications).values({
-        accountId: creator.id,
-        type: NotificationType.CONTRIBUTION_ADDED,
-        payload: { n: i },
-        createdAt: new Date(`2026-03-0${i + 1}T00:00:00.000Z`),
-      });
+      await seedNotification(
+        creator.id,
+        NotificationType.CONTRIBUTION_ADDED,
+        {
+          actor_display_name: 'Member',
+          event_title: `เรื่อง ${i}`,
+          event_id: '00000000-0000-4000-a000-000000000001',
+          family_id: familyId,
+        },
+        new Date(`2026-03-0${i + 1}T00:00:00.000Z`)
+      );
     }
 
     const first = await server.inject({
@@ -170,15 +211,22 @@ describe('Notifications API', () => {
     expect(creatorBody.unread_count).toBe(1);
     expect(creatorBody.notifications).toHaveLength(1);
     expect(creatorBody.notifications[0]).toMatchObject({
-      account_id: creator.id,
       type: 'contribution_added',
       read_at: null,
       payload: {
         actor_display_name: 'Member',
         event_title: 'วันเกิด',
         event_id: eventId,
+        family_id: familyId,
       },
     });
+    expect(creatorBody.notifications[0]).not.toHaveProperty('account_id');
+    expect(contributionAddedPayloadSchema.parse(creatorBody.notifications[0].payload)).toEqual(
+      creatorBody.notifications[0].payload
+    );
+    expect(notificationResponseSchema.parse(creatorBody.notifications[0]).id).toBe(
+      creatorBody.notifications[0].id
+    );
     expect(creatorBody.notifications[0].payload.contribution_id).toBeUndefined();
     expect(creatorBody.notifications[0].payload.actor_account_id).toBeUndefined();
     expect(contributionId).toBeTruthy();
@@ -189,6 +237,78 @@ describe('Notifications API', () => {
       headers: await auth(memberToken),
     });
     expect(JSON.parse(memberList.body).notifications).toHaveLength(0);
+  });
+
+  it('does not insert when the recipient is no longer an active family member', async () => {
+    const created = await server.inject({
+      method: 'POST',
+      url: `/v1/families/${familyId}/events`,
+      headers: await auth(creatorToken),
+      payload: { title: 'วันเกิด', story: 'เรื่องแรก' },
+    });
+    const eventId = JSON.parse(created.body).id;
+
+    const removed = await server.inject({
+      method: 'DELETE',
+      url: `/v1/families/${familyId}/members/${creator.id}`,
+      headers: await auth(stewardToken),
+    });
+    expect(removed.statusCode).toBe(204);
+
+    const added = await server.inject({
+      method: 'POST',
+      url: `/v1/events/${eventId}/contributions`,
+      headers: await auth(memberToken),
+      payload: { story: 'เรื่องของฉัน' },
+    });
+    expect(added.statusCode).toBe(201);
+
+    const rows = await db.select().from(notifications).where(eq(notifications.accountId, creator.id));
+    expect(rows).toHaveLength(0);
+  });
+
+  it('lists and counts only notifications from families the caller still belongs to', async () => {
+    await seedNotification(creator.id, NotificationType.CONTRIBUTION_ADDED, {
+      actor_display_name: 'Member',
+      event_title: 'ในบ้าน',
+      event_id: '00000000-0000-4000-a000-000000000001',
+      family_id: familyId,
+    });
+    await seedNotification(creator.id, NotificationType.CONTRIBUTION_ADDED, {
+      actor_display_name: 'Outsider',
+      event_title: 'บ้านอื่น',
+      event_id: '00000000-0000-4000-a000-000000000002',
+      family_id: '00000000-0000-4000-a000-000000000099',
+    });
+
+    const before = await server.inject({
+      method: 'GET',
+      url: '/v1/me/notifications',
+      headers: await auth(creatorToken),
+    });
+    const beforeBody = JSON.parse(before.body);
+    expect(beforeBody.unread_count).toBe(1);
+    expect(beforeBody.notifications).toHaveLength(1);
+    expect(beforeBody.notifications[0].payload.family_id).toBe(familyId);
+
+    const removed = await server.inject({
+      method: 'DELETE',
+      url: `/v1/families/${familyId}/members/${creator.id}`,
+      headers: await auth(stewardToken),
+    });
+    expect(removed.statusCode).toBe(204);
+
+    const after = await server.inject({
+      method: 'GET',
+      url: '/v1/me/notifications',
+      headers: await auth(creatorToken),
+    });
+    expect(after.statusCode).toBe(200);
+    expect(JSON.parse(after.body)).toEqual({
+      notifications: [],
+      next_cursor: null,
+      unread_count: 0,
+    });
   });
 
   it('notifies the inviter when an invite is accepted', async () => {
@@ -220,7 +340,6 @@ describe('Notifications API', () => {
     const body = JSON.parse(stewardList.body);
     expect(body.unread_count).toBe(1);
     expect(body.notifications[0]).toMatchObject({
-      account_id: steward.id,
       type: 'invite_accepted',
       read_at: null,
       payload: {
@@ -228,8 +347,12 @@ describe('Notifications API', () => {
         family_name: 'Notification Family',
         family_id: familyId,
         person_id: null,
+        person_display_name: null,
       },
     });
+    expect(inviteAcceptedPayloadSchema.parse(body.notifications[0].payload)).toEqual(
+      body.notifications[0].payload
+    );
     expect(body.notifications[0].payload.invite_id).toBeUndefined();
     expect(inviteId).toBeTruthy();
 
@@ -241,7 +364,7 @@ describe('Notifications API', () => {
     expect(JSON.parse(inviteeList.body).notifications).toHaveLength(0);
   });
 
-  it('resolves names at read time so renames show, and nulls deleted event/person without 500', async () => {
+  it('snapshots names at insert so later renames do not change the payload', async () => {
     const created = await server.inject({
       method: 'POST',
       url: `/v1/families/${familyId}/events`,
@@ -266,25 +389,10 @@ describe('Notifications API', () => {
     });
     expect(renamed.statusCode).toBe(200);
     expect(JSON.parse(renamed.body).notifications[0].payload).toEqual({
-      actor_display_name: 'สมาชิกใหม่',
-      event_title: 'วันเกิดยาย',
+      actor_display_name: 'Member',
+      event_title: 'วันเกิด',
       event_id: eventId,
-    });
-
-    await db
-      .update(events)
-      .set({ status: 'deleted', title: null, deletedAt: new Date() })
-      .where(eq(events.id, eventId));
-    const deletedEvent = await server.inject({
-      method: 'GET',
-      url: '/v1/me/notifications',
-      headers: await auth(creatorToken),
-    });
-    expect(deletedEvent.statusCode).toBe(200);
-    expect(JSON.parse(deletedEvent.body).notifications[0].payload).toEqual({
-      actor_display_name: 'สมาชิกใหม่',
-      event_title: null,
-      event_id: eventId,
+      family_id: familyId,
     });
 
     const personRes = await server.inject({
@@ -314,6 +422,7 @@ describe('Notifications API', () => {
 
     await db.update(families).set({ name: 'บ้านใหม่' }).where(eq(families.id, familyId));
     await db.update(accounts).set({ displayName: 'คนที่ลิงก์' }).where(eq(accounts.id, invitee.id));
+    await db.update(people).set({ displayName: 'ยายใหม่' }).where(eq(people.id, personId));
 
     const livePerson = await server.inject({
       method: 'GET',
@@ -322,53 +431,21 @@ describe('Notifications API', () => {
     });
     expect(livePerson.statusCode).toBe(200);
     expect(JSON.parse(livePerson.body).notifications[0].payload).toEqual({
-      actor_display_name: 'คนที่ลิงก์',
-      family_name: 'บ้านใหม่',
+      actor_display_name: 'Linked',
+      family_name: 'Notification Family',
       family_id: familyId,
       person_id: personId,
-    });
-
-    await db.update(people).set({ deletedAt: new Date() }).where(eq(people.id, personId));
-    const deletedPerson = await server.inject({
-      method: 'GET',
-      url: '/v1/me/notifications',
-      headers: await auth(stewardToken),
-    });
-    expect(deletedPerson.statusCode).toBe(200);
-    expect(JSON.parse(deletedPerson.body).notifications[0].payload).toEqual({
-      actor_display_name: 'คนที่ลิงก์',
-      family_name: 'บ้านใหม่',
-      family_id: familyId,
-      person_id: null,
-    });
-
-    await db.insert(notifications).values({
-      accountId: creator.id,
-      type: NotificationType.CONTRIBUTION_ADDED,
-      payload: { actor_account_id: 'not-a-uuid', event_id: 'also-bad' },
-    });
-    const invalidIds = await server.inject({
-      method: 'GET',
-      url: '/v1/me/notifications',
-      headers: await auth(creatorToken),
-    });
-    expect(invalidIds.statusCode).toBe(200);
-    expect(JSON.parse(invalidIds.body).notifications[0].payload).toEqual({
-      actor_display_name: null,
-      event_title: null,
-      event_id: null,
+      person_display_name: 'ยาย',
     });
   });
 
-  it('marks a notification read, idempotently, and 404s for another account', async () => {
-    const [row] = await db
-      .insert(notifications)
-      .values({
-        accountId: creator.id,
-        type: NotificationType.CONTRIBUTION_ADDED,
-        payload: { family_id: familyId },
-      })
-      .returning();
+  it('marks a notification read, idempotently, and 404s for another account or a non-uuid id', async () => {
+    const row = await seedNotification(creator.id, NotificationType.CONTRIBUTION_ADDED, {
+      actor_display_name: 'Member',
+      event_title: 'วันเกิด',
+      event_id: '00000000-0000-4000-a000-000000000001',
+      family_id: familyId,
+    });
 
     const asOther = await server.inject({
       method: 'POST',
@@ -385,6 +462,15 @@ describe('Notifications API', () => {
     });
     expect(missing.statusCode).toBe(404);
 
+    expect(notificationIdParamSchema.safeParse({ id: 'not-a-uuid' }).success).toBe(false);
+    const invalidId = await server.inject({
+      method: 'POST',
+      url: '/v1/notifications/not-a-uuid/read',
+      headers: await auth(creatorToken),
+    });
+    expect(invalidId.statusCode).toBe(404);
+    expect(JSON.parse(invalidId.body).error.code).toBe('NOT_FOUND');
+
     const first = await server.inject({
       method: 'POST',
       url: `/v1/notifications/${row.id}/read`,
@@ -394,6 +480,16 @@ describe('Notifications API', () => {
     const firstBody = JSON.parse(first.body);
     expect(firstBody.read_at).toBeTruthy();
     expect(firstBody.id).toBe(row.id);
+    expect(firstBody).not.toHaveProperty('account_id');
+    expect(firstBody).toMatchObject({
+      type: 'contribution_added',
+      payload: {
+        actor_display_name: 'Member',
+        event_title: 'วันเกิด',
+        event_id: '00000000-0000-4000-a000-000000000001',
+        family_id: familyId,
+      },
+    });
 
     const second = await server.inject({
       method: 'POST',

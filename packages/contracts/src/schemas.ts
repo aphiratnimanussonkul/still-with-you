@@ -279,16 +279,18 @@ export const meTrashListResponseSchema = z.object({
 export const notificationTypeSchema = z.enum(['contribution_added', 'invite_accepted']);
 
 export const contributionAddedPayloadSchema = z.object({
-  actor_display_name: z.string().nullable(),
-  event_title: z.string().nullable(),
-  event_id: uuidSchema.nullable(),
+  actor_display_name: z.string(),
+  event_title: z.string(),
+  event_id: uuidSchema,
+  family_id: uuidSchema,
 });
 
 export const inviteAcceptedPayloadSchema = z.object({
-  actor_display_name: z.string().nullable(),
-  family_name: z.string().nullable(),
-  family_id: uuidSchema.nullable(),
+  actor_display_name: z.string(),
+  family_name: z.string(),
+  family_id: uuidSchema,
   person_id: uuidSchema.nullable(),
+  person_display_name: z.string().nullable(),
 });
 
 export const notificationPayloadSchema = z.union([
@@ -296,9 +298,12 @@ export const notificationPayloadSchema = z.union([
   inviteAcceptedPayloadSchema,
 ]);
 
+export const notificationIdParamSchema = z.object({
+  id: uuidSchema,
+});
+
 export const notificationResponseSchema = z.object({
   id: uuidSchema,
-  account_id: uuidSchema,
   type: notificationTypeSchema,
   payload: notificationPayloadSchema,
   created_at: z.string().datetime(),
@@ -528,6 +533,7 @@ export type NotificationListResponse = z.infer<typeof notificationListResponseSc
 export type NotificationTypeName = z.infer<typeof notificationTypeSchema>;
 export type ContributionAddedPayload = z.infer<typeof contributionAddedPayloadSchema>;
 export type InviteAcceptedPayload = z.infer<typeof inviteAcceptedPayloadSchema>;
+export type NotificationIdParam = z.infer<typeof notificationIdParamSchema>;
 export type UpdateFocus = z.infer<typeof updateFocusSchema>;
 export type CreateFact = z.infer<typeof createFactSchema>;
 export type SkipFact = z.infer<typeof skipFactSchema>;

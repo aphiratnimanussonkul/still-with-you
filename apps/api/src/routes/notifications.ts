@@ -1,5 +1,10 @@
 import { FastifyPluginAsync } from 'fastify';
-import { AppError, ErrorCode, paginationQuerySchema } from '@still-with-you/contracts';
+import {
+  AppError,
+  ErrorCode,
+  notificationIdParamSchema,
+  paginationQuerySchema,
+} from '@still-with-you/contracts';
 import { and, eq, isNull } from 'drizzle-orm';
 import { db, notifications } from '../lib/db/index.js';
 import { encodeEventCursor } from '../lib/cursor.js';
@@ -33,11 +38,15 @@ const notificationRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.post<{ Params: { id: string } }>('/notifications/:id/read', async (request, reply) => {
+    const parsed = notificationIdParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      throw new AppError(ErrorCode.NOT_FOUND, 'Notification not found', 404);
+    }
     const accountId = request.user!.id;
     const [row] = await db
       .select({ id: notifications.id, accountId: notifications.accountId, readAt: notifications.readAt })
       .from(notifications)
-      .where(eq(notifications.id, request.params.id))
+      .where(eq(notifications.id, parsed.data.id))
       .limit(1);
 
     if (!row || row.accountId !== accountId) {

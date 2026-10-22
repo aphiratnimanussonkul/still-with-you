@@ -137,13 +137,10 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
       await insertNotification(tx, {
         accountId: event.creatorAccountId,
         actorAccountId: request.user!.id,
+        familyId: event.familyId,
         type: NotificationType.CONTRIBUTION_ADDED,
-        payload: {
-          family_id: event.familyId,
-          event_id: event.id,
-          contribution_id: row.id,
-          actor_account_id: request.user!.id,
-        },
+        eventId: event.id,
+        eventTitle: event.title,
       });
 
       return row;
