@@ -160,6 +160,8 @@ export const copy = {
   'invite.landing.title': '{inviter_display_name} ชวนคุณเข้าครอบครัว {family_name}',
   'invite.landing.body':
     'ในผังครอบครัวมีหน้าของ {person_display_name} อยู่แล้ว รับคำเชิญแล้วหน้านี้จะผูกกับบัญชีของคุณ',
+  'invite.family.body':
+    'รับคำเชิญแล้วคุณจะเห็นความทรงจำและเรื่องเล่าของครอบครัวนี้ และเล่าเรื่องของคุณได้ด้วย',
   'invite.landing.accept': 'รับคำเชิญ',
   'invite.landing.login': 'เข้าสู่ระบบเพื่อรับคำเชิญ',
   'invite.landing.expires': 'คำเชิญนี้ใช้ได้ถึง {date}',

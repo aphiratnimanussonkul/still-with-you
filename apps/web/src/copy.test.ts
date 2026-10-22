@@ -73,6 +73,9 @@ describe('copy v0.4', () => {
     expect(copy['invite.landing.body']).toBe(
       'ในผังครอบครัวมีหน้าของ {person_display_name} อยู่แล้ว รับคำเชิญแล้วหน้านี้จะผูกกับบัญชีของคุณ'
     );
+    expect(copy['invite.family.body']).toBe(
+      'รับคำเชิญแล้วคุณจะเห็นความทรงจำและเรื่องเล่าของครอบครัวนี้ และเล่าเรื่องของคุณได้ด้วย'
+    );
     expect(copy['invite.landing.accept']).toBe('รับคำเชิญ');
     expect(copy['invite.landing.login']).toBe('เข้าสู่ระบบเพื่อรับคำเชิญ');
     expect(copy['invite.landing.expires']).toBe('คำเชิญนี้ใช้ได้ถึง {date}');
