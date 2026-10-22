@@ -83,7 +83,7 @@ alter table accounts add column if not exists consent_answered_at timestamptz;
 - `people` is the family-tree node: `display_name` required; `family_name`, `gender`, `birth_date`, `bio`, `avatar_media_id`, `relation_label` optional
 - `gender` is `female` \| `male` \| `other` or SQL/JSON `null` (not specified)
 - Age is **not a column**. The API computes integer `age` in `Asia/Bangkok`
-- `person_relationships` stores only `parent` and `spouse`. Children, siblings, and grandparents are derived. Both people must be in the same family (composite FKs on `(person_id, family_id)` and `(related_person_id, family_id)`)
+- `person_relationships` stores only `parent` and `spouse`. Children, siblings, and grandparents are derived
 - The unused generic `relationships` table from v0.7 is replaced by `person_relationships`. The API never exposed the old table
 - Person invites are `POST /v1/people/{id}/invites`. Family invites stay `{ email }` only
 - Soft-deleted people keep stories/memories (name still shown; person link is not navigable). Live `person_facts` for that person are removed
