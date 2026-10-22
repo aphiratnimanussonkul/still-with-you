@@ -8,11 +8,12 @@ import {
   familyResponseSchema,
   updateConsentSchema,
 } from '@still-with-you/contracts';
-import { http, HttpResponse } from 'msw';
+import { http, HttpResponse, passthrough } from 'msw';
 import { env } from '@/lib/env';
 import { mockAccount, mockEvents, mockFamilies } from '@/mocks/data';
 
 const api = env.apiUrl.replace(/\/$/, '');
+const supabase = env.supabaseUrl.replace(/\/$/, '');
 
 let account = { ...mockAccount };
 const families = [...mockFamilies];
@@ -30,6 +31,9 @@ function requireAuth(request: Request) {
 }
 
 export const handlers = [
+  // PKCE token exchange and auth API must hit the real project, never MSW.
+  http.all(`${supabase}/*`, () => passthrough()),
+
   http.get(`${api}/v1/me`, ({ request }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
