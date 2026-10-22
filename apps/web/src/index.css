@@ -1,0 +1,116 @@
+/* Still With You — design tokens v1 (shadcn/ui + Tailwind v4)
+   Source of truth: uploads/globals.css (design-system-v1 / Figma "SWY Tokens"). */
+@import "tailwindcss";
+
+:root {
+  --radius: 0.75rem;
+  --background: #F5F4ED;            /* fg 10.71:1 */
+  --foreground: #2F3A35;
+  --card: #FCFBF8;                  /* fg 11.42:1 */
+  --card-foreground: #2F3A35;
+  --popover: #FCFBF8;
+  --popover-foreground: #2F3A35;
+  --primary: #4A7768;               /* white 5.08:1 */
+  --primary-hover: #3F6659;         /* 6.45:1 */
+  --primary-pressed: #355649;       /* 8.14:1 */
+  --primary-foreground: #FFFFFF;
+  --secondary: #DDE6DB;
+  --secondary-foreground: #2F4A40;  /* 7.55:1 */
+  --muted: #EEEDE5;
+  --muted-foreground: #5F6964;      /* 4.84 on muted, 5.16 on bg */
+  --accent: #E6EEE6;
+  --accent-foreground: #2F4A40;
+  --destructive: #B4503C;           /* white 5.06:1 */
+  --destructive-foreground: #FFFFFF;
+  --destructive-subtle: #F6E3DE;
+  --destructive-subtle-foreground: #8E3A2A;
+  --success: #E3EFE6;
+  --success-foreground: #2F6B4F;    /* 5.32:1 */
+  --warning: #F3E1D6;
+  --warning-foreground: #8A4B2E;    /* 5.29:1 */
+  --info: #E1ECF2;
+  --info-foreground: #1F5A7A;       /* 6.24:1 */
+  --border: #E4E2D8;                /* decorative dividers only */
+  --input: #858C87;                 /* control borders, ≥3:1 (1.4.11) */
+  --ring: #4A7768;                  /* 4.61:1 on bg */
+  --overlay: rgb(47 58 53 / 0.48);
+  --shadow-e1: 0 1px 2px rgb(47 58 53 / .06), 0 1px 3px rgb(47 58 53 / .08);
+  --shadow-e2: 0 4px 12px rgb(47 58 53 / .10);
+  --shadow-e3: 0 12px 32px rgb(47 58 53 / .16);
+}
+
+@theme inline {
+  --font-sans: "IBM Plex Sans Thai", "Noto Sans Thai", system-ui, sans-serif;
+  --radius-sm: 0.5rem;   /* 8 */
+  --radius-md: 0.625rem; /* 10 input */
+  --radius-lg: var(--radius); /* 12 button */
+  --radius-xl: 1rem;     /* 16 card, dialog */
+  --radius-2xl: 1.5rem;  /* 24 sheet */
+  --text-display: 2rem;      --text-display--line-height: 2.75rem;
+  --text-h1: 1.75rem;        --text-h1--line-height: 2.5rem;
+  --text-h2: 1.375rem;       --text-h2--line-height: 2rem;
+  --text-h3: 1.125rem;        --text-h3--line-height: 1.75rem;
+  --text-body-lg: 1.0625rem; --text-body-lg--line-height: 1.75rem;
+  --text-body: 1rem;         --text-body--line-height: 1.625rem;
+  --text-label: 0.875rem;    --text-label--line-height: 1.375rem;
+  --text-caption: 0.8125rem; --text-caption--line-height: 1.25rem;
+  --text-overline: 0.75rem;  --text-overline--line-height: 1.125rem;
+  --shadow-e1: var(--shadow-e1);
+  --shadow-e2: var(--shadow-e2);
+  --shadow-e3: var(--shadow-e3);
+  --ease-standard: cubic-bezier(.2,0,0,1);
+  --ease-exit: cubic-bezier(.4,0,1,1);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-pressed: var(--primary-pressed);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-subtle: var(--destructive-subtle);
+  --color-destructive-subtle-foreground: var(--destructive-subtle-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  * { @apply border-border outline-ring; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-background text-foreground font-sans antialiased; font-size: 1rem; line-height: 1.625; }
+  h1, h2, h3 { line-height: 1.4; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
+}
+
+@keyframes swy-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.swy-float {
+  animation: swy-float 4.5s var(--ease-standard) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swy-float { animation: none; }
+}

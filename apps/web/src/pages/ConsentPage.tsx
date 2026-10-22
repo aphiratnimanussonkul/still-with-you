@@ -1,0 +1,58 @@
+import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { Illustration } from '@/components/Illustration';
+import { QueryLoading } from '@/components/QueryLoading';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { copy, interpolate } from '@/copy';
+import { isFirstUse, useMe } from '@/hooks/use-me';
+import { api } from '@/lib/api-client';
+import { messageForError } from '@/lib/api-errors';
+import { queryKeys } from '@/lib/query-client';
+
+export function ConsentPage() {
+  const me = useMe();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [checked, setChecked] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () => api.updateConsent({ marketing_consent: checked }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.me });
+      navigate('/families', { replace: true });
+    },
+    onError: (cause) => setError(messageForError(cause)),
+  });
+
+  if (me.isPending) return <QueryLoading />;
+  if (me.isError) return <p className="p-6 text-destructive">{messageForError(me.error)}</p>;
+  if (!me.data) return <Navigate to="/login" replace />;
+  if (!isFirstUse(me.data)) return <Navigate to="/families" replace />;
+
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6">
+      <Illustration name="onboarding-door" />
+      <div className="flex items-start gap-3">
+        <Checkbox
+          id="marketing-consent"
+          checked={checked}
+          onCheckedChange={(value) => setChecked(value === true)}
+        />
+        <Label htmlFor="marketing-consent" className="text-body font-normal leading-relaxed">
+          {copy['consent.checkbox']}
+        </Label>
+      </div>
+      <p className="text-caption text-muted-foreground">
+        {interpolate(copy['consent.helper'], { อีเมล: me.data.email ?? '' })}
+      </p>
+      {error ? <p className="text-caption text-destructive">{error}</p> : null}
+      <Button type="button" disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+        {copy['consent.continue']}
+      </Button>
+    </main>
+  );
+}

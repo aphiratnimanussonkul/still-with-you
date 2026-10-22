@@ -58,6 +58,10 @@ export const familyMemberResponseSchema = z.object({
   left_at: z.string().datetime().nullable(),
 });
 
+export const familyListResponseSchema = z.object({
+  families: z.array(familyResponseSchema),
+});
+
 // Event schemas
 export const EVENT_DELETE_CONFIRM_TEXT = 'ลบเรื่องนี้';
 export const EVENT_DELETE_COOLING_DAYS = 7;
@@ -105,6 +109,10 @@ export const eventResponseSchema = z.object({
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
   version: z.number().int(),
+});
+
+export const eventListResponseSchema = z.object({
+  events: z.array(eventResponseSchema),
 });
 
 // Contribution schemas
@@ -212,11 +220,13 @@ export type CreateFamily = z.infer<typeof createFamilySchema>;
 export type InviteMember = z.infer<typeof inviteMemberSchema>;
 export type UpdateMemberRole = z.infer<typeof updateMemberRoleSchema>;
 export type FamilyResponse = z.infer<typeof familyResponseSchema>;
+export type FamilyListResponse = z.infer<typeof familyListResponseSchema>;
 export type FamilyMemberResponse = z.infer<typeof familyMemberResponseSchema>;
 export type CreateEvent = z.infer<typeof createEventSchema>;
 export type UpdateEvent = z.infer<typeof updateEventSchema>;
 export type DeleteEvent = z.infer<typeof deleteEventSchema>;
 export type EventResponse = z.infer<typeof eventResponseSchema>;
+export type EventListResponse = z.infer<typeof eventListResponseSchema>;
 export type CreateContribution = z.infer<typeof createContributionSchema>;
 export type UpdateContribution = z.infer<typeof updateContributionSchema>;
 export type ContributionResponse = z.infer<typeof contributionResponseSchema>;
