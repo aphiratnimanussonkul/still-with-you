@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { copy, interpolate } from '@/copy';
 import { useMe } from '@/hooks/use-me';
@@ -49,13 +50,19 @@ const BIO_MAX = 2000;
 const selectClassName =
   'flex h-12 min-h-12 w-full rounded-md border border-input bg-card px-3 py-2 text-body text-foreground';
 
+function relationshipTypeCopy(uiType: RelationshipUiType): string {
+  if (uiType === 'parent') return copy['person.relationship.parent'];
+  if (uiType === 'spouse') return copy['person.relationship.spouse'];
+  return copy['relation.type.child'];
+}
+
 function personWriteBody(input: {
   display_name: string;
   family_name: string;
   relation_label: string;
   gender: PersonGender;
   birth: string;
-  birthMode: BirthDatePrecision | '';
+  birthMode: BirthDatePrecision;
   bio: string;
   avatar_media_id?: string;
 }): CreatePerson | { field: 'display_name' | 'birth_date'; message: string } {
@@ -154,7 +161,8 @@ function PersonForm({
   const [familyName, setFamilyName] = useState(person?.family_name ?? '');
   const [relationLabel, setRelationLabel] = useState(person?.relation_label ?? '');
   const [gender, setGender] = useState<PersonGender>(person?.gender ?? null);
-  const [birthMode, setBirthMode] = useState<BirthDatePrecision | ''>(person?.birth_date_precision ?? '');
+  const initialBirthMode: BirthDatePrecision = person?.birth_date_precision ?? 'day';
+  const [birthMode, setBirthMode] = useState<BirthDatePrecision>(initialBirthMode);
   const [birth, setBirth] = useState(formatBirthInput(person?.birth_date, person?.birth_date_precision));
   const [bio, setBio] = useState(person?.bio ?? '');
   const [relatedPersonId, setRelatedPersonId] = useState(relatedPrefill);
@@ -175,7 +183,7 @@ function PersonForm({
     if (familyName !== (person?.family_name ?? '')) return true;
     if (relationLabel !== (person?.relation_label ?? '')) return true;
     if (gender !== (person?.gender ?? null)) return true;
-    if (birthMode !== (person?.birth_date_precision ?? '')) return true;
+    if (birthMode !== initialBirthMode) return true;
     if (birth !== formatBirthInput(person?.birth_date, person?.birth_date_precision)) return true;
     if (bio !== (person?.bio ?? '')) return true;
     if (relatedPersonId !== relatedPrefill) return true;
@@ -189,6 +197,7 @@ function PersonForm({
     relationLabel,
     gender,
     birthMode,
+    initialBirthMode,
     birth,
     bio,
     relatedPersonId,
@@ -309,7 +318,19 @@ function PersonForm({
         </div>
 
         <fieldset className="flex flex-col gap-2">
-          <legend className="text-label font-medium">{copy['person.gender.label']}</legend>
+          <legend className="flex items-center gap-2 text-label font-medium">
+            {copy['person.gender.label']}
+            {gender !== null ? (
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto min-h-0 px-0 text-caption font-normal"
+                onClick={() => setGender(null)}
+              >
+                {copy['person.gender.clear']}
+              </Button>
+            ) : null}
+          </legend>
           <RadioGroup
             className="flex flex-col gap-1"
             value={genderToRadio(gender)}
@@ -328,35 +349,8 @@ function PersonForm({
           </RadioGroup>
         </fieldset>
 
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-label font-medium">{copy['person.birth.label']}</legend>
-          <RadioGroup
-            className="flex flex-col gap-1"
-            value={birthMode}
-            onValueChange={(value) => {
-              setBirthMode(value as BirthDatePrecision);
-              setBirth('');
-            }}
-          >
-            <label htmlFor="person-birth-mode-day" className="flex min-h-11 items-center gap-3 text-body">
-              <RadioGroupItem id="person-birth-mode-day" value="day" />
-              {copy['person.birth.mode.day']}
-            </label>
-            <label htmlFor="person-birth-mode-year" className="flex min-h-11 items-center gap-3 text-body">
-              <RadioGroupItem id="person-birth-mode-year" value="year" />
-              {copy['person.birth.mode.year']}
-            </label>
-          </RadioGroup>
-          {birthMode === 'day' ? (
-            <Input
-              id="person-birth-date"
-              type="date"
-              value={birth}
-              aria-label={copy['person.birth.label']}
-              aria-invalid={Boolean(fieldErrors.birth_date)}
-              onChange={(event) => setBirth(event.target.value)}
-            />
-          ) : null}
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="person-birth-date">{copy['person.birth.label']}</Label>
           {birthMode === 'year' ? (
             <div className="flex items-center gap-2">
               <span className="text-body text-muted-foreground">พ.ศ.</span>
@@ -364,17 +358,37 @@ function PersonForm({
                 id="person-birth-date"
                 inputMode="numeric"
                 value={birth}
-                aria-label={copy['person.birth.label']}
                 aria-invalid={Boolean(fieldErrors.birth_date)}
                 onChange={(event) => setBirth(event.target.value)}
               />
             </div>
-          ) : null}
+          ) : (
+            <Input
+              id="person-birth-date"
+              type="date"
+              value={birth}
+              aria-invalid={Boolean(fieldErrors.birth_date)}
+              onChange={(event) => setBirth(event.target.value)}
+            />
+          )}
+          <div className="flex min-h-11 items-center gap-3">
+            <Switch
+              id="person-birth-year-only"
+              checked={birthMode === 'year'}
+              onCheckedChange={(checked) => {
+                setBirthMode(checked ? 'year' : 'day');
+                setBirth('');
+              }}
+            />
+            <Label htmlFor="person-birth-year-only" className="text-body font-normal">
+              {copy['person.birth.mode.year']}
+            </Label>
+          </div>
           <p className="text-caption text-muted-foreground">{copy['person.birth.hint']}</p>
           {fieldErrors.birth_date ? (
             <p className="text-caption text-destructive">{fieldErrors.birth_date}</p>
           ) : null}
-        </fieldset>
+        </div>
 
         {ownRelationships.length > 0 ? (
           <ul className="flex flex-col gap-2">
@@ -382,12 +396,7 @@ function PersonForm({
               const otherId = row.person_id === person?.id ? row.related_person_id : row.person_id;
               const other = people.find((item) => item.id === otherId);
               const uiType = person ? relationshipUiType(row, person.id) : 'parent';
-              const typeLabel =
-                uiType === 'parent'
-                  ? copy['person.relationship.parent']
-                  : uiType === 'spouse'
-                    ? copy['person.relationship.spouse']
-                    : copy['person.relationship.child'];
+              const typeLabel = relationshipTypeCopy(uiType);
               return (
                 <li key={row.id} className="flex min-h-11 items-center justify-between gap-3">
                   <p className="text-body">
@@ -441,7 +450,7 @@ function PersonForm({
               </label>
               <label htmlFor="person-rel-child" className="flex min-h-11 items-center gap-3 text-body">
                 <RadioGroupItem id="person-rel-child" value="child" />
-                {copy['person.relationship.child']}
+                {copy['relation.type.child']}
               </label>
             </RadioGroup>
           ) : null}

@@ -7,8 +7,6 @@ describe('copy v0.4', () => {
       .filter(([, value]) => value.startsWith('TODO:'))
       .map(([key]) => key);
     expect(leftovers).toEqual([
-      'error.INVALID_RELATIONSHIP',
-      'error.RELATIONSHIP_EXISTS',
       'person.family_name.label',
       'person.gender.label',
       'person.birth.label',
@@ -39,16 +37,20 @@ describe('copy v0.4', () => {
     expect(copy['person.unjoined']).toBe('ยังไม่ได้เข้าร่วม');
     expect(copy['person.gender.male']).toBe('ชาย');
     expect(copy['person.gender.female']).toBe('หญิง');
-    expect(copy['person.gender.unspecified']).toBe('ไม่ระบุ');
+    expect(copy['person.gender.other']).toBe('อื่นๆ');
+    expect(copy['person.gender.clear']).toBe('ล้างที่เลือก');
     expect(copy['person.relationship.parent']).toBe('เป็นพ่อแม่ของ');
     expect(copy['person.relationship.spouse']).toBe('เป็นคู่ของ');
-    expect(copy['person.relationship.child']).toBe('เป็นลูกของ');
+    expect(copy['relation.type.child']).toBe('เป็นลูกของ');
     expect(copy['person.status.uninvited']).toBe('ยังไม่ได้เชิญ');
     expect(copy['person.status.pending']).toBe('รอตอบรับคำเชิญ');
     expect(copy['person.status.linked']).toBe('เป็นสมาชิกแล้ว');
     expect(copy['person.age.approx']).toBe('อายุประมาณ {age} ปี');
-    expect(copy['person.birth.mode.day']).toBe('รู้วันที่');
-    expect(copy['person.birth.mode.year']).toBe('รู้แค่ปี');
+    expect(copy['person.birth.mode.year']).toBe('รู้แค่ปีเกิด');
+    expect(copy['error.INVALID_RELATIONSHIP']).toBe(
+      'ความสัมพันธ์นี้ใช้ไม่ได้ในผัง ลองเลือกคนหรือความสัมพันธ์ใหม่'
+    );
+    expect(copy['error.RELATIONSHIP_EXISTS']).toBe('มีความสัมพันธ์นี้ในผังอยู่แล้ว');
     expect(copy['person.unsaved.title']).toBe('ทิ้งข้อมูลที่กรอกไว้ไหม');
     expect(copy['person.unsaved.body']).toBe('ถ้าออกตอนนี้ ข้อมูลที่กรอกไว้จะหายไป');
     expect(copy['person.unsaved.leave']).toBe('ทิ้งข้อมูล');

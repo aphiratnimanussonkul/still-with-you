@@ -208,6 +208,24 @@ describe('PersonPage', () => {
     expect(await screen.findByText('family-page')).toBeTruthy();
   });
 
+  it('labels a child-of edge with relation.type.child', async () => {
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({
+      people: mockPeople,
+      relationships: [
+        {
+          id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+          person_id: mockPeople[1].id,
+          related_person_id: mockPeople[0].id,
+          type: 'parent',
+        },
+      ],
+    });
+    renderPerson();
+    expect(
+      await screen.findByText(`${copy['relation.type.child']} · ${mockPeople[1].display_name}`)
+    ).toBeTruthy();
+  });
+
   it('lists memories that feature this person', async () => {
     vi.mocked(familyGraph.listPersonEvents).mockResolvedValue({ events: [mockEvents[0]] });
     renderPerson();

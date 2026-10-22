@@ -105,7 +105,7 @@ describe('PersonFormPage', () => {
     });
   });
 
-  it('shows Eddy labels, Kret gender radios, and a bio counter', async () => {
+  it('shows Eddy labels, gender radios, year-only switch, and a bio counter', async () => {
     renderAt('/family/people/new');
     expect(await screen.findByLabelText(copy['person.display_name.label'])).toBeTruthy();
     expect(screen.getByLabelText(copy['person.family_name.label'])).toBeTruthy();
@@ -114,10 +114,11 @@ describe('PersonFormPage', () => {
     expect(screen.getByTestId('photo-attach').textContent).toBe(copy['person.avatar.label']);
     expect(screen.getByLabelText(copy['person.gender.female'])).toBeTruthy();
     expect(screen.getByLabelText(copy['person.gender.male'])).toBeTruthy();
-    expect(screen.queryByLabelText(copy['person.gender.other'])).toBeNull();
-    expect(screen.getByLabelText(copy['person.gender.unspecified'])).toBeTruthy();
-    expect(screen.getByLabelText(copy['person.birth.mode.day'])).toBeTruthy();
-    expect(screen.getByLabelText(copy['person.birth.mode.year'])).toBeTruthy();
+    expect(screen.getByLabelText(copy['person.gender.other'])).toBeTruthy();
+    expect(screen.queryByLabelText(copy['person.gender.unspecified'])).toBeNull();
+    expect(screen.queryByRole('button', { name: copy['person.gender.clear'] })).toBeNull();
+    expect(screen.getByLabelText(copy['person.birth.label'])).toHaveAttribute('type', 'date');
+    expect(screen.getByRole('switch', { name: copy['person.birth.mode.year'] })).toBeTruthy();
     expect(screen.getByText(interpolate(copy['person.bio.counter'], { count: '0' }))).toBeTruthy();
     expect(screen.getByPlaceholderText(copy['person.relation_label.placeholder'])).toBeTruthy();
   });
@@ -128,7 +129,7 @@ describe('PersonFormPage', () => {
       target: { value: 'น้องใหม่' },
     });
     fireEvent.click(screen.getByLabelText(copy['person.gender.male']));
-    fireEvent.click(screen.getByLabelText(copy['person.birth.mode.day']));
+    expect(screen.getByRole('button', { name: copy['person.gender.clear'] })).toBeTruthy();
     fireEvent.change(screen.getByLabelText(copy['person.birth.label']), {
       target: { value: '2018-04-12' },
     });
@@ -156,6 +157,22 @@ describe('PersonFormPage', () => {
     expect(await screen.findByText('person-page')).toBeTruthy();
   });
 
+  it('saves gender other', async () => {
+    renderAt('/family/people/new');
+    fireEvent.change(await screen.findByLabelText(copy['person.display_name.label']), {
+      target: { value: 'น้องใหม่' },
+    });
+    fireEvent.click(screen.getByLabelText(copy['person.gender.other']));
+    fireEvent.click(screen.getByRole('button', { name: copy['person.save'] }));
+
+    await waitFor(() =>
+      expect(familyGraph.createPerson).toHaveBeenCalledWith(mockFamilies[0].id, {
+        display_name: 'น้องใหม่',
+        gender: 'other',
+      })
+    );
+  });
+
   it('sends child-of as a reversed parent relationship', async () => {
     renderAt('/family/people/new');
     fireEvent.change(await screen.findByLabelText(copy['person.display_name.label']), {
@@ -164,7 +181,7 @@ describe('PersonFormPage', () => {
     fireEvent.change(screen.getByLabelText(copy['person.relationship.label']), {
       target: { value: mockPeople[0].id },
     });
-    fireEvent.click(screen.getByLabelText(copy['person.relationship.child']));
+    fireEvent.click(screen.getByLabelText(copy['relation.type.child']));
     fireEvent.click(screen.getByRole('button', { name: copy['person.save'] }));
 
     await waitFor(() =>
@@ -181,7 +198,7 @@ describe('PersonFormPage', () => {
     fireEvent.change(await screen.findByLabelText(copy['person.display_name.label']), {
       target: { value: 'น้องใหม่' },
     });
-    fireEvent.click(screen.getByLabelText(copy['person.birth.mode.year']));
+    fireEvent.click(screen.getByRole('switch', { name: copy['person.birth.mode.year'] }));
     fireEvent.change(screen.getByLabelText(copy['person.birth.label']), {
       target: { value: '2561' },
     });
@@ -227,7 +244,6 @@ describe('PersonFormPage', () => {
     fireEvent.change(await screen.findByLabelText(copy['person.display_name.label']), {
       target: { value: 'น้องใหม่' },
     });
-    fireEvent.click(screen.getByLabelText(copy['person.birth.mode.day']));
     fireEvent.change(screen.getByLabelText(copy['person.birth.label']), {
       target: { value: '2099-01-01' },
     });
@@ -251,7 +267,7 @@ describe('PersonFormPage', () => {
     expect(await screen.findByText('family-page')).toBeTruthy();
   });
 
-  it('saves an edit with unspecified gender as null and keeps birth precision', async () => {
+  it('saves other gender and clears a selected gender to null', async () => {
     vi.mocked(familyGraph.updatePerson).mockResolvedValue({
       ...mockPeople[0],
       gender: null,
@@ -259,7 +275,8 @@ describe('PersonFormPage', () => {
 
     renderAt(`/family/people/${mockPeople[0].id}/edit`);
     expect(await screen.findByDisplayValue(mockPeople[0].display_name)).toBeTruthy();
-    fireEvent.click(screen.getByLabelText(copy['person.gender.unspecified']));
+    fireEvent.click(screen.getByLabelText(copy['person.gender.other']));
+    fireEvent.click(screen.getByRole('button', { name: copy['person.gender.clear'] }));
     fireEvent.click(screen.getByRole('button', { name: copy['person.save'] }));
 
     await waitFor(() =>
@@ -271,5 +288,31 @@ describe('PersonFormPage', () => {
         birth_date_precision: 'day',
       })
     );
+  });
+
+  it('maps INVALID_RELATIONSHIP and RELATIONSHIP_EXISTS onto the form', async () => {
+    vi.mocked(familyGraph.createRelationship)
+      .mockRejectedValueOnce(new ApiClientError('INVALID_RELATIONSHIP', 'invalid', 400))
+      .mockRejectedValueOnce(new ApiClientError('SELF_RELATIONSHIP', 'self', 400))
+      .mockRejectedValueOnce(new ApiClientError('RELATIONSHIP_EXISTS', 'exists', 409));
+
+    renderAt('/family/people/new');
+    fireEvent.change(await screen.findByLabelText(copy['person.display_name.label']), {
+      target: { value: 'น้องใหม่' },
+    });
+    fireEvent.change(screen.getByLabelText(copy['person.relationship.label']), {
+      target: { value: mockPeople[0].id },
+    });
+    fireEvent.click(screen.getByLabelText(copy['relation.type.child']));
+    fireEvent.click(screen.getByRole('button', { name: copy['person.save'] }));
+    await waitFor(() => expect(familyGraph.createRelationship).toHaveBeenCalledTimes(1));
+    expect(screen.getByText(copy['error.INVALID_RELATIONSHIP'])).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: copy['person.save'] }));
+    await waitFor(() => expect(familyGraph.createRelationship).toHaveBeenCalledTimes(2));
+    expect(screen.getByText(copy['error.INVALID_RELATIONSHIP'])).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: copy['person.save'] }));
+    expect(await screen.findByText(copy['error.RELATIONSHIP_EXISTS'])).toBeTruthy();
   });
 });

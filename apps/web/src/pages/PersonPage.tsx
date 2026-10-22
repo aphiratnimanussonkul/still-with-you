@@ -206,7 +206,7 @@ export function PersonPage() {
                 ? copy['person.relationship.parent']
                 : uiType === 'spouse'
                   ? copy['person.relationship.spouse']
-                  : copy['person.relationship.child'];
+                  : copy['relation.type.child'];
             return (
               <li key={row.id} className="text-body">
                 {typeLabel} · {personDisplayName(other)}
