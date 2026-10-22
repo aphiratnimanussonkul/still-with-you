@@ -99,9 +99,7 @@ export function PersonPage() {
     },
   });
 
-  const inviteUrl = createdInvite
-    ? createdInvite.url ?? `${window.location.origin}/invites/${createdInvite.id}`
-    : '';
+  const inviteUrl = createdInvite?.url ?? '';
 
   const remove = useMutation({
     mutationFn: () => familyGraph.deletePerson(personId),
