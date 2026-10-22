@@ -2,6 +2,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { db, families, familyMembers, accounts, auditLog, invites } from '../lib/db/index.js';
 import { eq, and, isNull, sql } from 'drizzle-orm';
 import { createFamilySchema, inviteMemberSchema, updateMemberRoleSchema, AppError, ErrorCode } from '@still-with-you/contracts';
+import { findActiveMember } from '../lib/authz.js';
 import crypto from 'crypto';
 
 /**
@@ -297,15 +298,36 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Update member role (family steward / admin only). Last-admin rules unchanged (AC-25).
+  // Self-demote is allowed when another steward remains.
   const updateMemberRole = async (
     request: { params: { fid: string; aid: string }; body: unknown; user?: { id: string } },
-    reply: { send: (payload: { success: true }) => unknown }
+    reply: {
+      send: (payload: {
+        account_id: string;
+        family_id: string;
+        role: 'member' | 'admin';
+        display_name: string;
+        joined_at: string;
+      }) => unknown;
+    }
   ) => {
     const { fid, aid } = request.params;
     const body = updateMemberRoleSchema.parse(request.body);
 
-    await checkAdmin(fid, request.user!.id);
-    await checkActiveMember(fid, aid);
+    const [familyRow] = await db.select().from(families).where(eq(families.id, fid)).limit(1);
+    if (!familyRow) {
+      throw new AppError(ErrorCode.NOT_FOUND, 'Family not found', 404);
+    }
+
+    const caller = await findActiveMember(fid, request.user!.id);
+    if (!caller || caller.role !== 'admin') {
+      throw new AppError(ErrorCode.FORBIDDEN, 'This action requires the family steward (admin) role', 403);
+    }
+
+    const target = await findActiveMember(fid, aid);
+    if (!target) {
+      throw new AppError(ErrorCode.NOT_FOUND, 'Family member not found', 404);
+    }
 
     try {
       await db
@@ -326,7 +348,15 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
       targetId: aid,
     });
 
-    return reply.send({ success: true });
+    const [account] = await db.select().from(accounts).where(eq(accounts.id, aid)).limit(1);
+
+    return reply.send({
+      account_id: aid,
+      family_id: fid,
+      role: body.role,
+      display_name: account?.displayName ?? '',
+      joined_at: target.joinedAt.toISOString(),
+    });
   };
 
   fastify.patch<{ Params: { fid: string; aid: string } }>('/families/:fid/members/:aid', updateMemberRole);

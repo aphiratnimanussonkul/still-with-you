@@ -191,6 +191,14 @@ describe('Family Management', () => {
       });
 
       expect(promoteResponse.statusCode).toBe(200);
+      const promotedBody = JSON.parse(promoteResponse.body);
+      expect(promotedBody).toMatchObject({
+        account_id: memberAccount.id,
+        family_id: family.id,
+        role: 'admin',
+        display_name: memberAccount.displayName,
+      });
+      expect(promotedBody.joined_at).toBeTruthy();
 
       // Verify role changed
       const [member] = await db

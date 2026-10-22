@@ -10,7 +10,8 @@ import {
 import { and, eq, ne, sql } from 'drizzle-orm';
 import { db, events, contributions, eventPeople, auditLog } from '../lib/db/index.js';
 import { findActiveMember, getActiveMember, canManageEvent, isFamilySteward } from '../lib/authz.js';
-import { archiveSchedule, isPastDeleteCooling, toEventResponse } from '../lib/event-response.js';
+import { archiveSchedule, toEventResponse } from '../lib/event-response.js';
+import { assertPeopleInFamily } from '../lib/people.js';
 
 /**
  * Event routes
@@ -47,45 +48,50 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
 
     const body = createEventSchema.parse(request.body);
 
-    const [newEvent] = await db
-      .insert(events)
-      .values({
+    const newEvent = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(events)
+        .values({
+          familyId: fid,
+          creatorAccountId: request.user!.id,
+          title: body.title,
+          description: body.description,
+          occurredFrom: body.occurred_from,
+          occurredTo: body.occurred_to,
+          datePrecision: body.date_precision,
+          location: body.location,
+          status: 'active',
+        })
+        .returning();
+
+      await tx.insert(contributions).values({
         familyId: fid,
-        creatorAccountId: request.user!.id,
-        title: body.title,
-        description: body.description,
-        occurredFrom: body.occurred_from,
-        occurredTo: body.occurred_to,
-        datePrecision: body.date_precision,
-        location: body.location,
-        status: 'active',
-      })
-      .returning();
+        ownerAccountId: request.user!.id,
+        eventId: created.id,
+        originEventId: created.id,
+        originEventTitleSnapshot: created.title,
+        story: body.story.trim(),
+        status: 'published',
+      });
 
-    await db.insert(contributions).values({
-      familyId: fid,
-      ownerAccountId: request.user!.id,
-      eventId: newEvent.id,
-      originEventId: newEvent.id,
-      originEventTitleSnapshot: newEvent.title,
-      story: body.story.trim(),
-      status: 'published',
-    });
+      await assertPeopleInFamily(tx, fid, body.person_ids);
+      if (body.person_ids.length > 0) {
+        await tx.insert(eventPeople).values(
+          body.person_ids.map((personId) => ({
+            eventId: created.id,
+            personId,
+          }))
+        );
+      }
 
-    if (body.person_ids.length > 0) {
-      await db.insert(eventPeople).values(
-        body.person_ids.map((personId) => ({
-          eventId: newEvent.id,
-          personId,
-        }))
-      );
-    }
+      await tx.insert(auditLog).values({
+        actorAccountId: request.user!.id,
+        action: 'event_create',
+        targetType: 'event',
+        targetId: created.id,
+      });
 
-    await db.insert(auditLog).values({
-      actorAccountId: request.user!.id,
-      action: 'event_create',
-      targetType: 'event',
-      targetId: newEvent.id,
+      return created;
     });
 
     return reply.status(201).send(toEventResponse(newEvent));
@@ -130,26 +136,43 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
 
     const body = updateEventSchema.parse(request.body);
 
-    const [updated] = await db
-      .update(events)
-      .set({
-        ...(body.title !== undefined && { title: body.title }),
-        ...(body.description !== undefined && { description: body.description }),
-        ...(body.occurred_from !== undefined && { occurredFrom: body.occurred_from }),
-        ...(body.occurred_to !== undefined && { occurredTo: body.occurred_to }),
-        ...(body.date_precision !== undefined && { datePrecision: body.date_precision }),
-        ...(body.location !== undefined && { location: body.location }),
-        updatedAt: new Date(),
-        version: sql`${events.version} + 1`,
-      })
-      .where(eq(events.id, event.id))
-      .returning();
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(events)
+        .set({
+          ...(body.title !== undefined && { title: body.title }),
+          ...(body.description !== undefined && { description: body.description }),
+          ...(body.occurred_from !== undefined && { occurredFrom: body.occurred_from }),
+          ...(body.occurred_to !== undefined && { occurredTo: body.occurred_to }),
+          ...(body.date_precision !== undefined && { datePrecision: body.date_precision }),
+          ...(body.location !== undefined && { location: body.location }),
+          updatedAt: new Date(),
+          version: sql`${events.version} + 1`,
+        })
+        .where(eq(events.id, event.id))
+        .returning();
 
-    await db.insert(auditLog).values({
-      actorAccountId: request.user!.id,
-      action: 'event_update',
-      targetType: 'event',
-      targetId: event.id,
+      if (body.person_ids !== undefined) {
+        await assertPeopleInFamily(tx, event.familyId, body.person_ids);
+        await tx.delete(eventPeople).where(eq(eventPeople.eventId, event.id));
+        if (body.person_ids.length > 0) {
+          await tx.insert(eventPeople).values(
+            body.person_ids.map((personId) => ({
+              eventId: event.id,
+              personId,
+            }))
+          );
+        }
+      }
+
+      await tx.insert(auditLog).values({
+        actorAccountId: request.user!.id,
+        action: 'event_update',
+        targetType: 'event',
+        targetId: event.id,
+      });
+
+      return row;
     });
 
     return reply.send(toEventResponse(updated));
@@ -233,24 +256,44 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       throw new AppError(ErrorCode.FORBIDDEN, 'You do not have permission to permanently delete this event', 403);
     }
 
-    // Manager but not archived, or cooling period not elapsed → 403 NOT_YET_DELETABLE
-    const archivedLongEnough = event.status === 'archived' && isPastDeleteCooling(event.archivedAt);
-    if (event.status !== 'archived' || !archivedLongEnough) {
-      throw new AppError(
-        ErrorCode.NOT_YET_DELETABLE,
-        'Event can be permanently deleted only after it has been archived for 7 days',
-        403,
-        undefined,
-        archiveSchedule(event.archivedAt)
-      );
-    }
-
     const body = deleteEventSchema.parse(request.body);
     if (body.confirm_text.trim() !== EVENT_DELETE_CONFIRM_TEXT) {
       throw new AppError(ErrorCode.CONFIRM_TEXT_MISMATCH, 'Confirmation text does not match', 400, 'confirm_text');
     }
 
     await db.transaction(async (tx) => {
+      // Claim with the DB clock before any side effects
+      const [claimed] = await tx
+        .update(events)
+        .set({
+          status: 'deleted',
+          title: null,
+          description: null,
+          location: null,
+          deletedAt: sql`now()`,
+          updatedAt: sql`now()`,
+          version: sql`${events.version} + 1`,
+        })
+        .where(
+          and(
+            eq(events.id, event.id),
+            eq(events.status, 'archived'),
+            sql`${events.archivedAt} <= now() - interval '7 days'`
+          )
+        )
+        .returning();
+
+      if (!claimed) {
+        const [current] = await tx.select().from(events).where(eq(events.id, event.id)).limit(1);
+        throw new AppError(
+          ErrorCode.NOT_YET_DELETABLE,
+          'Event can be permanently deleted only after it has been archived for 7 days',
+          403,
+          undefined,
+          archiveSchedule(current?.archivedAt ?? null)
+        );
+      }
+
       await tx
         .update(contributions)
         .set({
@@ -261,19 +304,6 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           updatedAt: new Date(),
         })
         .where(eq(contributions.eventId, event.id));
-
-      await tx
-        .update(events)
-        .set({
-          status: 'deleted',
-          title: null,
-          description: null,
-          location: null,
-          deletedAt: new Date(),
-          updatedAt: new Date(),
-          version: sql`${events.version} + 1`,
-        })
-        .where(eq(events.id, event.id));
 
       await tx.insert(auditLog).values({
         actorAccountId: request.user!.id,

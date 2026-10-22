@@ -22,7 +22,7 @@
 -- family_members.role = 'admin' is the family steward. No separate table.
 create type member_role as enum ('member', 'admin');
 
-alter table family_member add column role member_role not null default 'member';
+alter table family_members add column role member_role not null default 'member';
 
 -- Family creator becomes first steward (admin) automatically (trigger)
 -- Only stewards can invite members and promote/demote stewards
@@ -34,9 +34,9 @@ alter table family_member add column role member_role not null default 'member';
 ### 2.2 Marketing Consent
 
 ```sql
-alter table account add column email text unique;
-alter table account add column marketing_consent boolean not null default false;
-alter table account add column marketing_consent_at timestamptz;
+alter table accounts add column email text unique;
+alter table accounts add column marketing_consent boolean not null default false;
+alter table accounts add column marketing_consent_at timestamptz;
 
 -- Email comes from Google login
 -- PATCH /v1/me/consent to change marketing_consent
@@ -67,8 +67,8 @@ create type media_status as enum ('attached');
 create type trash_reason as enum ('owner','event_deleted');
 create type member_role as enum ('member', 'admin');
 
--- Core tables
-create table account (
+-- Core tables (plural names as in the live schema)
+create table accounts (
   id uuid primary key default gen_random_uuid(),
   auth_id text unique not null,
   email text unique,
@@ -78,43 +78,43 @@ create table account (
   created_at timestamptz not null default now()
 );
 
-create table family (
+create table families (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  created_by uuid not null references account(id),
+  created_by uuid not null references accounts(id),
   created_at timestamptz not null default now()
 );
 
-create table family_member (
-  family_id uuid references family(id),
-  account_id uuid references account(id),
-  role member_role not null default 'member',
+create table family_members (
+  family_id uuid references families(id),
+  account_id uuid references accounts(id),
+  role member_role not null default 'member', -- admin = family steward
   joined_at timestamptz not null default now(),
   left_at timestamptz,
   primary key (family_id, account_id)
 );
 
-create table person (
+create table people (
   id uuid primary key default gen_random_uuid(),
-  family_id uuid not null references family(id),
+  family_id uuid not null references families(id),
   display_name text not null,
   birth_date date,
   death_date date,
-  account_id uuid unique references account(id)
+  account_id uuid unique references accounts(id)
 );
 
-create table relationship (
-  family_id uuid not null references family(id),
-  from_person_id uuid not null references person(id),
-  to_person_id uuid not null references person(id),
+create table relationships (
+  family_id uuid not null references families(id),
+  from_person_id uuid not null references people(id),
+  to_person_id uuid not null references people(id),
   type text not null,
   primary key (from_person_id, to_person_id, type)
 );
 
-create table event (
+create table events (
   id uuid primary key default gen_random_uuid(),
-  family_id uuid not null references family(id),
-  creator_account_id uuid not null references account(id),
+  family_id uuid not null references families(id),
+  creator_account_id uuid not null references accounts(id),
   title text,
   description text,
   occurred_from date,
@@ -131,34 +131,34 @@ create table event (
   check (status = 'deleted' or (title is not null and length(btrim(title)) > 0))
 );
 
-create table event_person (
-  event_id uuid references event(id),
-  person_id uuid references person(id),
+create table event_people (
+  event_id uuid references events(id),
+  person_id uuid references people(id),
   primary key (event_id, person_id)
 );
 
-create table contribution (
+create table contributions (
   id uuid primary key default gen_random_uuid(),
-  family_id uuid not null references family(id),
-  owner_account_id uuid not null references account(id),
-  narrator_person_id uuid references person(id),
-  event_id uuid references event(id) on delete set null,
-  origin_event_id uuid not null references event(id),
+  family_id uuid not null references families(id),
+  owner_account_id uuid not null references accounts(id),
+  narrator_person_id uuid references people(id),
+  event_id uuid references events(id) on delete set null,
+  origin_event_id uuid not null references events(id),
   origin_event_title_snapshot text,
   story text check (status = 'purged' or (story is not null and length(btrim(story)) > 0)),
   status contribution_status not null default 'published',
   trashed_at timestamptz,
   trash_reason trash_reason,
-  derived_from_contribution_id uuid references contribution(id) on delete set null,
+  derived_from_contribution_id uuid references contributions(id) on delete set null,
   version int not null default 1,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-create index on contribution (owner_account_id, status);
-create index on contribution (event_id) where status = 'published';
+create index on contributions (owner_account_id, status);
+create index on contributions (event_id) where status = 'published';
 
-create table blob (
+create table blobs (
   id uuid primary key default gen_random_uuid(),
   storage_key text unique not null,
   mime text not null,
@@ -170,25 +170,25 @@ create table blob (
 
 create table media (
   id uuid primary key default gen_random_uuid(),
-  contribution_id uuid not null references contribution(id),
-  blob_id uuid not null references blob(id),
-  blurred_blob_id uuid references blob(id),
-  taken_by_person_id uuid references person(id),
+  contribution_id uuid not null references contributions(id),
+  blob_id uuid not null references blobs(id),
+  blurred_blob_id uuid references blobs(id),
+  taken_by_person_id uuid references people(id),
   sort_order int not null
 );
 
-create table contribution_revision (
-  contribution_id uuid references contribution(id) on delete cascade,
+create table contribution_revisions (
+  contribution_id uuid references contributions(id) on delete cascade,
   version int,
   story text not null,
-  edited_by uuid not null references account(id),
+  edited_by uuid not null references accounts(id),
   edited_at timestamptz not null default now(),
   primary key (contribution_id, version)
 );
 
 create table audit_log (
   id bigserial primary key,
-  actor_account_id uuid references account(id),
+  actor_account_id uuid references accounts(id),
   action text not null,
   target_type text not null,
   target_id uuid not null,
@@ -203,17 +203,17 @@ create table outbox (
   sent_at timestamptz
 );
 
-create table notification (
+create table notifications (
   id uuid primary key default gen_random_uuid(),
-  account_id uuid not null references account(id),
+  account_id uuid not null references accounts(id),
   type text not null,
   payload jsonb not null,
   created_at timestamptz not null default now(),
   read_at timestamptz
 );
 
-create table idempotency_key (
-  account_id uuid not null references account(id),
+create table idempotency_keys (
+  account_id uuid not null references accounts(id),
   key text not null,
   response jsonb,
   created_at timestamptz default now(),
@@ -251,9 +251,9 @@ create table idempotency_key (
 | POST | `/v1/families` | Authenticated | Create family (creator becomes first admin) |
 | GET | `/v1/families/{fid}` | Family member | Get family details |
 | POST | `/v1/families/{fid}/invites` | Admin only | Invite new member (403 if not admin) |
-| PATCH | `/v1/families/{fid}/members/{aid}` | Steward only | Promote/demote role (last-admin → 409 LAST_ADMIN) |
-| PATCH | `/v1/families/{id}/members/{accountId}/role` | Steward only | Same handler (AC-25) |
-| DELETE | `/v1/families/{fid}/members/{aid}` | Admin only | Remove member (cannot remove last admin) |
+| PATCH | `/v1/families/{fid}/members/{aid}` | Steward only | Same as `/role` |
+| PATCH | `/v1/families/{id}/members/{accountId}/role` | Steward only | Change role (AC-25). Self-demote allowed |
+| DELETE | `/v1/families/{fid}/members/{aid}` | Steward only | Remove member (cannot remove last admin) |
 
 ```json
 // POST /v1/families/{fid}/invites
@@ -261,20 +261,29 @@ create table idempotency_key (
   "email": "user@example.com"
 }
 
-// PATCH /v1/families/{fid}/members/{aid}
+// PATCH /v1/families/{id}/members/{accountId}/role
+{ "role": "admin" }  // or "member"
+
+// 200
 {
-  "role": "admin"  // or "member"
+  "account_id": "…",
+  "family_id": "…",
+  "role": "admin",
+  "display_name": "…",
+  "joined_at": "2026-10-22T00:00:00.000Z"
 }
 ```
+
+Role-change errors: **403 FORBIDDEN** (caller is not an admin/steward), **404 NOT_FOUND** (family or member missing), **409 LAST_ADMIN** (would leave the family with no steward). Self-demote is allowed when another steward remains.
 
 ### 4.3 Events
 
 | Method | Path | Permission | Notes |
 |--------|------|------------|-------|
-| POST | `/families/{fid}/events` | Member | Create event; **`story` required** (first contribution). `{ title, story, ... }` |
+| POST | `/families/{fid}/events` | Member | Atomic create: event + first contribution + `event_people` + audit. **`story` required**. `person_ids` must belong to the family |
 | GET | `/families/{fid}/events?cursor=` | Member | Active for all members; archived only for creator or steward |
 | GET | `/events/{id}` | Per matrix | Archived: 404 unless creator or steward |
-| PATCH | `/events/{id}` | `canManageEvent` | Core fields; creator or steward |
+| PATCH | `/events/{id}` | `canManageEvent` | Core fields and `person_ids` (replace `event_people` in the same transaction). Every `person_id` must belong to the event's family |
 | POST | `/events/{id}/archive` | `canManageEvent` | Sets `archived_at = now()` (re-archive overwrites). No auto-delete job |
 | POST | `/events/{id}/unarchive` | `canManageEvent` | Restore: `status=active`, `archived_at=null` |
 | POST | `/events/{id}/delete` | `canManageEvent` | Permanent delete (AC-19). Confirm text exactly `ลบเรื่องนี้` after trim |
@@ -298,10 +307,20 @@ Event responses include `archived_at` and `deletable_at` (`archived_at + 7 days`
 }
 ```
 
-Permission is checked first. Permanent delete errors (AC-19):
+Permission is checked first. Permanent delete then **claims** the row inside a transaction with the database clock:
+
+```sql
+UPDATE events SET … WHERE id = $1 AND status = 'archived' AND archived_at <= now() - interval '7 days' RETURNING *
+```
+
+No row claimed → **403 NOT_YET_DELETABLE** (re-read `archived_at` / `deletable_at`). Contributions are moved to trash only after a successful claim.
+
+Permanent delete errors (AC-19):
 1. Caller is neither creator nor steward → **403 FORBIDDEN** (no dates)
-2. Caller can manage, but the event is not archived, or `archived_at` is less than 7 days ago → **403 NOT_YET_DELETABLE** with `error.details.archived_at` and `error.details.deletable_at` (`deletable_at` is `null` if not archived)
+2. Caller can manage, but the claim fails (not archived, or `archived_at` less than 7 days ago, or a concurrent restore) → **403 NOT_YET_DELETABLE** with `error.details.archived_at` and `error.details.deletable_at` (`deletable_at` is `null` if not archived)
 3. Confirm text is not exactly `ลบเรื่องนี้` after trim → **400 CONFIRM_TEXT_MISMATCH**
+
+`person_ids` that are not in the family → **400 INVALID_INPUT** with `field: "person_ids"` (no separate error code).
 
 ### 4.4 Contributions
 
@@ -355,11 +374,11 @@ POST /v1/notifications/{id}/read
 | 400 | `STORY_REQUIRED` | Story empty or whitespace only on create event or add-contribution (AC-27) |
 | 400 | `CONFIRM_TEXT_MISMATCH` | Confirmation text is not exactly `ลบเรื่องนี้` after trim |
 | 400 | `MIXED_ORIGIN_EVENTS` | Selected contributions from different origin events |
+| 400 | `INVALID_INPUT` | Validation failed. `person_ids` not in the family uses `field: "person_ids"` |
 | 400 | `FILE_TYPE_NOT_ALLOWED` / `TOO_MANY_PHOTOS` | File validation failed |
 | 401 | `UNAUTHENTICATED` | Token expired or invalid |
-| 403 | `FORBIDDEN` | Action not permitted. Permanent delete: caller is neither creator nor steward (no dates) |
-| 403 | `NOT_YET_DELETABLE` | Caller can manage the event, but it is not archived or `archived_at` is less than 7 days ago. `error.details` has `archived_at` and `deletable_at` (`deletable_at` is `null` if not archived) |
-| 403 | `ADMIN_REQUIRED` | Action requires admin role |
+| 403 | `FORBIDDEN` | Action not permitted (including role change when caller is not a steward). Permanent delete: caller is neither creator nor steward (no dates) |
+| 403 | `NOT_YET_DELETABLE` | Caller can manage the event, but the transactional claim failed (not archived, cooling not elapsed, or concurrent restore). `error.details` has `archived_at` and `deletable_at` |
 | 404 | `NOT_FOUND` | Resource doesn't exist or user can't see it |
 | 409 | `LAST_ADMIN` | Cannot remove/demote last admin when other members exist |
 | 409 | `EVENT_NOT_ACTIVE` | Event must be active for this operation |
@@ -373,7 +392,7 @@ POST /v1/notifications/{id}/read
 ## 6. Security Checklist
 
 - ✅ JWT validation via Supabase JWKS (configurable SUPABASE_URL)
-- ✅ Access tokens (15 min) + refresh tokens (rotate, httpOnly cookie for PWA)
+- ✅ Access tokens via `Authorization: Bearer <supabase_access_token>` only (no cookies)
 - ✅ Rate limiting per account and IP, especially for uploads and deletes
 - ✅ Audit log for archive, delete, purge, consent changes (no content stored)
 - ✅ Input validation with zod schemas

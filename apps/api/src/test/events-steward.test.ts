@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
-import { db, familyMembers, events, contributions } from '../lib/db/index.js';
+import { db, familyMembers, events, contributions, people, eventPeople, families } from '../lib/db/index.js';
 import { eq } from 'drizzle-orm';
 import { EVENT_DELETE_CONFIRM_TEXT } from '@still-with-you/contracts';
 
@@ -97,6 +97,36 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
       });
       expect(response.statusCode).toBe(400);
       expect(JSON.parse(response.body).error.code).toBe('STORY_REQUIRED');
+    });
+
+    it('rolls back create so a mid-way failure leaves no event without a story', async () => {
+      const [otherFamily] = await db
+        .insert(families)
+        .values({ name: 'นอกบ้าน', createdBy: otherMember.id })
+        .returning();
+      const [outsider] = await db
+        .insert(people)
+        .values({ familyId: otherFamily.id, displayName: 'คนนอก' })
+        .returning();
+
+      const response = await server.inject({
+        method: 'POST',
+        url: `/v1/families/${familyId}/events`,
+        headers: { authorization: `Bearer ${creatorToken}` },
+        payload: {
+          title: 'ไม่ควรเหลือ',
+          story: 'เรื่องที่มีอยู่จริง',
+          person_ids: [outsider.id],
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.body).error.code).toBe('INVALID_INPUT');
+      expect(JSON.parse(response.body).error.field).toBe('person_ids');
+
+      const leftoverEvents = await db.select().from(events).where(eq(events.familyId, familyId));
+      expect(leftoverEvents).toHaveLength(0);
+      const leftoverStories = await db.select().from(contributions).where(eq(contributions.familyId, familyId));
+      expect(leftoverStories).toHaveLength(0);
     });
 
     it('creates event with story as first contribution', async () => {
@@ -254,6 +284,60 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
       expect(row.status).toBe('deleted');
       expect(row.title).toBeNull();
     });
+
+    it('does not delete anything if the event is restored or archived_at is too recent', async () => {
+      const created = await createEvent(creatorToken);
+      const event = JSON.parse(created.body);
+
+      await server.inject({
+        method: 'POST',
+        url: `/v1/events/${event.id}/archive`,
+        headers: { authorization: `Bearer ${creatorToken}` },
+      });
+      await db
+        .update(events)
+        .set({ archivedAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000) })
+        .where(eq(events.id, event.id));
+
+      await server.inject({
+        method: 'POST',
+        url: `/v1/events/${event.id}/unarchive`,
+        headers: { authorization: `Bearer ${creatorToken}` },
+      });
+
+      const afterRestore = await server.inject({
+        method: 'POST',
+        url: `/v1/events/${event.id}/delete`,
+        headers: { authorization: `Bearer ${creatorToken}` },
+        payload: { confirm_text: EVENT_DELETE_CONFIRM_TEXT },
+      });
+      expect(afterRestore.statusCode).toBe(403);
+      expect(JSON.parse(afterRestore.body).error.code).toBe('NOT_YET_DELETABLE');
+
+      const [restored] = await db.select().from(events).where(eq(events.id, event.id));
+      expect(restored.status).toBe('active');
+      expect(restored.title).toBe('วันเกิดยาย');
+      const published = await db.select().from(contributions).where(eq(contributions.originEventId, event.id));
+      expect(published.every((c) => c.status === 'published')).toBe(true);
+      expect(published.every((c) => c.story)).toBeTruthy();
+
+      await server.inject({
+        method: 'POST',
+        url: `/v1/events/${event.id}/archive`,
+        headers: { authorization: `Bearer ${creatorToken}` },
+      });
+      const tooRecent = await server.inject({
+        method: 'POST',
+        url: `/v1/events/${event.id}/delete`,
+        headers: { authorization: `Bearer ${creatorToken}` },
+        payload: { confirm_text: EVENT_DELETE_CONFIRM_TEXT },
+      });
+      expect(tooRecent.statusCode).toBe(403);
+      expect(JSON.parse(tooRecent.body).error.code).toBe('NOT_YET_DELETABLE');
+      const [stillArchived] = await db.select().from(events).where(eq(events.id, event.id));
+      expect(stillArchived.status).toBe('archived');
+      expect(stillArchived.title).toBe('วันเกิดยาย');
+    });
   });
 
   describe('AC-23 AC-26 canManageEvent (creator OR steward)', () => {
@@ -301,6 +385,66 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
         payload: { confirm_text: EVENT_DELETE_CONFIRM_TEXT },
       });
       expect(deleted.statusCode).toBe(204);
+    });
+
+    it('lets a steward (not creator) replace event people', async () => {
+      const [personA] = await db
+        .insert(people)
+        .values({ familyId, displayName: 'ยาย' })
+        .returning();
+      const [personB] = await db
+        .insert(people)
+        .values({ familyId, displayName: 'ตา' })
+        .returning();
+
+      const created = await server.inject({
+        method: 'POST',
+        url: `/v1/families/${familyId}/events`,
+        headers: { authorization: `Bearer ${creatorToken}` },
+        payload: { title: 'วันรวมญาติ', story: 'มีคนมาเยี่ยม', person_ids: [personA.id] },
+      });
+      expect(created.statusCode).toBe(201);
+      const event = JSON.parse(created.body);
+
+      const patched = await server.inject({
+        method: 'PATCH',
+        url: `/v1/events/${event.id}`,
+        headers: { authorization: `Bearer ${stewardToken}` },
+        payload: { person_ids: [personB.id] },
+      });
+      expect(patched.statusCode).toBe(200);
+
+      const links = await db.select().from(eventPeople).where(eq(eventPeople.eventId, event.id));
+      expect(links).toHaveLength(1);
+      expect(links[0].personId).toBe(personB.id);
+    });
+
+    it('rejects person_ids that are not in the family', async () => {
+      const [otherFamily] = await db
+        .insert(families)
+        .values({ name: 'Other House', createdBy: otherMember.id })
+        .returning();
+      const [outsider] = await db
+        .insert(people)
+        .values({ familyId: otherFamily.id, displayName: 'คนนอก' })
+        .returning();
+
+      const created = await createEvent(creatorToken);
+      const event = JSON.parse(created.body);
+
+      const patched = await server.inject({
+        method: 'PATCH',
+        url: `/v1/events/${event.id}`,
+        headers: { authorization: `Bearer ${stewardToken}` },
+        payload: { person_ids: [outsider.id] },
+      });
+      expect(patched.statusCode).toBe(400);
+      const body = JSON.parse(patched.body);
+      expect(body.error.code).toBe('INVALID_INPUT');
+      expect(body.error.field).toBe('person_ids');
+
+      const links = await db.select().from(eventPeople).where(eq(eventPeople.eventId, event.id));
+      expect(links).toHaveLength(0);
     });
 
     it('forbids a non-creator member from editing or archiving', async () => {
@@ -373,6 +517,14 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
         payload: { role: 'admin' },
       });
       expect(promote.statusCode).toBe(200);
+      const promotedBody = JSON.parse(promote.body);
+      expect(promotedBody).toMatchObject({
+        account_id: creator.id,
+        family_id: familyId,
+        role: 'admin',
+        display_name: creator.displayName,
+      });
+      expect(promotedBody.joined_at).toBeTruthy();
 
       const [promoted] = await db
         .select()
@@ -396,6 +548,50 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
       });
       expect(lastAdmin.statusCode).toBe(409);
       expect(JSON.parse(lastAdmin.body).error.code).toBe('LAST_ADMIN');
+    });
+
+    it('allows a steward to self-demote when another steward remains', async () => {
+      const promote = await server.inject({
+        method: 'PATCH',
+        url: `/v1/families/${familyId}/members/${creator.id}/role`,
+        headers: { authorization: `Bearer ${stewardToken}` },
+        payload: { role: 'admin' },
+      });
+      expect(promote.statusCode).toBe(200);
+
+      const selfDemote = await server.inject({
+        method: 'PATCH',
+        url: `/v1/families/${familyId}/members/${steward.id}/role`,
+        headers: { authorization: `Bearer ${stewardToken}` },
+        payload: { role: 'member' },
+      });
+      expect(selfDemote.statusCode).toBe(200);
+      expect(JSON.parse(selfDemote.body)).toMatchObject({
+        account_id: steward.id,
+        family_id: familyId,
+        role: 'member',
+        display_name: steward.displayName,
+      });
+    });
+
+    it('returns 404 NOT_FOUND when the family or member is missing', async () => {
+      const missingFamily = await server.inject({
+        method: 'PATCH',
+        url: `/v1/families/00000000-0000-4000-8000-000000000001/members/${creator.id}/role`,
+        headers: { authorization: `Bearer ${stewardToken}` },
+        payload: { role: 'admin' },
+      });
+      expect(missingFamily.statusCode).toBe(404);
+      expect(JSON.parse(missingFamily.body).error.code).toBe('NOT_FOUND');
+
+      const missingMember = await server.inject({
+        method: 'PATCH',
+        url: `/v1/families/${familyId}/members/00000000-0000-4000-8000-000000000002/role`,
+        headers: { authorization: `Bearer ${stewardToken}` },
+        payload: { role: 'member' },
+      });
+      expect(missingMember.statusCode).toBe(404);
+      expect(JSON.parse(missingMember.body).error.code).toBe('NOT_FOUND');
     });
   });
 });
