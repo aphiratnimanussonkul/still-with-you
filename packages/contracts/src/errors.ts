@@ -18,6 +18,7 @@ export const ErrorCode = {
   // 403 Forbidden
   FORBIDDEN: 'FORBIDDEN',
   ADMIN_REQUIRED: 'ADMIN_REQUIRED',
+  NOT_YET_DELETABLE: 'NOT_YET_DELETABLE',
 
   // 409 Conflict
   LAST_ADMIN: 'LAST_ADMIN',
@@ -86,6 +87,7 @@ export const errorMessages: Record<ErrorCode, string> = {
   UNAUTHENTICATED: 'Authentication required',
   FORBIDDEN: 'You do not have permission to perform this action',
   ADMIN_REQUIRED: 'This action requires admin role',
+  NOT_YET_DELETABLE: 'Event is not yet permanently deletable',
   LAST_ADMIN: 'Cannot remove or demote the last admin when other members exist',
   NOT_FOUND: 'Resource not found',
   EVENT_NOT_ACTIVE: 'Event must be active for this operation',

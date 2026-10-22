@@ -156,7 +156,7 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
   });
 
   describe('AC-19 permanent delete', () => {
-    it('returns 403 FORBIDDEN with null schedule when event is not archived', async () => {
+    it('returns 403 NOT_YET_DELETABLE with null schedule when event is not archived', async () => {
       const created = await createEvent(creatorToken);
       const event = JSON.parse(created.body);
 
@@ -168,12 +168,12 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
       });
       expect(response.statusCode).toBe(403);
       const body = JSON.parse(response.body);
-      expect(body.error.code).toBe('FORBIDDEN');
+      expect(body.error.code).toBe('NOT_YET_DELETABLE');
       expect(body.error.details.archived_at).toBeNull();
       expect(body.error.details.deletable_at).toBeNull();
     });
 
-    it('returns 403 FORBIDDEN with schedule when cooling period has not elapsed', async () => {
+    it('returns 403 NOT_YET_DELETABLE with schedule when cooling period has not elapsed', async () => {
       const created = await createEvent(creatorToken);
       const event = JSON.parse(created.body);
       await server.inject({
@@ -190,12 +190,12 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
       });
       expect(response.statusCode).toBe(403);
       const body = JSON.parse(response.body);
-      expect(body.error.code).toBe('FORBIDDEN');
+      expect(body.error.code).toBe('NOT_YET_DELETABLE');
       expect(body.error.details.archived_at).toBeTruthy();
       expect(body.error.details.deletable_at).toBeTruthy();
     });
 
-    it('returns 403 when caller is neither creator nor steward', async () => {
+    it('returns 403 FORBIDDEN with no dates when caller is neither creator nor steward', async () => {
       const created = await createEvent(creatorToken);
       const event = JSON.parse(created.body);
       await server.inject({
@@ -215,7 +215,9 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
         payload: { confirm_text: EVENT_DELETE_CONFIRM_TEXT },
       });
       expect(response.statusCode).toBe(403);
-      expect(JSON.parse(response.body).error.code).toBe('FORBIDDEN');
+      const body = JSON.parse(response.body);
+      expect(body.error.code).toBe('FORBIDDEN');
+      expect(body.error.details).toBeUndefined();
     });
 
     it('returns CONFIRM_TEXT_MISMATCH unless confirm_text is exactly ลบเรื่องนี้ after trim', async () => {

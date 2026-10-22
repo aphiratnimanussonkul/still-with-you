@@ -285,11 +285,11 @@ Event responses include `archived_at` and `deletable_at` (`archived_at + 7 days`
 // POST /events/{id}/delete
 { "confirm_text": "ลบเรื่องนี้" }
 
-// 403 FORBIDDEN details when not archived, cooling not elapsed, or caller cannot manage
+// 403 NOT_YET_DELETABLE — caller can manage, but not archived or cooling not elapsed
 {
   "error": {
-    "code": "FORBIDDEN",
-    "message": "Event can only be permanently deleted by the creator or a family steward after 7 days archived",
+    "code": "NOT_YET_DELETABLE",
+    "message": "Event can be permanently deleted only after it has been archived for 7 days",
     "details": {
       "archived_at": "2026-10-01T00:00:00.000Z",
       "deletable_at": "2026-10-08T00:00:00.000Z"
@@ -298,12 +298,10 @@ Event responses include `archived_at` and `deletable_at` (`archived_at + 7 days`
 }
 ```
 
-Permanent delete is allowed only when all of these hold; otherwise **403 FORBIDDEN** (AC-19):
-1. Event is archived
-2. `archived_at <= now() - interval '7 days'`
-3. Caller is the creator **or** a family steward (`role = admin`)
-
-Wrong confirm text → **400 CONFIRM_TEXT_MISMATCH**.
+Permission is checked first. Permanent delete errors (AC-19):
+1. Caller is neither creator nor steward → **403 FORBIDDEN** (no dates)
+2. Caller can manage, but the event is not archived, or `archived_at` is less than 7 days ago → **403 NOT_YET_DELETABLE** with `error.details.archived_at` and `error.details.deletable_at` (`deletable_at` is `null` if not archived)
+3. Confirm text is not exactly `ลบเรื่องนี้` after trim → **400 CONFIRM_TEXT_MISMATCH**
 
 ### 4.4 Contributions
 
@@ -359,7 +357,8 @@ POST /v1/notifications/{id}/read
 | 400 | `MIXED_ORIGIN_EVENTS` | Selected contributions from different origin events |
 | 400 | `FILE_TYPE_NOT_ALLOWED` / `TOO_MANY_PHOTOS` | File validation failed |
 | 401 | `UNAUTHENTICATED` | Token expired or invalid |
-| 403 | `FORBIDDEN` | Action not permitted. Permanent delete also uses this when not archived, cooling not elapsed, or caller is not creator/steward; `error.details` includes `archived_at` and `deletable_at` |
+| 403 | `FORBIDDEN` | Action not permitted. Permanent delete: caller is neither creator nor steward (no dates) |
+| 403 | `NOT_YET_DELETABLE` | Caller can manage the event, but it is not archived or `archived_at` is less than 7 days ago. `error.details` has `archived_at` and `deletable_at` (`deletable_at` is `null` if not archived) |
 | 403 | `ADMIN_REQUIRED` | Action requires admin role |
 | 404 | `NOT_FOUND` | Resource doesn't exist or user can't see it |
 | 409 | `LAST_ADMIN` | Cannot remove/demote last admin when other members exist |
@@ -397,7 +396,7 @@ All requests must be from an active FamilyMember.
 | View archived event | ✅ | ✅ | ❌ | ❌ |
 | Edit event fields | ✅ `canManageEvent` | ✅ `canManageEvent` | ❌ | ❌ |
 | Archive / restore event | ✅ | ✅ | ❌ | ❌ |
-| Delete event permanently | ✅ after 7 days + `ลบเรื่องนี้` | ✅ after 7 days + `ลบเรื่องนี้` | ❌ | ❌ 403 |
+| Delete event permanently | ✅ after 7 days + `ลบเรื่องนี้`; else 403 `NOT_YET_DELETABLE` | ✅ same | ❌ | ❌ 403 `FORBIDDEN` (no dates) |
 | Add contribution | ✅ (if active, story required) | ✅ | ✅ | ✅ |
 | Edit/trash/purge contribution | own only | **cannot edit/delete others'** (AC-24) | own only | ❌ |
 | **Invite / change role / remove** | if steward | ✅; last-admin → 409 | N/A | 403 |

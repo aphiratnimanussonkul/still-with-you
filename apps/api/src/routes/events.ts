@@ -40,10 +40,6 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     return event;
   }
 
-  function deleteForbidden(event: { archivedAt: Date | null }, message: string): never {
-    throw new AppError(ErrorCode.FORBIDDEN, message, 403, undefined, archiveSchedule(event.archivedAt));
-  }
-
   // Create event (story required — becomes the first contribution)
   fastify.post<{ Params: { fid: string } }>('/families/:fid/events', async (request, reply) => {
     const { fid } = request.params;
@@ -231,11 +227,22 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       throw new AppError(ErrorCode.NOT_FOUND, 'Event not found', 404);
     }
 
+    // Permission first: neither creator nor steward → 403 FORBIDDEN (no dates)
     const manager = await canManageEvent(event, request.user!.id);
-    const archivedLongEnough = event.status === 'archived' && isPastDeleteCooling(event.archivedAt);
+    if (!manager) {
+      throw new AppError(ErrorCode.FORBIDDEN, 'You do not have permission to permanently delete this event', 403);
+    }
 
-    if (!manager || event.status !== 'archived' || !archivedLongEnough) {
-      deleteForbidden(event, 'Event can only be permanently deleted by the creator or a family steward after 7 days archived');
+    // Manager but not archived, or cooling period not elapsed → 403 NOT_YET_DELETABLE
+    const archivedLongEnough = event.status === 'archived' && isPastDeleteCooling(event.archivedAt);
+    if (event.status !== 'archived' || !archivedLongEnough) {
+      throw new AppError(
+        ErrorCode.NOT_YET_DELETABLE,
+        'Event can be permanently deleted only after it has been archived for 7 days',
+        403,
+        undefined,
+        archiveSchedule(event.archivedAt)
+      );
     }
 
     const body = deleteEventSchema.parse(request.body);
