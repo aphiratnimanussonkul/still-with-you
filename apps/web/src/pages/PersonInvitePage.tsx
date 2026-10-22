@@ -78,7 +78,9 @@ export function PersonInvitePage() {
         <p className="text-body text-muted-foreground">
           {interpolate(copy['invite.landing.body'], { person_display_name: name })}
         </p>
-      ) : null}
+      ) : (
+        <p className="text-body text-muted-foreground">{copy['invite.family.body']}</p>
+      )}
       <p className="text-caption text-muted-foreground">
         {interpolate(copy['invite.landing.expires'], { date: formatThaiDate(invite.data.expires_at) })}
       </p>

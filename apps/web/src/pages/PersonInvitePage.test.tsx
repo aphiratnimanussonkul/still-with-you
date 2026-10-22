@@ -89,7 +89,7 @@ describe('PersonInvitePage', () => {
     expect(screen.getByRole('button', { name: copy['invite.landing.accept'] })).toBeTruthy();
   });
 
-  it('hides the person-page body when person_display_name is null', async () => {
+  it('shows the family-invite body when person_display_name is null', async () => {
     vi.mocked(familyGraph.getPersonInvite).mockResolvedValue({
       ...invitePreview,
       person_display_name: null,
@@ -103,6 +103,7 @@ describe('PersonInvitePage', () => {
         }),
       })
     ).toBeTruthy();
+    expect(screen.getByText(copy['invite.family.body'])).toBeTruthy();
     expect(
       screen.getByText(
         interpolate(copy['invite.landing.expires'], { date: formatThaiDate(invitePreview.expires_at) })
@@ -114,9 +115,6 @@ describe('PersonInvitePage', () => {
       screen.queryByText(
         interpolate(copy['invite.landing.body'], { person_display_name: mockPeople[0].display_name })
       )
-    ).toBeNull();
-    expect(
-      screen.queryByText(interpolate(copy['invite.landing.body'], { person_display_name: '' }))
     ).toBeNull();
   });
 
