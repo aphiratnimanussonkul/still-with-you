@@ -27,6 +27,7 @@ import {
   mockPeople,
   mockTrash,
 } from '@/mocks/data';
+import { createFactSchema, familyFocusSchema, familyHomeSchema, skipFactSchema } from '@/lib/home-api';
 import { HOME_QUESTION_TEMPLATES, fillQuestionText } from '@/mocks/home-questions';
 
 const api = env.apiUrl.replace(/\/$/, '');
@@ -343,24 +344,26 @@ export const handlers = [
       const id = `q-${index + 1}`;
       return !skippedQuestions.has(id) && !answeredQuestions.has(id);
     });
-    return HttpResponse.json({
-      focus: focused.map((person) => ({
-        person: { id: person.id, name: person.name },
-        photo_url: null,
-        memory_count: events.filter((event) => event.family_id === fid).length,
-      })),
-      quick_question:
-        first && questionIndex >= 0
-          ? {
-              question_id: `q-${questionIndex + 1}`,
-              person_id: first.id,
-              text: fillQuestionText(HOME_QUESTION_TEMPLATES[questionIndex], first.name),
-            }
-          : null,
-      recent_memories: events
-        .filter((event) => event.family_id === fid && event.status === 'active')
-        .slice(0, 5),
-    });
+    return HttpResponse.json(
+      familyHomeSchema.parse({
+        focus: focused.map((person) => ({
+          person: { id: person.id, name: person.name },
+          photo_url: null,
+          memory_count: events.filter((event) => event.family_id === fid).length,
+        })),
+        quick_question:
+          first && questionIndex >= 0
+            ? {
+                question_id: `q-${questionIndex + 1}`,
+                person_id: first.id,
+                text: fillQuestionText(HOME_QUESTION_TEMPLATES[questionIndex], first.name),
+              }
+            : null,
+        recent_memories: events
+          .filter((event) => event.family_id === fid && event.status === 'active')
+          .slice(0, 5),
+      })
+    );
   }),
 
   http.get(`${api}/v1/families/:fid/focus`, ({ request, params }) => {
@@ -372,15 +375,16 @@ export const handlers = [
   http.put(`${api}/v1/families/:fid/focus`, async ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    const body = (await request.json()) as { person_ids?: unknown };
-    if (!Array.isArray(body.person_ids) || body.person_ids.length > 10) {
+    const body = await request.json();
+    const parsed = familyFocusSchema.safeParse(body);
+    if (!parsed.success) {
       return HttpResponse.json(
         { error: { code: 'INVALID_INPUT', message: 'Invalid person_ids', field: 'person_ids' } },
         { status: 400 }
       );
     }
-    focusByFamily[String(params.fid)] = body.person_ids.map(String);
-    return HttpResponse.json({ person_ids: focusByFamily[String(params.fid)] });
+    focusByFamily[String(params.fid)] = parsed.data.person_ids;
+    return HttpResponse.json(parsed.data);
   }),
 
   http.get(`${api}/v1/families/:fid/members`, ({ request, params }) => {
@@ -512,18 +516,18 @@ export const handlers = [
   http.post(`${api}/v1/people/:id/facts`, async ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    const body = (await request.json()) as { question_id?: string; answer_text?: string };
-    if (!body.answer_text?.trim() || !body.question_id) {
+    const parsed = createFactSchema.safeParse(await request.json());
+    if (!parsed.success) {
       return HttpResponse.json(
         { error: { code: 'INVALID_INPUT', message: 'answer required' } },
         { status: 400 }
       );
     }
-    answeredQuestions.add(body.question_id);
+    answeredQuestions.add(parsed.data.question_id);
     const personId = String(params.id);
     const fact = {
-      question_id: body.question_id,
-      answer_text: body.answer_text.trim(),
+      question_id: parsed.data.question_id,
+      answer_text: parsed.data.answer_text,
     };
     factsByPerson[personId] = [...(factsByPerson[personId] ?? []), fact];
     return HttpResponse.json(fact);
@@ -532,8 +536,14 @@ export const handlers = [
   http.post(`${api}/v1/people/:id/facts/skip`, async ({ request }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    const body = (await request.json()) as { question_id?: string };
-    if (body.question_id) skippedQuestions.add(body.question_id);
+    const parsed = skipFactSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return HttpResponse.json(
+        { error: { code: 'INVALID_INPUT', message: 'question_id required' } },
+        { status: 400 }
+      );
+    }
+    skippedQuestions.add(parsed.data.question_id);
     return HttpResponse.json({ skipped: true });
   }),
 

@@ -26,17 +26,24 @@ const quickQuestionSchema = z.object({
 export const familyHomeSchema = z.object({
   focus: z.array(personCardSchema),
   quick_question: quickQuestionSchema.nullable(),
-  recent_memories: z.array(eventResponseSchema),
+  recent_memories: z.array(eventResponseSchema).max(5),
 });
 
 export const familyFocusSchema = z.object({
   person_ids: z.array(z.string().uuid()).max(FOCUS_MAX),
 });
 
-export const personFactSchema = z.object({
-  question_id: z.string(),
+export const createFactSchema = z.object({
+  question_id: z.string().min(1),
+  answer_text: z.string().trim().min(1),
+});
+
+export const skipFactSchema = z.object({
+  question_id: z.string().min(1),
+});
+
+export const personFactSchema = createFactSchema.extend({
   question_text: z.string().optional(),
-  answer_text: z.string(),
 });
 
 export const personFactsSchema = z.object({
@@ -67,14 +74,14 @@ export const homeApi = {
   answerFact(personId: string, body: { question_id: string; answer_text: string }) {
     return request(`/v1/people/${personId}/facts`, personFactSchema, {
       method: 'POST',
-      body: body,
+      body: createFactSchema.parse(body),
     });
   },
 
   skipFact(personId: string, questionId: string) {
     return request(`/v1/people/${personId}/facts/skip`, z.object({ skipped: z.boolean() }).passthrough(), {
       method: 'POST',
-      body: { question_id: questionId },
+      body: skipFactSchema.parse({ question_id: questionId }),
     });
   },
 
