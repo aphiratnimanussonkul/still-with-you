@@ -89,7 +89,7 @@ describe('PersonInvitePage', () => {
     expect(screen.getByRole('button', { name: copy['invite.landing.accept'] })).toBeTruthy();
   });
 
-  it('hides the person-page body when person_display_name is missing', async () => {
+  it('hides the person-page body when person_display_name is null', async () => {
     vi.mocked(familyGraph.getPersonInvite).mockResolvedValue({
       ...invitePreview,
       person_display_name: null,
@@ -104,11 +104,20 @@ describe('PersonInvitePage', () => {
       })
     ).toBeTruthy();
     expect(
+      screen.getByText(
+        interpolate(copy['invite.landing.expires'], { date: formatThaiDate(invitePreview.expires_at) })
+      )
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy['invite.landing.accept'] })).toBeTruthy();
+    expect(screen.queryByText(/ในผังครอบครัวมีหน้าของ/)).toBeNull();
+    expect(
       screen.queryByText(
         interpolate(copy['invite.landing.body'], { person_display_name: mockPeople[0].display_name })
       )
     ).toBeNull();
-    expect(screen.queryByText(/ในผังครอบครัวมีหน้าของ/)).toBeNull();
+    expect(
+      screen.queryByText(interpolate(copy['invite.landing.body'], { person_display_name: '' }))
+    ).toBeNull();
   });
 
   it('shows RATE_LIMITED invite copy on the landing', async () => {
@@ -117,6 +126,7 @@ describe('PersonInvitePage', () => {
     );
     renderInvite();
     expect(await screen.findByText(copy['error.RATE_LIMITED.invite'])).toBeTruthy();
+    expect(screen.queryByText(copy['error.RATE_LIMITED'])).toBeNull();
   });
 
   it('shows INVITE_INVALID when the invite is gone', async () => {
