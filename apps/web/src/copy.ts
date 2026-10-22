@@ -103,7 +103,11 @@ export const copy = {
   'error.VERSION_CONFLICT': 'มีการแก้ไขเรื่องเล่านี้จากที่อื่นก่อนหน้า โหลดเวอร์ชันล่าสุดก่อน แล้วค่อยแก้อีกครั้ง',
   'error.RATE_LIMITED': 'ขอเวลาสักครู่ แล้วลองอีกครั้ง',
   'error.INVALID_INPUT': 'ข้อมูลบางช่องยังไม่ถูกต้อง ลองตรวจอีกครั้ง',
+  'error.ANSWER_REQUIRED': 'พิมพ์คำตอบสักนิดก่อนบันทึก',
+  'error.TOO_MANY_FOCUS': 'เลือกได้สูงสุด 10 คน เอาบางคนออกก่อนแล้วค่อยเพิ่ม',
+  'error.ALREADY_ANSWERED': 'คุณเคยตอบคำถามนี้แล้ว แก้คำตอบเดิมได้เลย',
   'error.INTERNAL_ERROR': 'ระบบขัดข้องชั่วคราว ข้อมูลของคุณยังอยู่ครบ ลองใหม่อีกครั้ง',
+  'error.generic': 'มีบางอย่างผิดพลาด ลองใหม่อีกครั้ง',
   'error.network': 'ยังเชื่อมต่อไม่ได้ ลองตรวจอินเทอร์เน็ต แล้วลองใหม่',
   'error.unknown': 'มีบางอย่างผิดพลาด ลองใหม่อีกครั้ง',
   'error.NOT_YET_DELETABLE.has_date':
@@ -223,9 +227,16 @@ export const copy = {
   'a11y.family_switcher': 'ครอบครัวที่เลือกอยู่: {ชื่อครอบครัว}',
   'home.focus.title': 'คนที่คุณอยากระลึกถึง',
   'home.focus.see_all': 'ดูทั้งหมด',
+  'home.focus.invite.title': 'อยากระลึกถึงใครเป็นพิเศษ',
+  'home.focus.invite.body':
+    'เลือกคนในครอบครัวมาไว้บนหน้านี้ แล้วจะมีคำถามเล็กๆ ช่วยให้รู้จักเขามากขึ้น เห็นเฉพาะคุณ',
+  'home.focus.invite.action': 'เลือกคน',
   'home.question.title': 'คำถามเล็กๆ สำหรับคุณ',
   'home.question.save': 'บันทึกคำตอบ',
   'home.question.skip': 'ข้ามคำถามนี้',
+  'home.question.saved.toast': 'บันทึกคำตอบแล้ว',
+  'home.question.skipped.toast': 'ข้ามไปก่อน คำถามนี้จะกลับมาอีกในภายหลัง',
+  'home.question.already_answered.action': 'แก้คำตอบเดิม',
   'family.focus.toggle': 'แสดงบนหน้าแรก',
   'family.focus.note': 'เห็นเฉพาะคุณ',
   'trash.item.active.meta.family': 'ย้ายมาจาก {ชื่อความทรงจำ} · {ชื่อครอบครัว}',
@@ -258,6 +269,8 @@ export const copy = {
   'memory.item.meta': '{จำนวน} เรื่องเล่า · เริ่มโดย {ชื่อ}',
   'memory.item.meta.one': '1 เรื่องเล่า · เริ่มโดย {ชื่อ}',
   'memory.stories.title': 'เรื่องเล่า ({จำนวน})',
+  'memory.stories.load_error': 'โหลดเรื่องเล่าไม่สำเร็จ ลองใหม่อีกครั้ง',
+  'memory.stories.retry': 'ลองอีกครั้ง',
   'memory.search.placeholder': 'ค้นชื่อความทรงจำหรือคน',
   'memory.filter.all': 'ทั้งหมด',
   'memory.filter.paused': 'พักไว้',
@@ -287,6 +300,10 @@ export const copy = {
   'person.memories.title': 'ความทรงจำ ({จำนวน})',
   'person.saved.title': 'เพิ่ม {ชื่อ} ในครอบครัวแล้ว',
   'person.saved.next': 'เริ่มความทรงจำของเขา',
+  'person.facts.title': 'เรื่องที่รู้เกี่ยวกับ{name}',
+  'person.facts.empty.title': 'ยังไม่มีใครเล่าเรื่องเกี่ยวกับ{name}',
+  'person.facts.empty.body': 'คำตอบจากคำถามเล็กๆ ของทุกคนในครอบครัวจะมาอยู่ที่นี่',
+  'person.facts.answer.meta': 'ตอบโดย {ผู้ตอบ} · {วันที่}',
 
   // --- อัปโหลด / ร่าง / อื่น ๆ จาก wireframe 82 ---
   'photo.upload.progress': 'อัปโหลดรูป {เสร็จ}/{ทั้งหมด}',
@@ -334,6 +351,8 @@ export type CopyKey = keyof typeof copy;
 
 const NAME_VAR_KEYS = new Set([
   'ชื่อ',
+  'name',
+  'ผู้ตอบ',
   'ชื่อความทรงจำ',
   'ชื่อครอบครัว',
   'ชื่อคนเริ่ม',

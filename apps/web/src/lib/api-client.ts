@@ -23,7 +23,7 @@ import {
   type UpdateContribution,
 } from '@still-with-you/contracts';
 import type { z } from 'zod';
-import { ApiClientError, NetworkError } from '@/lib/api-errors';
+import { ApiClientError, NetworkError, codeForFailedResponse } from '@/lib/api-errors';
 import { env } from '@/lib/env';
 import { getAccessToken } from '@/lib/supabase';
 
@@ -83,7 +83,7 @@ export async function request<S extends z.ZodTypeAny>(
   if (!response.ok) {
     const errorBody = isApiErrorPayload(payload) ? payload.error : undefined;
     throw new ApiClientError(
-      errorBody?.code ?? 'INTERNAL_ERROR',
+      codeForFailedResponse(response.status, errorBody?.code),
       errorBody?.message ?? response.statusText,
       response.status,
       errorBody?.field,

@@ -27,7 +27,13 @@ import {
   mockPeople,
   mockTrash,
 } from '@/mocks/data';
-import { createFactSchema, familyFocusSchema, familyHomeSchema, skipFactSchema } from '@/lib/home-api';
+import {
+  createFactSchema,
+  familyFocusSchema,
+  familyHomeSchema,
+  skipFactSchema,
+  updateFactSchema,
+} from '@/lib/home-api';
 import { HOME_QUESTION_TEMPLATES, fillQuestionText } from '@/mocks/home-questions';
 
 const api = env.apiUrl.replace(/\/$/, '');
@@ -44,7 +50,17 @@ const invites: { id: string; family_id: string; email: string; status: 'pending'
 const focusByFamily: Record<string, string[]> = { ...mockFocusIds };
 const skippedQuestions = new Set<string>();
 const answeredQuestions = new Set<string>();
-const factsByPerson: Record<string, { question_id: string; answer_text: string }[]> = {};
+const factsByPerson: Record<
+  string,
+  {
+    id: string;
+    question_id: string;
+    question_text?: string;
+    answer_text: string;
+    author: { account_id: string; display_name: string };
+    created_at: string;
+  }[]
+> = {};
 const contributions: Array<{
   id: string;
   family_id: string;
@@ -526,8 +542,11 @@ export const handlers = [
     answeredQuestions.add(parsed.data.question_id);
     const personId = String(params.id);
     const fact = {
+      id: crypto.randomUUID(),
       question_id: parsed.data.question_id,
       answer_text: parsed.data.answer_text,
+      author: { account_id: account.id, display_name: account.display_name },
+      created_at: new Date().toISOString(),
     };
     factsByPerson[personId] = [...(factsByPerson[personId] ?? []), fact];
     return HttpResponse.json(fact);
@@ -550,7 +569,42 @@ export const handlers = [
   http.get(`${api}/v1/people/:id/facts`, ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    return HttpResponse.json({ facts: factsByPerson[String(params.id)] ?? [] });
+    const facts = factsByPerson[String(params.id)] ?? [];
+    const groups = facts.map((fact) => ({
+      question: { id: fact.question_id, text: fact.question_text ?? '' },
+      answers: [
+        {
+          id: fact.id,
+          answer_text: fact.answer_text,
+          author: fact.author,
+          created_at: fact.created_at,
+        },
+      ],
+    }));
+    return HttpResponse.json({ groups });
+  }),
+
+  http.patch(`${api}/v1/facts/:id`, async ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const parsed = updateFactSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return HttpResponse.json(
+        { error: { code: 'INVALID_INPUT', message: 'answer required' } },
+        { status: 400 }
+      );
+    }
+    for (const personId of Object.keys(factsByPerson)) {
+      const fact = factsByPerson[personId].find((item) => item.id === params.id);
+      if (fact) {
+        fact.answer_text = parsed.data.answer_text;
+        return HttpResponse.json({
+          question_id: fact.question_id,
+          answer_text: fact.answer_text,
+        });
+      }
+    }
+    return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, { status: 404 });
   }),
 
   http.get(`${api}/v1/me/trash`, ({ request }) => {

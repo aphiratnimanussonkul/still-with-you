@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PhotoAttachState } from '@/components/PhotoAttach';
 import { copy } from '@/copy';
+import { ApiClientError } from '@/lib/api-errors';
 import { mockEvents, mockFamilies } from '@/mocks/data';
 
 const createEvent = vi.fn();
@@ -90,6 +91,17 @@ describe('MemoriesPage', () => {
     });
     expect(await screen.findByText('พักไว้ที่บ้านคุณยาย')).toBeTruthy();
     expect(screen.queryByText('วันเกิดยาย')).toBeNull();
+  });
+
+  it('keeps the switcher and create form when the list fails to load', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(api.listEvents).mockRejectedValue(new ApiClientError('GENERIC', 'Route not found', 404));
+
+    renderPage();
+    expect(await screen.findByLabelText(copy['family.switcher'])).toBeTruthy();
+    expect(await screen.findByText(copy['memory.stories.load_error'])).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy['memory.stories.retry'] })).toBeTruthy();
+    expect(screen.getByLabelText(copy['memory.title_label'])).toBeTruthy();
   });
 });
 

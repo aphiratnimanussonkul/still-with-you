@@ -8,7 +8,7 @@ import {
   mediaUploadSessionSchema,
   type MediaUploadSession,
 } from '@still-with-you/contracts';
-import { ApiClientError, NetworkError } from '@/lib/api-errors';
+import { ApiClientError, NetworkError, codeForFailedResponse } from '@/lib/api-errors';
 import { env } from '@/lib/env';
 import { getAccessToken } from '@/lib/supabase';
 
@@ -50,7 +50,7 @@ async function jsonRequest<T>(
             .error
         : undefined;
     throw new ApiClientError(
-      error?.code ?? 'INTERNAL_ERROR',
+      codeForFailedResponse(response.status, error?.code),
       error?.message ?? response.statusText,
       response.status,
       error?.field,

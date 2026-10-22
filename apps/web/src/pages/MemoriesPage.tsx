@@ -70,11 +70,6 @@ export function MemoriesPage() {
     );
   }
 
-  if (events.isPending) return <QueryLoading />;
-  if (events.isError) {
-    return <p className="text-body text-destructive">{messageForError(events.error)}</p>;
-  }
-
   const items = (events.data?.events ?? []).filter((event) =>
     filter === 'paused' ? event.status === 'archived' : true
   );
@@ -96,7 +91,17 @@ export function MemoriesPage() {
         </Button>
       </div>
 
-      {items.length === 0 ? (
+      {events.isPending ? <QueryLoading /> : null}
+      {events.isError ? (
+        <div className="flex flex-col items-start gap-3">
+          <p className="text-body text-destructive">{copy['memory.stories.load_error']}</p>
+          <Button type="button" variant="secondary" onClick={() => void events.refetch()}>
+            {copy['memory.stories.retry']}
+          </Button>
+        </div>
+      ) : null}
+
+      {events.isSuccess && items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-6 text-center">
           <Icon as={BookOpenTextIcon} size={48} weight="duotone" className="text-primary" />
           <Illustration name="memory-story" />
@@ -107,7 +112,8 @@ export function MemoriesPage() {
             {filter === 'paused' ? copy['archived.empty.body'] : copy['memory.empty.body']}
           </p>
         </div>
-      ) : (
+      ) : null}
+      {events.isSuccess && items.length > 0 ? (
         <ul className="flex flex-col gap-3">
           {items.map((event) => (
             <li key={event.id}>
@@ -148,7 +154,7 @@ export function MemoriesPage() {
             </li>
           ))}
         </ul>
-      )}
+      ) : null}
 
       <Card>
         <CardHeader>
