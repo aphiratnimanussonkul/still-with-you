@@ -225,6 +225,93 @@ export const notificationResponseSchema = z.object({
   read_at: z.string().datetime().nullable(),
 });
 
+export const FOCUS_MAX_PER_FAMILY = 10;
+export const QUESTION_SKIP_DAYS = 30;
+export const HOME_RECENT_MEMORIES_LIMIT = 5;
+
+export const updateFocusSchema = z.object({
+  person_ids: z.array(uuidSchema),
+});
+
+export const createFactSchema = z.object({
+  question_id: uuidSchema,
+  answer_text: z.string(),
+});
+
+export const skipFactSchema = z.object({
+  question_id: uuidSchema,
+});
+
+export const updateFactSchema = z.object({
+  answer_text: z.string(),
+});
+
+export const focusPersonSchema = z.object({
+  id: uuidSchema,
+  display_name: z.string(),
+});
+
+export const focusItemSchema = z.object({
+  person: focusPersonSchema,
+  photo_url: z.string().url().nullable(),
+  memory_count: z.number().int(),
+  position: z.number().int(),
+});
+
+export const focusListResponseSchema = z.object({
+  items: z.array(focusItemSchema),
+});
+
+export const quickQuestionSchema = z.object({
+  question_id: uuidSchema,
+  key: z.string(),
+  person: focusPersonSchema,
+  text: z.string(),
+});
+
+export const homeResponseSchema = z.object({
+  focus: z.array(focusItemSchema),
+  quick_question: quickQuestionSchema.nullable(),
+  recent_memories: z.array(eventResponseSchema),
+});
+
+export const factResponseSchema = z.object({
+  id: uuidSchema,
+  family_id: uuidSchema,
+  person_id: uuidSchema,
+  question_id: uuidSchema,
+  author_account_id: uuidSchema,
+  answer_text: z.string(),
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+});
+
+export const factAnswerItemSchema = z.object({
+  id: uuidSchema,
+  answer_text: z.string(),
+  author: z.object({
+    account_id: uuidSchema,
+    display_name: z.string(),
+  }),
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+  can_edit: z.boolean(),
+  can_delete: z.boolean(),
+});
+
+export const factGroupSchema = z.object({
+  question: z.object({
+    id: uuidSchema,
+    key: z.string(),
+    text: z.string(),
+  }),
+  answers: z.array(factAnswerItemSchema),
+});
+
+export const personFactsResponseSchema = z.object({
+  groups: z.array(factGroupSchema),
+});
+
 // Pagination
 export const paginationQuerySchema = z.object({
   cursor: z.string().optional(),
@@ -257,4 +344,14 @@ export type MediaResponse = z.infer<typeof mediaResponseSchema>;
 export type TrashItemResponse = z.infer<typeof trashItemResponseSchema>;
 export type TrashResponse = z.infer<typeof trashResponseSchema>;
 export type NotificationResponse = z.infer<typeof notificationResponseSchema>;
+export type UpdateFocus = z.infer<typeof updateFocusSchema>;
+export type CreateFact = z.infer<typeof createFactSchema>;
+export type SkipFact = z.infer<typeof skipFactSchema>;
+export type UpdateFact = z.infer<typeof updateFactSchema>;
+export type FocusItem = z.infer<typeof focusItemSchema>;
+export type FocusListResponse = z.infer<typeof focusListResponseSchema>;
+export type QuickQuestion = z.infer<typeof quickQuestionSchema>;
+export type HomeResponse = z.infer<typeof homeResponseSchema>;
+export type FactResponse = z.infer<typeof factResponseSchema>;
+export type PersonFactsResponse = z.infer<typeof personFactsResponseSchema>;
 export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
