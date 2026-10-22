@@ -190,7 +190,7 @@ All endpoints require `Authorization: Bearer <token>` except `/health`.
 - JWT verification via Supabase JWKS
 - RLS enabled on all tables (no direct access)
 - Private storage bucket (signed URLs only)
-- CORS allowlist (configurable)
+- CORS allowlist (`WEB_ORIGIN` comma-separated origins, no `*`)
 - Rate limiting
 - Audit logging (no content stored)
 - Encrypted backups (30-day retention after purge)

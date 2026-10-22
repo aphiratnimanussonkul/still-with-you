@@ -17,7 +17,8 @@ export default defineConfig({
       DATABASE_URL: process.env.TEST_DATABASE_URL || 'postgresql://postgres:postgres@localhost:54322/swy_test',
       SUPABASE_URL: 'http://localhost:54321',
       SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
-      WEB_ORIGIN: 'http://localhost:5173',
+      WEB_ORIGIN:
+        'https://stillwithyou.nimanussonkul.work,https://still-with-you-5b1.pages.dev,http://localhost:5173',
       STORAGE_BUCKET: 'private-media',
       NODE_ENV: 'test',
     },

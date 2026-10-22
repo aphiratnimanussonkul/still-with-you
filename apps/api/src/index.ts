@@ -28,7 +28,7 @@ async function buildServer() {
 
   // Register CORS (no credentials - using Bearer tokens only)
   await fastify.register(cors, {
-    origin: env.WEB_ORIGIN,
+    origin: [...env.WEB_ORIGIN],
     credentials: false,
   });
 

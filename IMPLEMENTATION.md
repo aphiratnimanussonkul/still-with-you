@@ -25,7 +25,7 @@ This PR sets up the Still With You monorepo backend foundation with database mig
 3. **Authentication (v0.4)**
    - JWT verification via Supabase JWKS
    - No cookies (Bearer token only)
-   - CORS allowlist (env-configurable)
+   - CORS allowlist (`WEB_ORIGIN` comma-separated origins, no `*`)
    - Automatic account creation on first login
 
 4. **Role-Based Access Control (v0.4)**
@@ -172,7 +172,7 @@ Required:
 - `SUPABASE_SERVICE_ROLE_KEY` - Service role key (secret!)
 - `DATABASE_URL` - PostgreSQL connection string (app / local Supabase)
 - `TEST_DATABASE_URL` - Dedicated `swy_test` database (tests only; never `postgres` or hosted URLs)
-- `WEB_ORIGIN` - CORS allowlist origin
+- `WEB_ORIGIN` - CORS allowlist (comma-separated origins, no `*`)
 
 Optional (with defaults):
 - `API_PORT` - API port (default: 3000)

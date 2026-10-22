@@ -11,7 +11,7 @@ pnpm install
 pnpm db:start                          # Postgres on :54322
 # apply supabase/migrations (see root README: pnpm db:reset, or the psql loop)
 cp .env.example .env                   # API secrets stay in the root .env
-pnpm --filter @still-with-you/api dev  # http://localhost:3000, WEB_ORIGIN=http://localhost:5173
+pnpm --filter @still-with-you/api dev  # http://localhost:3000; WEB_ORIGIN is a comma-separated CORS allowlist (e.g. http://localhost:5173)
 ```
 
 Web app:
