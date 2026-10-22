@@ -5,11 +5,14 @@ import { RouterProvider, createBrowserRouter } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/hooks/use-auth';
 import { env } from '@/lib/env';
+import { installInviteLogRedaction } from '@/lib/invite-privacy';
 import { queryClient } from '@/lib/query-client';
 import { startMocks } from '@/lib/start-mocks';
 import { initializeAuth } from '@/lib/supabase';
 import { App } from './App';
 import './index.css';
+
+installInviteLogRedaction();
 
 const router = createBrowserRouter([
   {
