@@ -64,6 +64,10 @@ export const env = {
 
   // Storage
   STORAGE_BUCKET: process.env.STORAGE_BUCKET || 'private-media',
+  SWY_SUPABASE_SERVICE_ROLE_KEY:
+    process.env.SWY_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  MEDIA_MAX_BYTES: parseInt(process.env.MEDIA_MAX_BYTES || '20971520', 10),
+  MEDIA_MAX_PER_CONTRIBUTION: parseInt(process.env.MEDIA_MAX_PER_CONTRIBUTION || '20', 10),
 
   // Rate limiting
   RATE_LIMIT_MAX: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),

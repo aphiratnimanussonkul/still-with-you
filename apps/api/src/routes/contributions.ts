@@ -3,6 +3,8 @@ import { AppError, ErrorCode, createContributionSchema, updateContributionSchema
 import { eq } from 'drizzle-orm';
 import { db, events, contributions, auditLog } from '../lib/db/index.js';
 import { findActiveMember, getActiveMember, assertContributionOwner } from '../lib/authz.js';
+import { attachMediaToStory, hardDeleteStoryMedia } from '../lib/media/attach.js';
+import { presentStoryMedia } from '../lib/media/present.js';
 
 /**
  * Contribution routes — owner-only for edit/trash/restore/purge (AC-24).
@@ -17,7 +19,7 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
     return contrib;
   }
 
-  function toContributionResponse(contrib: typeof contributions.$inferSelect) {
+  async function toContributionResponse(contrib: typeof contributions.$inferSelect, accountId: string) {
     return {
       id: contrib.id,
       family_id: contrib.familyId,
@@ -34,8 +36,18 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
       version: contrib.version,
       created_at: contrib.createdAt.toISOString(),
       updated_at: contrib.updatedAt.toISOString(),
+      media: await presentStoryMedia(contrib, accountId),
     };
   }
+
+  fastify.get<{ Params: { id: string } }>('/contributions/:id', async (request, reply) => {
+    const contrib = await loadContribution(request.params.id);
+    const member = await findActiveMember(contrib.familyId, request.user!.id);
+    if (!member) {
+      throw new AppError(ErrorCode.NOT_FOUND, 'Contribution not found', 404);
+    }
+    return reply.send(await toContributionResponse(contrib, request.user!.id));
+  });
 
   // Add contribution — story required (AC-27)
   fastify.post<{ Params: { id: string } }>('/events/:id/contributions', async (request, reply) => {
@@ -52,28 +64,40 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
 
     const body = createContributionSchema.parse(request.body);
 
-    const [created] = await db
-      .insert(contributions)
-      .values({
-        familyId: event.familyId,
-        ownerAccountId: request.user!.id,
-        narratorPersonId: body.narrator_person_id,
-        eventId: event.id,
-        originEventId: event.id,
-        originEventTitleSnapshot: event.title,
-        story: body.story.trim(),
-        status: 'published',
-      })
-      .returning();
+    const created = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(contributions)
+        .values({
+          familyId: event.familyId,
+          ownerAccountId: request.user!.id,
+          narratorPersonId: body.narrator_person_id,
+          eventId: event.id,
+          originEventId: event.id,
+          originEventTitleSnapshot: event.title,
+          story: body.story.trim(),
+          status: 'published',
+        })
+        .returning();
 
-    await db.insert(auditLog).values({
-      actorAccountId: request.user!.id,
-      action: 'contribution_create',
-      targetType: 'contribution',
-      targetId: created.id,
+      await attachMediaToStory(tx, {
+        storyId: row.id,
+        familyId: event.familyId,
+        authorId: request.user!.id,
+        mediaIds: body.media_ids,
+        replace: true,
+      });
+
+      await tx.insert(auditLog).values({
+        actorAccountId: request.user!.id,
+        action: 'contribution_create',
+        targetType: 'contribution',
+        targetId: row.id,
+      });
+
+      return row;
     });
 
-    return reply.status(201).send(toContributionResponse(created));
+    return reply.status(201).send(await toContributionResponse(created, request.user!.id));
   });
 
   fastify.patch<{ Params: { id: string } }>('/contributions/:id', async (request, reply) => {
@@ -87,24 +111,38 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
 
     const body = updateContributionSchema.parse(request.body);
 
-    const [updated] = await db
-      .update(contributions)
-      .set({
-        ...(body.story !== undefined && { story: body.story.trim() }),
-        updatedAt: new Date(),
-        version: contrib.version + 1,
-      })
-      .where(eq(contributions.id, contrib.id))
-      .returning();
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(contributions)
+        .set({
+          ...(body.story !== undefined && { story: body.story.trim() }),
+          updatedAt: new Date(),
+          version: contrib.version + 1,
+        })
+        .where(eq(contributions.id, contrib.id))
+        .returning();
 
-    await db.insert(auditLog).values({
-      actorAccountId: request.user!.id,
-      action: 'contribution_update',
-      targetType: 'contribution',
-      targetId: contrib.id,
+      if (body.media_ids !== undefined) {
+        await attachMediaToStory(tx, {
+          storyId: contrib.id,
+          familyId: contrib.familyId,
+          authorId: request.user!.id,
+          mediaIds: body.media_ids,
+          replace: true,
+        });
+      }
+
+      await tx.insert(auditLog).values({
+        actorAccountId: request.user!.id,
+        action: 'contribution_update',
+        targetType: 'contribution',
+        targetId: contrib.id,
+      });
+
+      return row;
     });
 
-    return reply.send(toContributionResponse(updated));
+    return reply.send(await toContributionResponse(updated, request.user!.id));
   });
 
   fastify.post<{ Params: { id: string } }>('/contributions/:id/trash', async (request, reply) => {
@@ -127,7 +165,7 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
       .where(eq(contributions.id, contrib.id))
       .returning();
 
-    return reply.send(toContributionResponse(updated));
+    return reply.send(await toContributionResponse(updated, request.user!.id));
   });
 
   fastify.post<{ Params: { id: string } }>('/contributions/:id/restore', async (request, reply) => {
@@ -156,7 +194,7 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
       .where(eq(contributions.id, contrib.id))
       .returning();
 
-    return reply.send(toContributionResponse(updated));
+    return reply.send(await toContributionResponse(updated, request.user!.id));
   });
 
   fastify.delete<{ Params: { id: string } }>('/contributions/:id', async (request, reply) => {
@@ -168,20 +206,23 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
 
     assertContributionOwner(contrib.ownerAccountId, request.user!.id);
 
-    await db
-      .update(contributions)
-      .set({
-        status: 'purged',
-        story: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(contributions.id, contrib.id));
+    await db.transaction(async (tx) => {
+      await hardDeleteStoryMedia(tx, [contrib.id]);
+      await tx
+        .update(contributions)
+        .set({
+          status: 'purged',
+          story: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(contributions.id, contrib.id));
 
-    await db.insert(auditLog).values({
-      actorAccountId: request.user!.id,
-      action: 'contribution_purge',
-      targetType: 'contribution',
-      targetId: contrib.id,
+      await tx.insert(auditLog).values({
+        actorAccountId: request.user!.id,
+        action: 'contribution_purge',
+        targetType: 'contribution',
+        targetId: contrib.id,
+      });
     });
 
     return reply.status(204).send();

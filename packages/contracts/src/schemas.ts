@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * Shared Zod schemas for API contracts
- * Based on backend-contract-v0.4.md
+ * Based on backend-contract-v0.5.md
  */
 
 // Base types
@@ -76,6 +76,7 @@ export const createEventSchema = z.object({
   date_precision: z.string().optional(),
   location: z.string().optional(),
   person_ids: z.array(uuidSchema).default([]),
+  media_ids: z.array(uuidSchema).default([]),
   source_contribution_ids: z.array(uuidSchema).optional(),
 });
 
@@ -116,18 +117,35 @@ export const eventListResponseSchema = z.object({
   events: z.array(eventResponseSchema),
 });
 
+export const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'] as const;
+export const MEDIA_MAX_BYTES_DEFAULT = 20 * 1024 * 1024;
+export const MEDIA_MAX_PER_CONTRIBUTION_DEFAULT = 20;
+export const MEDIA_UPLOAD_TTL_SECONDS = 10 * 60;
+export const MEDIA_READ_TTL_SECONDS = 5 * 60;
+export const MEDIA_ORPHAN_TTL_HOURS = 24;
+
+export const mediaStatusSchema = z.enum(['pending', 'uploaded', 'ready', 'failed']);
+
+export const storyMediaItemSchema = z.object({
+  id: uuidSchema,
+  status: mediaStatusSchema,
+  url: z.string().url().nullable(),
+  thumb_url: z.string().url().nullable(),
+  width: z.number().int().nullable(),
+  height: z.number().int().nullable(),
+  expires_at: z.string().datetime().nullable(),
+});
+
 // Contribution schemas
 export const createContributionSchema = z.object({
   story: nonEmptyStringSchema,
   narrator_person_id: uuidSchema.optional(),
-  media_upload_ids: z.array(uuidSchema).max(20).default([]),
+  media_ids: z.array(uuidSchema).default([]),
 });
 
 export const updateContributionSchema = z.object({
   story: nonEmptyStringSchema.optional(),
-  add_media_upload_ids: z.array(uuidSchema).optional(),
-  remove_media_ids: z.array(uuidSchema).optional(),
-  media_order: z.array(uuidSchema).optional(),
+  media_ids: z.array(uuidSchema).optional(),
 });
 
 export const contributionResponseSchema = z.object({
@@ -146,29 +164,28 @@ export const contributionResponseSchema = z.object({
   version: z.number().int(),
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
+  media: z.array(storyMediaItemSchema).default([]),
 });
 
 // Upload schemas
-export const createUploadSchema = z.object({
-  mime: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/heic']),
-  size_bytes: z.number().int().max(20 * 1024 * 1024), // 20MB
-  sha256: z.string().length(64),
+export const createMediaUploadSchema = z.object({
+  content_type: z.string().min(1),
+  size_bytes: z.number().int().positive(),
 });
 
-export const uploadResponseSchema = z.object({
-  upload_id: uuidSchema,
-  put_url: z.string().url(),
+export const createUploadSchema = createMediaUploadSchema;
+
+export const mediaUploadResponseSchema = z.object({
+  media_id: uuidSchema,
+  upload_url: z.string().url(),
+  expires_at: z.string().datetime(),
+  max_bytes: z.number().int(),
+  max_per_story: z.number().int(),
 });
 
-// Media schemas
-export const mediaResponseSchema = z.object({
-  id: uuidSchema,
-  contribution_id: uuidSchema,
-  blob_id: uuidSchema,
-  url: z.string().url().optional(),
-  taken_by_person_id: uuidSchema.nullable(),
-  sort_order: z.number().int(),
-});
+export const uploadResponseSchema = mediaUploadResponseSchema;
+
+export const mediaResponseSchema = storyMediaItemSchema;
 
 // Trash schemas
 export const trashItemResponseSchema = z.object({
@@ -223,16 +240,19 @@ export type UpdateMemberRole = z.infer<typeof updateMemberRoleSchema>;
 export type FamilyResponse = z.infer<typeof familyResponseSchema>;
 export type FamilyListResponse = z.infer<typeof familyListResponseSchema>;
 export type FamilyMemberResponse = z.infer<typeof familyMemberResponseSchema>;
-export type CreateEvent = z.infer<typeof createEventSchema>;
+export type CreateEvent = z.input<typeof createEventSchema>;
 export type UpdateEvent = z.infer<typeof updateEventSchema>;
 export type DeleteEvent = z.infer<typeof deleteEventSchema>;
 export type EventResponse = z.infer<typeof eventResponseSchema>;
 export type EventListResponse = z.infer<typeof eventListResponseSchema>;
-export type CreateContribution = z.infer<typeof createContributionSchema>;
+export type CreateContribution = z.input<typeof createContributionSchema>;
 export type UpdateContribution = z.infer<typeof updateContributionSchema>;
 export type ContributionResponse = z.infer<typeof contributionResponseSchema>;
 export type CreateUpload = z.infer<typeof createUploadSchema>;
+export type CreateMediaUpload = z.infer<typeof createMediaUploadSchema>;
 export type UploadResponse = z.infer<typeof uploadResponseSchema>;
+export type MediaUploadResponse = z.infer<typeof mediaUploadResponseSchema>;
+export type StoryMediaItem = z.infer<typeof storyMediaItemSchema>;
 export type MediaResponse = z.infer<typeof mediaResponseSchema>;
 export type TrashItemResponse = z.infer<typeof trashItemResponseSchema>;
 export type TrashResponse = z.infer<typeof trashResponseSchema>;

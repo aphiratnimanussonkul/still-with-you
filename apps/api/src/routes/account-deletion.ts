@@ -1,7 +1,8 @@
 import { FastifyPluginAsync } from 'fastify';
-import { db, accounts, familyMembers, families, contributions, media, blobs, contributionRevisions, auditLog, outbox } from '../lib/db/index.js';
+import { db, accounts, familyMembers, families, contributions, media, contributionRevisions, auditLog } from '../lib/db/index.js';
 import { eq, and, isNull, sql } from 'drizzle-orm';
 import { AppError, ErrorCode } from '@still-with-you/contracts';
+import { hardDeleteMediaRows, hardDeleteStoryMedia } from '../lib/media/attach.js';
 
 /**
  * Account deletion with comprehensive purge
@@ -88,30 +89,14 @@ const accountDeletionRoutes: FastifyPluginAsync = async (fastify) => {
         .from(contributions)
         .where(eq(contributions.ownerAccountId, accountId));
 
+      const unattached = await tx
+        .select({ id: media.id, storageKey: media.storageKey, thumbKey: media.thumbKey })
+        .from(media)
+        .where(eq(media.uploaderAccountId, accountId));
+      await hardDeleteMediaRows(tx, unattached);
+
       for (const contrib of userContributions) {
-        // Get media for this contribution
-        const contributionMedia = await tx.select().from(media).where(eq(media.contributionId, contrib.id));
-
-        // Collect blob IDs for cleanup check
-        const blobIds = new Set<string>();
-        for (const m of contributionMedia) {
-          blobIds.add(m.blobId);
-          if (m.blurredBlobId) blobIds.add(m.blurredBlobId);
-        }
-
-        // Hard delete media (trigger will decrement ref_count automatically)
-        await tx.delete(media).where(eq(media.contributionId, contrib.id));
-
-        // Check which blobs now have ref_count = 0 and enqueue deletion
-        for (const blobId of blobIds) {
-          const [blob] = await tx.select({ refCount: blobs.refCount }).from(blobs).where(eq(blobs.id, blobId));
-          if (blob && blob.refCount === 0) {
-            await tx.insert(outbox).values({
-              type: 'blob_delete',
-              payload: { blob_id: blobId },
-            });
-          }
-        }
+        await hardDeleteStoryMedia(tx, [contrib.id]);
 
         // Hard delete revisions
         await tx.delete(contributionRevisions).where(eq(contributionRevisions.contributionId, contrib.id));

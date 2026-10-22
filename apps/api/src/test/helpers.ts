@@ -89,5 +89,5 @@ export async function cleanupTestData() {
   await guardTestDatabase(dbUrl);
 
   // Use TRUNCATE to avoid triggering last-admin check
-  await sql`TRUNCATE TABLE family_members, families, accounts, audit_log, invites, outbox CASCADE`;
+  await sql`TRUNCATE TABLE media, family_members, families, accounts, audit_log, invites, outbox CASCADE`;
 }

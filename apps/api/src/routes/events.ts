@@ -12,6 +12,7 @@ import { db, events, contributions, eventPeople, auditLog } from '../lib/db/inde
 import { findActiveMember, getActiveMember, canManageEvent, isFamilySteward } from '../lib/authz.js';
 import { archiveSchedule, toEventResponse } from '../lib/event-response.js';
 import { assertPeopleInFamily } from '../lib/people.js';
+import { attachMediaToStory, hardDeleteStoryMedia } from '../lib/media/attach.js';
 
 /**
  * Event routes
@@ -64,14 +65,25 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         })
         .returning();
 
-      await tx.insert(contributions).values({
+      const [story] = await tx
+        .insert(contributions)
+        .values({
+          familyId: fid,
+          ownerAccountId: request.user!.id,
+          eventId: created.id,
+          originEventId: created.id,
+          originEventTitleSnapshot: created.title,
+          story: body.story.trim(),
+          status: 'published',
+        })
+        .returning();
+
+      await attachMediaToStory(tx, {
+        storyId: story.id,
         familyId: fid,
-        ownerAccountId: request.user!.id,
-        eventId: created.id,
-        originEventId: created.id,
-        originEventTitleSnapshot: created.title,
-        story: body.story.trim(),
-        status: 'published',
+        authorId: request.user!.id,
+        mediaIds: body.media_ids,
+        replace: true,
       });
 
       await assertPeopleInFamily(tx, fid, body.person_ids);
@@ -293,6 +305,16 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           archiveSchedule(current?.archivedAt ?? null)
         );
       }
+
+      const eventStories = await tx
+        .select({ id: contributions.id })
+        .from(contributions)
+        .where(eq(contributions.originEventId, event.id));
+
+      await hardDeleteStoryMedia(
+        tx,
+        eventStories.map((row) => row.id)
+      );
 
       await tx
         .update(contributions)
