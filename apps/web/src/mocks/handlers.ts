@@ -141,7 +141,7 @@ const contributions: Array<{
   origin_event_id: item.event_id,
   origin_event_title_snapshot: mockEvents.find((event) => event.id === item.event_id)?.title ?? null,
   story: item.story ?? '',
-  media_ids: [],
+  media_ids: item.media?.map((photo) => photo.id) ?? [],
   created_at: item.created_at,
   updated_at: item.created_at,
   version: 1,

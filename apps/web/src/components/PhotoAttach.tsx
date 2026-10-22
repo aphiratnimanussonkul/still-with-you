@@ -29,6 +29,7 @@ type PhotoAttachProps = {
   familyId: string;
   label?: string;
   onStateChange: (state: PhotoAttachState) => void;
+  hint?: string;
 };
 
 function emit(photos: PhotoDraft[], onStateChange: (state: PhotoAttachState) => void) {
@@ -38,7 +39,7 @@ function emit(photos: PhotoDraft[], onStateChange: (state: PhotoAttachState) => 
   });
 }
 
-export function PhotoAttach({ familyId, label, onStateChange }: PhotoAttachProps) {
+export function PhotoAttach({ familyId, label, onStateChange, hint }: PhotoAttachProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [photos, setPhotos] = useState<PhotoDraft[]>([]);
@@ -178,6 +179,7 @@ export function PhotoAttach({ familyId, label, onStateChange }: PhotoAttachProps
           </label>
         ) : null}
       </div>
+      {hint ? <p className="text-caption text-muted-foreground">{hint}</p> : null}
 
       <input
         id={inputId}
