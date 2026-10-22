@@ -95,6 +95,7 @@ const invites: {
   family_id: string;
   email: string;
   person_id?: string | null;
+  token?: string;
   url?: string;
   status: 'pending' | 'accepted' | 'revoked' | 'expired';
   expires_at: string;
@@ -299,6 +300,11 @@ function toPersonResponse(person: FamilyPerson) {
     created_at: person.created_at,
     deleted_at: person.deleted_at ?? null,
   });
+}
+
+function findInviteByToken(token: string | readonly string[] | undefined) {
+  const value = String(token ?? '');
+  return invites.find((row) => row.token === value || row.id === value);
 }
 
 function requireAuth(request: Request) {
@@ -664,17 +670,18 @@ export const handlers = [
       );
     }
     const origin = request.headers.get('origin') ?? 'http://localhost:5173';
+    const token = crypto.randomUUID();
     const created = {
       id: crypto.randomUUID(),
       family_id: person.family_id,
       email: parsed.data.email,
       person_id: person.id,
-      url: '',
+      token,
+      url: `${origin}/invites/${token}`,
       status: 'pending' as const,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       created_at: new Date().toISOString(),
     };
-    created.url = `${origin}/invites/${created.id}`;
     person.invite_status = 'pending';
     invites.push(created);
     return HttpResponse.json(
@@ -693,7 +700,7 @@ export const handlers = [
   }),
 
   http.get(`${api}/v1/invites/:token`, ({ params }) => {
-    const invite = invites.find((row) => row.id === params.token);
+    const invite = findInviteByToken(params.token);
     const expired = invite ? new Date(invite.expires_at).getTime() < Date.now() : false;
     if (
       !invite ||
@@ -719,7 +726,7 @@ export const handlers = [
   http.post(`${api}/v1/invites/:token/accept`, ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    const invite = invites.find((row) => row.id === params.token);
+    const invite = findInviteByToken(params.token);
     const expired = invite ? new Date(invite.expires_at).getTime() < Date.now() : false;
     if (!invite || !invite.person_id || invite.status !== 'pending' || expired) {
       return HttpResponse.json(
@@ -776,11 +783,7 @@ export const handlers = [
     const start = rawCursor && /^\d+$/.test(rawCursor) ? Number(rawCursor) : 0;
     const pageSize = 20;
     const page = visible.slice(start, start + pageSize);
-    const next = start + pageSize < visible.length ? String(start + pageSize) : null;
-    return HttpResponse.json({
-      events: page,
-      next_cursor: next,
-    });
+    return HttpResponse.json(eventListResponseSchema.parse({ events: page }));
   }),
 
   http.get(`${api}/v1/families/:fid/people`, ({ request, params }) => {

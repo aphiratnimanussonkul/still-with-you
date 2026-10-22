@@ -73,7 +73,7 @@ describe('PersonPage', () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
     vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
     vi.mocked(familyGraph.listMembers).mockResolvedValue({ members: mockMembers });
-    vi.mocked(familyGraph.listPersonEvents).mockResolvedValue({ events: [], next_cursor: null });
+    vi.mocked(familyGraph.listPersonEvents).mockResolvedValue({ events: [] });
     vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
     vi.mocked(familyGraph.createPersonInvite).mockResolvedValue({
       id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
@@ -236,10 +236,7 @@ describe('PersonPage', () => {
   });
 
   it('lists memories that feature this person', async () => {
-    vi.mocked(familyGraph.listPersonEvents).mockResolvedValue({
-      events: [mockEvents[0]],
-      next_cursor: null,
-    });
+    vi.mocked(familyGraph.listPersonEvents).mockResolvedValue({ events: [mockEvents[0]] });
     renderPerson();
     expect(await screen.findByRole('link', { name: mockEvents[0].title ?? '' })).toHaveAttribute(
       'href',
