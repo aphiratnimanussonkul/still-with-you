@@ -7,6 +7,7 @@ import crypto from 'crypto';
 
 /**
  * Family and member management routes
+ * GET /v1/families - List families the caller belongs to (web list screen; not in contract v0.4)
  * POST /v1/families - Create family
  * GET /v1/families/:fid - Get family
  * POST /v1/families/:fid/invites - Create invite (admin only)
@@ -44,6 +45,37 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
 
     return member;
   }
+
+  // List families the caller currently belongs to.
+  // Contract v0.4 documents GET /v1/families/{fid} but not a list route;
+  // the web family list screen needs this.
+  fastify.get('/families', async (request, reply) => {
+    const rows = await db
+      .select({
+        id: families.id,
+        name: families.name,
+        createdBy: families.createdBy,
+        createdAt: families.createdAt,
+      })
+      .from(families)
+      .innerJoin(
+        familyMembers,
+        and(
+          eq(familyMembers.familyId, families.id),
+          eq(familyMembers.accountId, request.user!.id),
+          isNull(familyMembers.leftAt)
+        )
+      );
+
+    return reply.send({
+      families: rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        created_by: row.createdBy,
+        created_at: row.createdAt.toISOString(),
+      })),
+    });
+  });
 
   // Create family (creator becomes first admin via trigger)
   fastify.post('/families', async (request, reply) => {

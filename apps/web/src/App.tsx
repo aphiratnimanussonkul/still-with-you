@@ -1,17 +1,44 @@
-/**
- * Still With You - Frontend Placeholder
- * 
- * This is a minimal placeholder for the web app.
- * Frontend development will be handled separately.
- */
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { OfflineScreen } from '@/components/OfflineScreen';
+import { QueryLoading } from '@/components/QueryLoading';
+import { useAuth } from '@/hooks/use-auth';
+import { useOnline } from '@/hooks/use-online';
+import { ConsentPage } from '@/pages/ConsentPage';
+import { FamiliesPage } from '@/pages/FamiliesPage';
+import { LoginPage } from '@/pages/LoginPage';
+import { MemoriesPage } from '@/pages/MemoriesPage';
+import { RequireSession } from '@/pages/RequireSession';
 
-function App() {
+export function App() {
+  const online = useOnline();
+  const { session, loading } = useAuth();
+
+  if (!online) {
+    return <OfflineScreen />;
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-10">
+        <QueryLoading />
+      </div>
+    );
+  }
+
   return (
-    <div style={{ padding: '2rem', fontFamily: 'system-ui' }}>
-      <h1>Still With You</h1>
-      <p>Family memory PWA (Frontend placeholder)</p>
-      <p>API endpoint: <code>http://localhost:3000</code></p>
-    </div>
+    <Routes>
+      <Route
+        path="/login"
+        element={session ? <Navigate to="/families" replace /> : <LoginPage />}
+      />
+      <Route element={<RequireSession />}>
+        <Route path="/consent" element={<ConsentPage />} />
+        <Route path="/families" element={<FamiliesPage />} />
+        <Route path="/families/:familyId" element={<MemoriesPage />} />
+      </Route>
+      <Route path="/" element={<Navigate to={session ? '/families' : '/login'} replace />} />
+      <Route path="*" element={<Navigate to={session ? '/families' : '/login'} replace />} />
+    </Routes>
   );
 }
 

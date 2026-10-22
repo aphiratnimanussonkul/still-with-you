@@ -29,6 +29,48 @@ describe('Family Management', () => {
     await cleanupTestData();
   });
 
+  describe('GET /v1/families', () => {
+    it('should list families the caller belongs to', async () => {
+      const familyResponse = await server.inject({
+        method: 'POST',
+        url: '/v1/families',
+        headers: {
+          authorization: `Bearer ${adminToken}`,
+        },
+        payload: {
+          name: 'Test Family',
+        },
+      });
+
+      const family = JSON.parse(familyResponse.body);
+
+      const listResponse = await server.inject({
+        method: 'GET',
+        url: '/v1/families',
+        headers: {
+          authorization: `Bearer ${adminToken}`,
+        },
+      });
+
+      expect(listResponse.statusCode).toBe(200);
+      const body = JSON.parse(listResponse.body);
+      expect(body.families).toHaveLength(1);
+      expect(body.families[0].id).toBe(family.id);
+      expect(body.families[0].name).toBe('Test Family');
+
+      const outsiderList = await server.inject({
+        method: 'GET',
+        url: '/v1/families',
+        headers: {
+          authorization: `Bearer ${memberToken}`,
+        },
+      });
+
+      expect(outsiderList.statusCode).toBe(200);
+      expect(JSON.parse(outsiderList.body).families).toHaveLength(0);
+    });
+  });
+
   describe('POST /v1/families', () => {
     it('should create family and make creator first admin', async () => {
       const response = await server.inject({

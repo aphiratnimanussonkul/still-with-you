@@ -8,7 +8,7 @@ Private family memory PWA - a platform for families to preserve and share memori
 still-with-you/
 ├── apps/
 │   ├── api/          # Fastify backend API
-│   ├── web/          # React+Vite frontend (placeholder)
+│   ├── web/          # React+Vite PWA (Thai-only)
 │   └── worker/       # Background worker for async tasks
 ├── packages/
 │   └── contracts/    # Shared TypeScript types and Zod schemas
@@ -19,7 +19,7 @@ still-with-you/
 ## Tech Stack
 
 - **Backend:** TypeScript, Fastify, Drizzle ORM, PostgreSQL
-- **Frontend:** React, Vite, TypeScript (minimal placeholder)
+- **Frontend:** React, Vite, TypeScript, Tailwind v4, shadcn/ui, PWA
 - **Database:** Supabase (PostgreSQL + Auth + Storage)
 - **Infrastructure:** Docker, Caddy (automatic HTTPS), GitHub Actions
 
@@ -94,9 +94,9 @@ pnpm dev
 cd apps/worker
 pnpm dev
 
-# Start web placeholder
-cd apps/web
-pnpm dev
+# Start web (see apps/web/README.md)
+cp apps/web/.env.example apps/web/.env
+pnpm --filter @still-with-you/web dev
 ```
 
 ### Testing
@@ -136,6 +136,8 @@ docker-compose up -d
 
 The API will be available at the domain specified in `DOMAIN` env var, with automatic HTTPS via Caddy.
 
+The web PWA is built for Cloudflare Pages. Build settings, `VITE_*` env vars, and the SPA fallback are documented in [apps/web/README.md](apps/web/README.md).
+
 ## Database Schema
 
 See [docs/backend-contract-v0.4.md](docs/backend-contract-v0.4.md) for the complete API contract and database schema.
@@ -160,6 +162,7 @@ All endpoints require `Authorization: Bearer <token>` except `/health`.
 - `PATCH /v1/me/consent` - Update marketing consent
 
 ### Family
+- `GET /v1/families` - List families the caller belongs to
 - `POST /v1/families` - Create family
 - `GET /v1/families/:fid` - Get family
 - `POST /v1/families/:fid/invites` - Invite member (admin only)
