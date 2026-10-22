@@ -64,7 +64,7 @@ export function PersonInvitePage() {
   }
 
   if (!invite.data) return null;
-  const name = invite.data.person_display_name ?? '';
+  const name = invite.data.person_display_name;
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col gap-6 px-4 py-6">
@@ -83,7 +83,7 @@ export function PersonInvitePage() {
         {interpolate(copy['invite.landing.expires'], { date: formatThaiDate(invite.data.expires_at) })}
       </p>
       {accept.isError ? (
-        <p className="text-body text-destructive">{inviteLandingError(accept.error, { name })}</p>
+        <p className="text-body text-destructive">{inviteLandingError(accept.error, { name: name ?? '' })}</p>
       ) : null}
       {session ? (
         <Button type="button" onClick={() => accept.mutate()} disabled={accept.isPending}>

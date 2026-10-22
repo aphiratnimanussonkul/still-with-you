@@ -734,7 +734,7 @@ export const handlers = [
     return HttpResponse.json({
       family_name: family?.name ?? '',
       inviter_display_name: account.display_name,
-      person_display_name: person?.display_name ?? '',
+      person_display_name: person?.display_name ?? null,
       expires_at: invite.expires_at,
     });
   }),
