@@ -334,13 +334,31 @@ export function truncateName(value: string, max = DISPLAY_NAME_MAX): string {
   return `${value.slice(0, max - 1)}…`;
 }
 
-export function interpolate(template: string, vars: Record<string, string>): string {
+export type InterpolateOptions = {
+  /** Default true — list titles, meta, and toasts. Headings pass false. */
+  truncateNames?: boolean;
+};
+
+export function interpolate(
+  template: string,
+  vars: Record<string, string>,
+  options?: InterpolateOptions
+): string {
+  const truncateNames = options?.truncateNames !== false;
   return template.replace(/\{([^}]+)\}/g, (match, key: string) => {
     if (!Object.prototype.hasOwnProperty.call(vars, key)) return match;
     const value = vars[key];
-    return NAME_VAR_KEYS.has(key) ? truncateName(value) : value;
+    return truncateNames && NAME_VAR_KEYS.has(key) ? truncateName(value) : value;
   });
 }
+
+/** Page headings show the full name; CSS line-clamp handles overflow. */
+export function interpolateHeading(template: string, vars: Record<string, string>): string {
+  return interpolate(template, vars, { truncateNames: false });
+}
+
+/** h1 page titles: wrap up to 2 lines, then clamp. List/meta/toasts stay single-line … */
+export const pageHeadingClassName = 'min-w-0 break-words line-clamp-2';
 
 /** family.item.meta — hide {บทบาทของฉัน} unless the viewer is an admin. */
 export function familyItemMeta(memberCount: number, isAdmin: boolean): string {
