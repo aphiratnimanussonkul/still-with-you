@@ -20,6 +20,7 @@ export const queryKeys = {
   members: (familyId: string) => ['families', familyId, 'members'] as const,
   invites: (familyId: string) => ['families', familyId, 'invites'] as const,
   people: (familyId: string) => ['families', familyId, 'people'] as const,
+  person: (personId: string) => ['people', personId] as const,
   home: (familyId: string) => ['families', familyId, 'home'] as const,
   focus: (familyId: string) => ['families', familyId, 'focus'] as const,
   facts: (personId: string) => ['people', personId, 'facts'] as const,

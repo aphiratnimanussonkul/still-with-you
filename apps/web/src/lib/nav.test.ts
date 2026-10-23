@@ -10,6 +10,7 @@ describe('isNavItemActive', () => {
     expect(isNavItemActive('memories', '/family')).toBe(false);
     expect(isNavItemActive('family', '/family')).toBe(true);
     expect(isNavItemActive('family', '/family/invite')).toBe(true);
+    expect(isNavItemActive('family', '/family/people/new')).toBe(true);
     expect(isNavItemActive('family', '/families')).toBe(false);
     expect(isNavItemActive('me', '/me')).toBe(true);
     expect(isNavItemActive('me', '/me/trash')).toBe(true);
@@ -25,10 +26,14 @@ describe('appBarForPath', () => {
     expect(appBarForPath('/me')).toEqual({ titleKey: 'nav.me', backTo: null });
   });
 
-  it('uses a back link on memory detail and trash', () => {
+  it('uses a back link on memory detail, add person, and trash', () => {
     expect(appBarForPath('/memories/abc')).toEqual({
       titleKey: 'memory.list.title',
       backTo: '/memories',
+    });
+    expect(appBarForPath('/family/people/new')).toEqual({
+      titleKey: 'person.add.title',
+      backTo: '/family',
     });
     expect(appBarForPath('/me/trash')).toEqual({ titleKey: 'trash.title', backTo: '/me' });
   });

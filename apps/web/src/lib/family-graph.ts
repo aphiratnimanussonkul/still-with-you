@@ -2,9 +2,16 @@
  * Isolated members / invites / people client (tree + invite are not in api-client).
  */
 import {
+  createPersonResponseSchema,
+  personInviteResponseSchema,
   personListResponseSchema,
   personResponseSchema,
+  type CreatePerson,
+  type CreatePersonResponse,
+  type CreateRelationshipKind,
+  type PersonInviteResponse,
   type PersonResponse,
+  type RelationshipResponse,
 } from '@still-with-you/contracts';
 import { z } from 'zod';
 import { request } from '@/lib/api-client';
@@ -42,6 +49,11 @@ export const familyInvitesSchema = z.object({
 
 export const familyPersonSchema = personResponseSchema;
 export const familyPeopleSchema = personListResponseSchema;
+export const createPersonResultSchema = z.union([
+  createPersonResponseSchema,
+  personResponseSchema.transform((person) => ({ person, relationship: null })),
+]);
+export const personInviteSchema = personInviteResponseSchema;
 
 export const contributionItemSchema = z.object({
   id: z.string().uuid(),
@@ -71,8 +83,21 @@ export const trashListSchema = z.object({
 
 export type FamilyMember = z.infer<typeof familyMemberSchema>;
 export type FamilyPerson = PersonResponse;
+export type FamilyRelationship = RelationshipResponse;
+export type CreatePersonBody = CreatePerson;
+export type CreatePersonResult = CreatePersonResponse;
+export type RelationshipKind = CreateRelationshipKind;
+export type PersonInvite = PersonInviteResponse;
 export type ContributionItem = z.infer<typeof contributionItemSchema>;
 export type TrashItem = z.infer<typeof trashItemSchema>;
+
+export function personDisplayName(person: Pick<FamilyPerson, 'name' | 'display_name'>): string {
+  return person.display_name || person.name;
+}
+
+export function isPersonLiving(person: Pick<FamilyPerson, 'is_living'>): boolean {
+  return person.is_living !== false;
+}
 
 export const familyGraph = {
   listMembers(familyId: string) {
@@ -94,10 +119,21 @@ export const familyGraph = {
     return request(`/v1/families/${familyId}/people`, familyPeopleSchema);
   },
 
-  createPerson(familyId: string, body: { name: string; relation_label?: string }) {
-    return request(`/v1/families/${familyId}/people`, familyPersonSchema, {
+  getPerson(personId: string) {
+    return request(`/v1/people/${personId}`, familyPersonSchema);
+  },
+
+  createPerson(familyId: string, body: CreatePersonBody) {
+    return request(`/v1/families/${familyId}/people`, createPersonResultSchema, {
       method: 'POST',
       body,
+    });
+  },
+
+  createPersonInvite(personId: string, email: string) {
+    return request(`/v1/people/${personId}/invites`, personInviteSchema, {
+      method: 'POST',
+      body: { email },
     });
   },
 

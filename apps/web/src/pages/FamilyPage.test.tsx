@@ -1,10 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { copy, interpolate, interpolateHeading } from '@/copy';
-import { formatThaiDate } from '@/lib/dates';
-import { mockFamilies, mockPeople } from '@/mocks/data';
+import { copy } from '@/copy';
+import { mockAccount, mockFamilies, mockPeople, mockRelationships } from '@/mocks/data';
 
 vi.mock('@/lib/api-client', () => ({
   api: {
@@ -13,28 +12,23 @@ vi.mock('@/lib/api-client', () => ({
   },
 }));
 
-vi.mock('@/lib/family-graph', () => ({
-  familyGraph: {
-    listPeople: vi.fn(),
-    createPerson: vi.fn(),
-    listMembers: vi.fn(),
-    listInvites: vi.fn(),
-    createInvite: vi.fn(),
-  },
-}));
-
-vi.mock('@/lib/home-api', () => ({
-  FOCUS_MAX: 10,
-  homeApi: {
-    getFocus: vi.fn(),
-    putFocus: vi.fn(),
-    listFacts: vi.fn(),
-  },
-}));
+vi.mock('@/lib/family-graph', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/family-graph')>('@/lib/family-graph');
+  return {
+    ...actual,
+    familyGraph: {
+      listPeople: vi.fn(),
+      createPerson: vi.fn(),
+      listMembers: vi.fn(),
+      listInvites: vi.fn(),
+      createInvite: vi.fn(),
+    },
+  };
+});
 
 vi.mock('@/hooks/use-me', () => ({
   useMe: () => ({
-    data: { id: '11111111-1111-4111-8111-111111111111', display_name: 'Atta' },
+    data: { id: mockAccount.id, display_name: mockAccount.display_name },
   }),
 }));
 
@@ -44,29 +38,18 @@ vi.mock('@/components/Illustration', () => ({
 
 import { api } from '@/lib/api-client';
 import { familyGraph } from '@/lib/family-graph';
-import { homeApi } from '@/lib/home-api';
 import { FamilyPage } from '@/pages/FamilyPage';
 
-function focusResponse(ids: string[]) {
-  return {
-    items: ids.map((id, position) => {
-      const person = mockPeople.find((row) => row.id === id) ?? mockPeople[0];
-      return {
-        person: { id: person.id, display_name: person.name },
-        photo_url: null,
-        memory_count: 0,
-        position,
-      };
-    }),
-  };
-}
-
-function renderPage() {
+function renderPage(path = '/family') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <FamilyPage />
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/family" element={<FamilyPage />} />
+          <Route path="/family/people/new" element={<div>add-form</div>} />
+          <Route path="/family/people/:personId" element={<div>person-page</div>} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>
   );
@@ -77,133 +60,79 @@ describe('FamilyPage', () => {
     sessionStorage.clear();
   });
 
-  it('lets the signed-in account focus more than one person', async () => {
+  it('shows the tree, Buddhist years, and only the add / back-to-me toolbar', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
-    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople });
-    vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([mockPeople[0].id]));
-    vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
-    vi.mocked(homeApi.putFocus).mockImplementation(async (_familyId, personIds) =>
-      focusResponse(personIds)
-    );
-
-    renderPage();
-    expect(await screen.findByText('ยายสมศรี')).toBeTruthy();
-    expect(screen.getByText('ปู่สมชาย')).toBeTruthy();
-
-    const checkboxes = screen.getAllByRole('checkbox');
-    expect(checkboxes[0].getAttribute('data-state')).toBe('checked');
-    expect(checkboxes[1].getAttribute('data-state')).toBe('unchecked');
-
-    fireEvent.click(screen.getAllByText(copy['family.focus.toggle'])[1]);
-    await waitFor(() =>
-      expect(homeApi.putFocus).toHaveBeenCalledWith(mockFamilies[0].id, [
-        mockPeople[0].id,
-        mockPeople[1].id,
-      ])
-    );
-  });
-
-  it('uses the focus toggle copy from the PO note', async () => {
-    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
-    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople });
-    vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([]));
-    vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
-
-    renderPage();
-    expect(await screen.findAllByText(copy['family.focus.toggle'])).toHaveLength(2);
-    expect(screen.getAllByText(copy['family.focus.note']).length).toBeGreaterThan(0);
-  });
-
-  it('shows the profile facts empty state on each person card', async () => {
-    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
-    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople });
-    vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([]));
-    vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
-
-    renderPage();
-    expect(
-      await screen.findByText(interpolateHeading(copy['person.facts.title'], { name: mockPeople[0].name }))
-    ).toBeTruthy();
-    expect(
-      await screen.findByText(
-        interpolateHeading(copy['person.facts.empty.title'], { name: mockPeople[0].name })
-      )
-    ).toBeTruthy();
-    expect(screen.getAllByText(copy['person.facts.empty.body']).length).toBeGreaterThan(0);
-  });
-
-  it('shows answer meta on a person facts list', async () => {
-    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
-    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople });
-    vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([]));
-    vi.mocked(homeApi.listFacts).mockImplementation(async (personId) => {
-      if (personId !== mockPeople[0].id) return { groups: [] };
-      return {
-        groups: [
-          {
-            question: {
-              id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001',
-              key: 'birthplace',
-              text: 'ยายสมศรี เกิดที่ไหน',
-            },
-            answers: [
-              {
-                id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-                answer_text: 'อยุธยา',
-                author: { account_id: '11111111-1111-4111-8111-111111111111', display_name: 'Atta' },
-                created_at: '2026-10-22T00:00:00.000Z',
-                updated_at: '2026-10-22T00:00:00.000Z',
-                can_edit: true,
-                can_delete: true,
-              },
-            ],
-          },
-        ],
-      };
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({
+      people: mockPeople,
+      relationships: mockRelationships,
     });
 
     renderPage();
-    expect(await screen.findByText('อยุธยา')).toBeTruthy();
-    expect(
-      screen.getByText(
-        interpolate(copy['person.facts.answer.meta'], {
-          ผู้ตอบ: 'Atta',
-          วันที่: formatThaiDate('2026-10-22T00:00:00.000Z'),
-        })
-      )
-    ).toBeTruthy();
+    expect(await screen.findByText('ยายสมศรี')).toBeTruthy();
+    expect(screen.getByText('ปู่สมชาย')).toBeTruthy();
+    expect(screen.getByText('2480–2565')).toBeTruthy();
+    expect(screen.getByText('2478–')).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy['family.tab.graph'] })).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy['family.tab.list'] })).toBeTruthy();
+    expect(screen.getByRole('link', { name: copy['person.add.action'] })).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy['tree.back_to_me'] })).toBeTruthy();
+    expect(screen.queryByText(copy['family.focus.toggle'])).toBeNull();
+    expect(screen.queryByText(copy['family.tab.members'])).toBeNull();
   });
 
-  it('keeps the people list when focus fails and retries from the toggle', async () => {
+  it('opens the node + menu and navigates a node tap to the person page', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
-    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople });
-    vi.mocked(homeApi.getFocus).mockRejectedValue(new Error('boom'));
-    vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({
+      people: mockPeople,
+      relationships: mockRelationships,
+    });
 
     renderPage();
     expect(await screen.findByText('ยายสมศรี')).toBeTruthy();
-    expect(screen.getByText('ปู่สมชาย')).toBeTruthy();
-    expect(screen.getAllByText(copy['family.focus.toggle'])).toHaveLength(2);
-    expect(screen.getAllByText(copy['family.focus.load_error']).length).toBeGreaterThan(0);
-    const checkboxes = screen.getAllByRole('checkbox');
-    expect(
-      checkboxes.every((box) => box.hasAttribute('disabled') || box.getAttribute('data-disabled') !== null)
-    ).toBe(true);
-
-    fireEvent.click(screen.getAllByRole('button', { name: copy['family.focus.load_error.action'] })[0]);
-    await waitFor(() => expect(vi.mocked(homeApi.getFocus).mock.calls.length).toBeGreaterThan(1));
+    fireEvent.click(screen.getByLabelText(copy['tree.node.add'].replace('{ชื่อ}', 'ยายสมศรี')));
+    expect(screen.getByText(copy['tree.node.add_parent'])).toBeTruthy();
+    expect(screen.getByText(copy['tree.node.add_child'])).toBeTruthy();
+    expect(screen.getByText(copy['tree.node.add_spouse'])).toBeTruthy();
+    fireEvent.click(screen.getByText('ยายสมศรี'));
+    expect(await screen.findByText('person-page')).toBeTruthy();
   });
 
-  it('keeps the add-person form when the people list fails', async () => {
+  it('remembers the list tab and sorts by generation', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({
+      people: mockPeople,
+      relationships: mockRelationships,
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: copy['family.tab.list'] }));
+    expect(sessionStorage.getItem('swy.family.tab')).toBe('list');
+    const links = screen.getAllByRole('link').map((link) => link.textContent);
+    expect(links.some((text) => text?.includes('ยายสมศรี'))).toBe(true);
+    expect(links.some((text) => text?.includes('Atta'))).toBe(true);
+  });
+
+  it('shows the only-self card when the tree is just me', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({
+      people: [mockPeople[2]],
+      relationships: [],
+    });
+
+    renderPage();
+    expect(await screen.findByText(copy['tree.only_self.title'])).toBeTruthy();
+    expect(screen.getByText(copy['tree.only_self.body'])).toBeTruthy();
+    expect(screen.getByRole('link', { name: copy['person.add.action'] })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: copy['tree.back_to_me'] })).toBeNull();
+  });
+
+  it('keeps retry when the people list fails', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
     vi.mocked(familyGraph.listPeople).mockRejectedValue(new Error('boom'));
-    vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([]));
-    vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
 
     renderPage();
     expect(await screen.findByText(copy['error.generic'])).toBeTruthy();
     expect(screen.getByRole('button', { name: copy['family.focus.load_error.action'] })).toBeTruthy();
-    expect(screen.getByRole('button', { name: copy['person.save'] })).toBeTruthy();
-    expect(screen.queryByText('ยายสมศรี')).toBeNull();
+    await waitFor(() => expect(screen.queryByText('ยายสมศรี')).toBeNull());
   });
 });

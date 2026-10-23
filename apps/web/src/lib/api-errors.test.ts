@@ -122,4 +122,10 @@ describe('messageForError', () => {
     expect(messageForError(apiError(ErrorCode.TOO_MANY_FOCUS))).toBe(copy['error.TOO_MANY_FOCUS']);
     expect(messageForError(apiError(ErrorCode.ALREADY_ANSWERED))).toBe(copy['error.ALREADY_ANSWERED']);
   });
+
+  it('maps INVALID_DEATH_DATE by code', () => {
+    expect(messageForError(apiError(ErrorCode.INVALID_DEATH_DATE))).toBe(
+      copy['error.INVALID_DEATH_DATE']
+    );
+  });
 });

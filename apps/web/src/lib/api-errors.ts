@@ -108,6 +108,14 @@ export function messageForError(error: unknown): string {
       return copy['error.ALREADY_ANSWERED'];
     }
 
+    if (error.code === ErrorCode.INVALID_DEATH_DATE) {
+      return copy['error.INVALID_DEATH_DATE'];
+    }
+
+    if (error.code === ErrorCode.INVALID_RELATIONSHIP || error.code === ErrorCode.RELATIONSHIP_EXISTS) {
+      return copy['error.INVALID_INPUT'];
+    }
+
     if (error.code === ErrorCode.INTERNAL_ERROR || error.status >= 500) {
       return copy['error.INTERNAL_ERROR'];
     }

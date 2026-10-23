@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { personListResponseSchema, personResponseSchema } from '@still-with-you/contracts';
 import {
+  createPersonResultSchema,
   familyInviteSchema,
   familyInvitesSchema,
   familyMembersSchema,
@@ -61,6 +62,19 @@ describe('family-graph vs live API handlers', () => {
     expect(personListResponseSchema.parse(apiPeopleList).relationships).toHaveLength(1);
     expect(familyPersonSchema.parse(apiPerson).name).toBe('ยายสมศรี');
     expect(personResponseSchema.parse(apiPerson).invite_status).toBe('none');
+    expect(personResponseSchema.parse({ ...apiPerson, is_living: false, death_date: '2022-01-01' }).is_living).toBe(
+      false
+    );
+  });
+
+  it('parses POST /people as {person, relationship} and as a bare person', () => {
+    const wrapped = createPersonResultSchema.parse({
+      person: { ...apiPerson, is_living: true },
+      relationship: apiPeopleList.relationships[0],
+    });
+    expect(wrapped.person.display_name).toBe('ยายสมศรี');
+    expect(wrapped.relationship?.type).toBe('spouse');
+    expect(createPersonResultSchema.parse(apiPerson).relationship).toBeNull();
   });
 
   it('parses GET /members as the handler row (no left_at)', () => {

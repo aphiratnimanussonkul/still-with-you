@@ -9,7 +9,9 @@ import { AUTH_CALLBACK_PATH, hasAuthCallbackParams } from '@/lib/auth-callback';
 import { rememberFamilyId } from '@/lib/last-family';
 import { AuthCallbackPage } from '@/pages/AuthCallbackPage';
 import { ConsentPage } from '@/pages/ConsentPage';
+import { AddPersonPage } from '@/pages/AddPersonPage';
 import { FamilyPage } from '@/pages/FamilyPage';
+import { PersonPage } from '@/pages/PersonPage';
 import { HomePage } from '@/pages/HomePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { MePage } from '@/pages/MePage';
@@ -57,6 +59,8 @@ export function App() {
             <Route path="/memories" element={<MemoriesPage />} />
             <Route path="/memories/:eventId" element={<MemoryDetailPage />} />
             <Route path="/family" element={<FamilyPage />} />
+            <Route path="/family/people/new" element={<AddPersonPage />} />
+            <Route path="/family/people/:personId" element={<PersonPage />} />
             <Route path="/me" element={<MePage />} />
             <Route path="/me/trash" element={<TrashPage />} />
             <Route path="/families" element={<Navigate to="/family" replace />} />
