@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { personListResponseSchema, personResponseSchema } from '@still-with-you/contracts';
+import { createPersonSchema, personListResponseSchema, personResponseSchema } from '@still-with-you/contracts';
 import {
   createPersonResultSchema,
   familyInviteSchema,
@@ -66,6 +66,13 @@ describe('family-graph vs live API handlers', () => {
     expect(personResponseSchema.parse({ ...apiPerson, is_living: false, death_date: '2022-01-01' }).is_living).toBe(
       false
     );
+    expect(
+      personResponseSchema.parse({
+        ...apiPerson,
+        death_date: null,
+        death_date_precision: null,
+      }).death_date_precision
+    ).toBeNull();
   });
 
   it('parses POST /people as {person, relationship} and as a bare person', () => {
@@ -76,6 +83,29 @@ describe('family-graph vs live API handlers', () => {
     expect(wrapped.person.display_name).toBe('ยายสมศรี');
     expect(wrapped.relationship?.type).toBe('spouse');
     expect(createPersonResultSchema.parse(apiPerson).relationship).toBeNull();
+  });
+
+  it('accepts relation_label on createPerson and null death_date_precision', () => {
+    expect(
+      createPersonSchema.parse({
+        display_name: 'น้องใหม่',
+        relation_label: 'น้อง',
+        is_living: true,
+        death_date: null,
+        death_date_precision: null,
+      })
+    ).toMatchObject({
+      relation_label: 'น้อง',
+      death_date_precision: null,
+    });
+    expect(
+      createPersonSchema.parse({
+        display_name: 'ทวด',
+        is_living: false,
+        death_date: '2022-03-15',
+        death_date_precision: 'day',
+      }).death_date_precision
+    ).toBe('day');
   });
 
   it('labels a tree node with relation_label when present', () => {

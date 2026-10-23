@@ -20,8 +20,9 @@ import {
   type RelationshipKind,
 } from '@/lib/family-graph';
 import { findMyPerson } from '@/lib/family-tree';
-import { beYearToCeDate } from '@/lib/person-years';
+import { deathDateFields } from '@/lib/person-years';
 import { queryKeys } from '@/lib/query-client';
+import { cn } from '@/lib/utils';
 
 const KIND_OPTIONS: { value: RelationshipKind; labelKey: 'person.relationship.parent' | 'person.relationship.child' | 'person.relationship.spouse' }[] = [
   { value: 'parent_of', labelKey: 'person.relationship.parent' },
@@ -89,6 +90,8 @@ function AddPersonForm({
   const [kind, setKind] = useState<RelationshipKind | ''>(isKind(prefilledKind) ? prefilledKind : '');
   const [relatedId, setRelatedId] = useState(prefilledPerson || myPerson?.id || '');
   const [living, setLiving] = useState(true);
+  const [deathYearOnly, setDeathYearOnly] = useState(false);
+  const [deathDay, setDeathDay] = useState('');
   const [deathBe, setDeathBe] = useState('');
   const [photoId, setPhotoId] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -106,15 +109,18 @@ function AddPersonForm({
 
   const create = useMutation({
     mutationFn: () => {
-      const deathDate = !living && deathBe.trim() ? beYearToCeDate(deathBe) : null;
+      const death = deathDateFields({
+        living,
+        yearOnly: deathYearOnly,
+        dayValue: deathDay,
+        yearBe: deathBe,
+      });
       return familyGraph.createPerson(familyId, {
         display_name: name.trim(),
         is_living: living,
         ...(nickname.trim() ? { relation_label: nickname.trim() } : {}),
         ...(photoId ? { avatar_media_id: photoId } : {}),
-        ...(!living && deathDate
-          ? { death_date: deathDate, death_date_precision: 'year' as const }
-          : {}),
+        ...(death ?? {}),
         ...(kind && relatedId ? { relationship: { kind, person_id: relatedId } } : {}),
       });
     },
@@ -214,17 +220,52 @@ function AddPersonForm({
         </div>
 
         {living ? null : (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="person-death">{copy['person.death.label']}</Label>
-            <Input
-              id="person-death"
-              inputMode="numeric"
-              value={deathBe}
-              onChange={(event) => setDeathBe(event.target.value)}
-              placeholder={copy['person.death.year_only']}
-              disabled={Boolean(saved)}
-            />
-            <p className="text-caption text-muted-foreground">{copy['person.death.year_only']}</p>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="person-death">{copy['person.death.label']}</Label>
+              {deathYearOnly ? (
+                <Input
+                  id="person-death"
+                  inputMode="numeric"
+                  value={deathBe}
+                  onChange={(event) => setDeathBe(event.target.value)}
+                  disabled={Boolean(saved)}
+                />
+              ) : (
+                <Input
+                  id="person-death"
+                  type="date"
+                  value={deathDay}
+                  onChange={(event) => setDeathDay(event.target.value)}
+                  disabled={Boolean(saved)}
+                />
+              )}
+            </div>
+            <div className="flex min-h-11 items-center gap-3">
+              <button
+                type="button"
+                role="switch"
+                id="person-death-year-only"
+                aria-checked={deathYearOnly}
+                disabled={Boolean(saved)}
+                className={cn(
+                  'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors',
+                  deathYearOnly ? 'border-primary bg-primary' : 'border-input bg-card',
+                  saved ? 'opacity-50' : ''
+                )}
+                onClick={() => setDeathYearOnly((on) => !on)}
+              >
+                <span
+                  className={cn(
+                    'pointer-events-none block size-5 rounded-full bg-background shadow transition-transform',
+                    deathYearOnly ? 'translate-x-5' : 'translate-x-0.5'
+                  )}
+                />
+              </button>
+              <Label htmlFor="person-death-year-only" className="text-body font-normal">
+                {copy['person.death.year_only']}
+              </Label>
+            </div>
           </div>
         )}
 

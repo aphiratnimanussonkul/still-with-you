@@ -121,6 +121,90 @@ describe('AddPersonPage', () => {
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: copy['person.invite.after.action'] })).toBeTruthy();
     expect(screen.queryByText('person-page')).toBeNull();
+    const payload = vi.mocked(familyGraph.createPerson).mock.calls[0]?.[1];
+    expect(payload).toHaveProperty('relation_label', 'น้อง');
+    expect(payload).not.toHaveProperty('relation_label', undefined);
+  });
+
+  it('sends a full death date with day precision', async () => {
+    vi.mocked(familyGraph.createPerson).mockResolvedValue({
+      person: {
+        id: '99999999-9999-4999-8999-999999999993',
+        family_id: mockFamilies[0].id,
+        display_name: 'ทวดวัน',
+        name: 'ทวดวัน',
+        is_living: false,
+        death_date: '2022-03-15',
+        death_date_precision: 'day',
+        account_id: null,
+      },
+      relationship: null,
+    });
+
+    renderAt('/family/people/new');
+    fireEvent.change(await screen.findByLabelText(copy['person.name_label']), {
+      target: { value: 'ทวดวัน' },
+    });
+    fireEvent.click(screen.getByLabelText(copy['person.living']));
+    expect(screen.getByLabelText(copy['person.death.label'])).toBeTruthy();
+    expect((screen.getByLabelText(copy['person.death.label']) as HTMLInputElement).type).toBe('date');
+    expect(screen.getByRole('switch', { name: copy['person.death.year_only'] }).getAttribute('aria-checked')).toBe(
+      'false'
+    );
+    fireEvent.change(screen.getByLabelText(copy['person.death.label']), {
+      target: { value: '2022-03-15' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: copy['person.add.submit'] }));
+    await waitFor(() =>
+      expect(familyGraph.createPerson).toHaveBeenCalledWith(
+        mockFamilies[0].id,
+        expect.objectContaining({
+          display_name: 'ทวดวัน',
+          is_living: false,
+          death_date: '2022-03-15',
+          death_date_precision: 'day',
+        })
+      )
+    );
+  });
+
+  it('toggles year-only death and sends January 1 with year precision', async () => {
+    vi.mocked(familyGraph.createPerson).mockResolvedValue({
+      person: {
+        id: '99999999-9999-4999-8999-999999999994',
+        family_id: mockFamilies[0].id,
+        display_name: 'ทวดปี',
+        name: 'ทวดปี',
+        is_living: false,
+        death_date: '2022-01-01',
+        death_date_precision: 'year',
+        account_id: null,
+      },
+      relationship: null,
+    });
+
+    renderAt('/family/people/new');
+    fireEvent.change(await screen.findByLabelText(copy['person.name_label']), {
+      target: { value: 'ทวดปี' },
+    });
+    fireEvent.click(screen.getByLabelText(copy['person.living']));
+    fireEvent.click(screen.getByRole('switch', { name: copy['person.death.year_only'] }));
+    expect(screen.getByRole('switch', { name: copy['person.death.year_only'] }).getAttribute('aria-checked')).toBe(
+      'true'
+    );
+    fireEvent.change(screen.getByLabelText(copy['person.death.label']), { target: { value: '2565' } });
+    fireEvent.click(screen.getByRole('button', { name: copy['person.add.submit'] }));
+    await waitFor(() =>
+      expect(familyGraph.createPerson).toHaveBeenCalledWith(
+        mockFamilies[0].id,
+        expect.objectContaining({
+          display_name: 'ทวดปี',
+          is_living: false,
+          death_date: '2022-01-01',
+          death_date_precision: 'year',
+        })
+      )
+    );
   });
 
   it('hides the invite card for a deceased person', async () => {

@@ -48,6 +48,7 @@ import {
   familyInvitesSchema,
   familyMembersSchema,
 } from '@/lib/family-graph';
+import { deathDatePrecisionOrNull } from '@/lib/person-years';
 import { HOME_QUESTION_TEMPLATES, fillQuestionText, homeQuestionId } from '@/mocks/home-questions';
 
 const api = env.apiUrl.replace(/\/$/, '');
@@ -516,7 +517,7 @@ export const handlers = [
       is_living?: boolean;
       birth_date?: string | null;
       death_date?: string | null;
-      death_date_precision?: 'day' | 'year';
+      death_date_precision?: 'day' | 'year' | null;
       avatar_media_id?: string | null;
       relation_label?: string | null;
       relationship?: { kind: 'parent_of' | 'child_of' | 'spouse_of'; person_id: string };
@@ -550,7 +551,7 @@ export const handlers = [
       is_living: isLiving,
       birth_date: birthDate,
       death_date: deathDate,
-      death_date_precision: deathDate ? (body.death_date_precision ?? 'year') : null,
+      death_date_precision: deathDatePrecisionOrNull(deathDate, body.death_date_precision),
       avatar_media_id: body.avatar_media_id ?? null,
       avatar_url: null,
       age:
