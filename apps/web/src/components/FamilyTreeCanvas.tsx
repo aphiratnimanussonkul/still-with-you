@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { copy, interpolate } from '@/copy';
 import {
-  personDisplayName,
+  personNodeLabel,
   type FamilyPerson,
   type FamilyRelationship,
   type RelationshipKind,
@@ -24,7 +24,7 @@ function PersonAvatar({ person }: { person: FamilyPerson }) {
   if (person.avatar_url) {
     return <img src={person.avatar_url} alt="" className="size-14 rounded-full object-cover" />;
   }
-  const initial = personDisplayName(person).slice(0, 1);
+  const initial = personNodeLabel(person).slice(0, 1);
   return (
     <div className="flex size-14 items-center justify-center rounded-full bg-secondary text-h3 font-semibold text-secondary-foreground">
       {initial}
@@ -192,12 +192,12 @@ export function FamilyTreeCanvas({
                   className={`flex w-full flex-col items-center gap-1 rounded-xl bg-card px-1 py-2 ${
                     node.isMe ? 'ring-2 ring-primary' : ''
                   }`}
-                  aria-label={personDisplayName(node.person)}
+                  aria-label={personNodeLabel(node.person)}
                   onClick={() => navigate(`/family/people/${node.id}`)}
                 >
                   <PersonAvatar person={node.person} />
                   <span className="line-clamp-2 text-center text-caption font-medium">
-                    {personDisplayName(node.person)}
+                    {personNodeLabel(node.person)}
                   </span>
                   {years ? <span className="text-overline text-muted-foreground">{years}</span> : null}
                   {livingLabelVisible(node.person) ? (
@@ -212,7 +212,7 @@ export function FamilyTreeCanvas({
                     size="icon"
                     variant="secondary"
                     className="size-8 min-h-8 min-w-8"
-                    aria-label={interpolate(copy['tree.node.add'], { ชื่อ: personDisplayName(node.person) })}
+                    aria-label={interpolate(copy['tree.node.add'], { ชื่อ: personNodeLabel(node.person) })}
                     onClick={(event) => {
                       event.stopPropagation();
                       setMenuFor(open ? null : node.id);
@@ -253,7 +253,7 @@ export function FamilyTreeCanvas({
                   onClick={() => navigate(`/family/people/${person.id}`)}
                 >
                   <PersonAvatar person={person} />
-                  <span className="line-clamp-2 text-center text-caption">{personDisplayName(person)}</span>
+                  <span className="line-clamp-2 text-center text-caption">{personNodeLabel(person)}</span>
                 </button>
               </li>
             ))}

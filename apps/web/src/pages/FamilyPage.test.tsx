@@ -68,8 +68,9 @@ describe('FamilyPage', () => {
     });
 
     renderPage();
-    expect(await screen.findByText('ยายสมศรี')).toBeTruthy();
-    expect(screen.getByText('ปู่สมชาย')).toBeTruthy();
+    expect(await screen.findByText('ยาย')).toBeTruthy();
+    expect(screen.getByText('ปู่')).toBeTruthy();
+    expect(screen.queryByText('ยายสมศรี')).toBeNull();
     expect(screen.getByText('2480–2565')).toBeTruthy();
     expect(screen.getByText('2478–')).toBeTruthy();
     expect(screen.getByRole('button', { name: copy['family.tab.graph'] })).toBeTruthy();
@@ -88,12 +89,12 @@ describe('FamilyPage', () => {
     });
 
     renderPage();
-    expect(await screen.findByText('ยายสมศรี')).toBeTruthy();
-    fireEvent.click(screen.getByLabelText(copy['tree.node.add'].replace('{ชื่อ}', 'ยายสมศรี')));
+    expect(await screen.findByText('ยาย')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText(copy['tree.node.add'].replace('{ชื่อ}', 'ยาย')));
     expect(screen.getByText(copy['tree.node.add_parent'])).toBeTruthy();
     expect(screen.getByText(copy['tree.node.add_child'])).toBeTruthy();
     expect(screen.getByText(copy['tree.node.add_spouse'])).toBeTruthy();
-    fireEvent.click(screen.getByText('ยายสมศรี'));
+    fireEvent.click(screen.getByText('ยาย'));
     expect(await screen.findByText('person-page')).toBeTruthy();
   });
 

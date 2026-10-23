@@ -85,6 +85,7 @@ function AddPersonForm({
   const prefilledKind = params.get('kind');
   const prefilledPerson = params.get('person');
   const [name, setName] = useState('');
+  const [nickname, setNickname] = useState('');
   const [kind, setKind] = useState<RelationshipKind | ''>(isKind(prefilledKind) ? prefilledKind : '');
   const [relatedId, setRelatedId] = useState(prefilledPerson || myPerson?.id || '');
   const [living, setLiving] = useState(true);
@@ -109,6 +110,7 @@ function AddPersonForm({
       return familyGraph.createPerson(familyId, {
         display_name: name.trim(),
         is_living: living,
+        ...(nickname.trim() ? { relation_label: nickname.trim() } : {}),
         ...(photoId ? { avatar_media_id: photoId } : {}),
         ...(!living && deathDate
           ? { death_date: deathDate, death_date_precision: 'year' as const }
@@ -151,6 +153,17 @@ function AddPersonForm({
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder={copy['person.name_placeholder']}
+            disabled={Boolean(saved)}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="person-nickname">{copy['person.nickname.label']}</Label>
+          <Input
+            id="person-nickname"
+            value={nickname}
+            onChange={(event) => setNickname(event.target.value)}
+            placeholder={copy['person.nickname.placeholder']}
             disabled={Boolean(saved)}
           />
         </div>

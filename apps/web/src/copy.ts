@@ -311,6 +311,8 @@ export const copy = {
   'person.add.title': 'เพิ่มคนในครอบครัว',
   'person.name_label': 'ชื่อที่ใช้เรียก',
   'person.name_placeholder': 'เช่น ยายสมศรี',
+  'person.nickname.label': 'ชื่อเรียก (ไม่บังคับ)',
+  'person.nickname.placeholder': 'เช่น ยาย ลุงหนึ่ง',
   'person.relation_label': 'เกี่ยวข้องกับใคร อย่างไร',
   'person.relation_placeholder': 'เลือกความสัมพันธ์',
   'person.relationship.of_you': 'เป็นอะไรกับคุณ',

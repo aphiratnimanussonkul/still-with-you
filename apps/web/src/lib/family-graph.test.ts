@@ -7,6 +7,7 @@ import {
   familyMembersSchema,
   familyPeopleSchema,
   familyPersonSchema,
+  personNodeLabel,
 } from '@/lib/family-graph';
 
 const personId = '77777777-7777-4777-8777-777777777777';
@@ -75,6 +76,12 @@ describe('family-graph vs live API handlers', () => {
     expect(wrapped.person.display_name).toBe('ยายสมศรี');
     expect(wrapped.relationship?.type).toBe('spouse');
     expect(createPersonResultSchema.parse(apiPerson).relationship).toBeNull();
+  });
+
+  it('labels a tree node with relation_label when present', () => {
+    expect(personNodeLabel(apiPerson)).toBe('ยาย');
+    expect(personNodeLabel({ ...apiPerson, relation_label: null })).toBe('ยายสมศรี');
+    expect(personNodeLabel({ ...apiPerson, relation_label: '  ' })).toBe('ยายสมศรี');
   });
 
   it('parses GET /members as the handler row (no left_at)', () => {

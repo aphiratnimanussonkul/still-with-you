@@ -518,6 +518,7 @@ export const handlers = [
       death_date?: string | null;
       death_date_precision?: 'day' | 'year';
       avatar_media_id?: string | null;
+      relation_label?: string | null;
       relationship?: { kind: 'parent_of' | 'child_of' | 'spouse_of'; person_id: string };
     };
     const name = (body.display_name ?? body.name)?.trim();
@@ -544,6 +545,7 @@ export const handlers = [
       family_id: String(params.fid),
       display_name: name,
       name,
+      relation_label: body.relation_label?.trim() || null,
       account_id: null,
       is_living: isLiving,
       birth_date: birthDate,

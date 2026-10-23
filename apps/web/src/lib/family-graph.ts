@@ -95,6 +95,13 @@ export function personDisplayName(person: Pick<FamilyPerson, 'name' | 'display_n
   return person.display_name || person.name;
 }
 
+export function personNodeLabel(
+  person: Pick<FamilyPerson, 'name' | 'display_name' | 'relation_label'>
+): string {
+  const nickname = person.relation_label?.trim();
+  return nickname || personDisplayName(person);
+}
+
 export function isPersonLiving(person: Pick<FamilyPerson, 'is_living'>): boolean {
   return person.is_living !== false;
 }

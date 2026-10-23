@@ -44,6 +44,8 @@ describe('copy v0.4', () => {
     expect(copy['family.tab.graph']).toBe('ผัง');
     expect(copy['family.tab.list']).toBe('รายชื่อ');
     expect(copy['person.add.submit']).toBe('เพิ่มในผัง');
+    expect(copy['person.nickname.label']).toBe('ชื่อเรียก (ไม่บังคับ)');
+    expect(copy['person.nickname.placeholder']).toBe('เช่น ยาย ลุงหนึ่ง');
     expect(copy['person.living']).toBe('ยังมีชีวิตอยู่');
     expect(copy['person.relationship.of_you']).toBe('เป็นอะไรกับคุณ');
     expect(copy['tree.back_to_me']).toBe('กลับมาที่ฉัน');

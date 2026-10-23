@@ -59,10 +59,12 @@ function renderAt(path: string) {
 }
 
 describe('AddPersonPage', () => {
-  it('orders photo, name, relationship-to-me, living, and เพิ่มในผัง', async () => {
+  it('orders photo, name, nickname, relationship-to-me, living, and เพิ่มในผัง', async () => {
     renderAt('/family/people/new');
     expect(await screen.findByTestId('photo-field')).toBeTruthy();
     expect(screen.getByLabelText(copy['person.name_label'])).toBeTruthy();
+    expect(screen.getByLabelText(copy['person.nickname.label'])).toBeTruthy();
+    expect(screen.getByPlaceholderText(copy['person.nickname.placeholder'])).toBeTruthy();
     const selects = await screen.findAllByRole('combobox');
     expect(selects).toHaveLength(2);
     expect((selects[1] as HTMLSelectElement).value).toBe(mockPeople[2].id);
@@ -70,7 +72,6 @@ describe('AddPersonPage', () => {
       'checked'
     );
     expect(screen.getByRole('button', { name: copy['person.add.submit'] })).toBeTruthy();
-    expect(screen.queryByLabelText(copy['person.relation_label'])).toBeNull();
   });
 
   it('prefills kind from the tree + menu and stays on the form with an invite card after save', async () => {
@@ -89,12 +90,14 @@ describe('AddPersonPage', () => {
     renderAt(`/family/people/new?kind=child_of&person=${mockPeople[2].id}`);
     expect(await screen.findByDisplayValue(copy['person.relationship.child'])).toBeTruthy();
     fireEvent.change(screen.getByLabelText(copy['person.name_label']), { target: { value: 'น้องใหม่' } });
+    fireEvent.change(screen.getByLabelText(copy['person.nickname.label']), { target: { value: 'น้อง' } });
     fireEvent.click(screen.getByRole('button', { name: copy['person.add.submit'] }));
     await waitFor(() =>
       expect(familyGraph.createPerson).toHaveBeenCalledWith(
         mockFamilies[0].id,
         expect.objectContaining({
           display_name: 'น้องใหม่',
+          relation_label: 'น้อง',
           is_living: true,
           relationship: { kind: 'child_of', person_id: mockPeople[2].id },
         })
