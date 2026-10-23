@@ -72,6 +72,19 @@ describe('AddPersonPage', () => {
       'checked'
     );
     expect(screen.getByRole('button', { name: copy['person.add.submit'] })).toBeTruthy();
+    expect(screen.getAllByLabelText(copy['person.relationship.of_you']).length).toBeGreaterThan(0);
+    expect(screen.getByRole('option', { name: copy['person.relationship.parent'] })).toBeTruthy();
+    expect(screen.getByRole('option', { name: copy['person.relationship.child'] })).toBeTruthy();
+    expect(screen.getByRole('option', { name: copy['person.relationship.spouse'] })).toBeTruthy();
+  });
+
+  it('labels the relationship as เป็นอะไรกับ {ชื่อ} when the target is not me', async () => {
+    renderAt(`/family/people/new?kind=parent_of&person=${mockPeople[0].id}`);
+    expect(
+      await screen.findAllByLabelText(
+        interpolate(copy['person.relationship.of_name'], { ชื่อ: mockPeople[0].display_name })
+      )
+    ).not.toHaveLength(0);
   });
 
   it('prefills kind from the tree + menu and stays on the form with an invite card after save', async () => {

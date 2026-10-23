@@ -48,6 +48,10 @@ describe('copy v0.4', () => {
     expect(copy['person.nickname.placeholder']).toBe('เช่น ยาย ลุงหนึ่ง');
     expect(copy['person.living']).toBe('ยังมีชีวิตอยู่');
     expect(copy['person.relationship.of_you']).toBe('เป็นอะไรกับคุณ');
+    expect(copy['person.relationship.of_name']).toBe('เป็นอะไรกับ {ชื่อ}');
+    expect(copy['person.relationship.parent']).toBe('เป็นพ่อแม่ของ');
+    expect(copy['person.relationship.child']).toBe('เป็นลูกของ');
+    expect(copy['person.relationship.spouse']).toBe('เป็นคู่ของ');
     expect(copy['tree.back_to_me']).toBe('กลับมาที่ฉัน');
     expect(copy['tree.node.add_parent']).toBe('เพิ่มพ่อแม่');
     expect(copy['error.INVALID_DEATH_DATE']).toBe(
