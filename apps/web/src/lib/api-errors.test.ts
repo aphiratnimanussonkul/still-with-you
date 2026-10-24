@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ErrorCode } from '@still-with-you/contracts';
 import { copy, interpolate } from '@/copy';
-import { ApiClientError, NetworkError, messageForError } from '@/lib/api-errors';
+import { ApiClientError, NetworkError, fieldForError, messageForError } from '@/lib/api-errors';
 import { formatThaiDate } from '@/lib/dates';
 
 function apiError(
@@ -127,5 +127,16 @@ describe('messageForError', () => {
     expect(messageForError(apiError(ErrorCode.INVALID_DEATH_DATE))).toBe(
       copy['error.INVALID_DEATH_DATE']
     );
+  });
+});
+
+describe('fieldForError', () => {
+  it('maps relationship.person_id onto the relationship picker', () => {
+    expect(fieldForError(apiError(ErrorCode.INVALID_RELATIONSHIP, undefined, 'relationship.person_id'))).toBe(
+      'person-related'
+    );
+    expect(fieldForError(apiError(ErrorCode.INVALID_INPUT, undefined, 'relationship'))).toBe('person-related');
+    expect(fieldForError(apiError(ErrorCode.INVALID_INPUT, undefined, 'display_name'))).toBe('display_name');
+    expect(fieldForError(new Error('nope'))).toBeUndefined();
   });
 });

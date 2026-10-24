@@ -19,6 +19,7 @@ vi.mock('@/lib/family-graph', async () => {
     familyGraph: {
       listPeople: vi.fn(),
       getPerson: vi.fn(),
+      updatePerson: vi.fn(),
     },
   };
 });
@@ -120,5 +121,36 @@ describe('PersonPage', () => {
         })
       )
     ).toBeTruthy();
+  });
+
+  it('PATCHes death_date and death_date_precision as null when switching back to living', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
+    vi.mocked(familyGraph.getPerson).mockResolvedValue(mockPeople[0]);
+    vi.mocked(familyGraph.updatePerson).mockResolvedValue({
+      ...mockPeople[0],
+      is_living: true,
+      death_date: null,
+      death_date_precision: null,
+    });
+    vi.mocked(homeApi.getFocus).mockResolvedValue({ items: [] });
+    vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
+
+    renderPerson();
+    const living = await screen.findByLabelText(copy['person.living']);
+    expect((living as HTMLButtonElement).getAttribute('data-state')).toBe('unchecked');
+    fireEvent.click(living);
+    fireEvent.click(screen.getByRole('button', { name: copy['person.save'] }));
+    await waitFor(() =>
+      expect(familyGraph.updatePerson).toHaveBeenCalledWith(mockPeople[0].id, {
+        is_living: true,
+        death_date: null,
+        death_date_precision: null,
+      })
+    );
+    const payload = vi.mocked(familyGraph.updatePerson).mock.calls[0]?.[1];
+    expect(payload).toHaveProperty('death_date', null);
+    expect(payload).toHaveProperty('death_date_precision', null);
+    expect(payload).not.toHaveProperty('death_date', undefined);
   });
 });

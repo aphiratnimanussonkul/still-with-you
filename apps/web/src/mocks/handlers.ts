@@ -20,6 +20,7 @@ import {
   mediaUploadSessionSchema,
   updateConsentSchema,
   updateContributionSchema,
+  updatePersonSchema,
   ErrorCode,
 } from '@still-with-you/contracts';
 import { http, HttpResponse, passthrough } from 'msw';
@@ -566,7 +567,13 @@ export const handlers = [
       );
       if (!target || target.id === created.id) {
         return HttpResponse.json(
-          { error: { code: ErrorCode.INVALID_RELATIONSHIP, message: 'invalid relationship' } },
+          {
+            error: {
+              code: ErrorCode.INVALID_RELATIONSHIP,
+              message: 'invalid relationship',
+              field: 'relationship.person_id',
+            },
+          },
           { status: 400 }
         );
       }
@@ -615,6 +622,43 @@ export const handlers = [
     const person = people.find((row) => row.id === params.id);
     if (!person) {
       return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Person not found' } }, { status: 404 });
+    }
+    return jsonContract(personResponseSchema, person);
+  }),
+
+  http.patch(`${api}/v1/people/:id`, async ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const person = people.find((row) => row.id === params.id);
+    if (!person) {
+      return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Person not found' } }, { status: 404 });
+    }
+    const parsed = updatePersonSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return HttpResponse.json(
+        { error: { code: 'INVALID_INPUT', message: 'invalid person' } },
+        { status: 400 }
+      );
+    }
+    const body = parsed.data;
+    const nextLiving = body.is_living ?? person.is_living !== false;
+    const clearingDeath = body.death_date === null;
+    const nextDeath = nextLiving || clearingDeath ? null : (body.death_date ?? person.death_date ?? null);
+    if (nextLiving && nextDeath) {
+      return HttpResponse.json(
+        { error: { code: ErrorCode.INVALID_DEATH_DATE, message: 'invalid death date', field: 'death_date' } },
+        { status: 400 }
+      );
+    }
+    person.is_living = nextLiving;
+    person.death_date = nextDeath;
+    person.death_date_precision = deathDatePrecisionOrNull(nextDeath, body.death_date_precision);
+    if (body.display_name?.trim()) {
+      person.display_name = body.display_name.trim();
+      person.name = body.display_name.trim();
+    }
+    if (body.relation_label !== undefined) {
+      person.relation_label = body.relation_label;
     }
     return jsonContract(personResponseSchema, person);
   }),

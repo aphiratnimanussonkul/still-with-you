@@ -4,6 +4,7 @@ import {
   deathDateFields,
   deathDatePrecisionOrNull,
   formatNodeYears,
+  livingDeathWriteFields,
   toBuddhistYear,
 } from '@/lib/person-years';
 
@@ -54,5 +55,14 @@ describe('person years', () => {
     const mockRow = { death_date_precision: deathDatePrecisionOrNull(null) };
     expect(mockRow).toHaveProperty('death_date_precision', null);
     expect(mockRow.death_date_precision).not.toBeUndefined();
+  });
+
+  it('clears death_date and death_date_precision when switching back to living', () => {
+    expect(
+      livingDeathWriteFields({ living: true, yearOnly: false, dayValue: '2022-03-15', yearBe: '2565' })
+    ).toEqual({ is_living: true, death_date: null, death_date_precision: null });
+    expect(Object.keys(livingDeathWriteFields({ living: true, yearOnly: true, dayValue: '', yearBe: '' }))).toEqual(
+      ['is_living', 'death_date', 'death_date_precision']
+    );
   });
 });

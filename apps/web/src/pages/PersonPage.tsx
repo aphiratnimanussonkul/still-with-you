@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { QueryLoading } from '@/components/QueryLoading';
@@ -10,7 +11,7 @@ import { useSelectedFamily } from '@/hooks/use-selected-family';
 import { messageForError } from '@/lib/api-errors';
 import { familyGraph, isPersonLiving, personDisplayName } from '@/lib/family-graph';
 import { FOCUS_MAX, homeApi } from '@/lib/home-api';
-import { formatNodeYears } from '@/lib/person-years';
+import { formatNodeYears, livingDeathWriteFields } from '@/lib/person-years';
 import { queryKeys } from '@/lib/query-client';
 
 export function PersonPage() {
@@ -37,6 +38,7 @@ export function PersonPage() {
     queryFn: () => homeApi.listFacts(personId!),
     enabled: Boolean(personId),
   });
+  const [livingDraft, setLivingDraft] = useState<boolean | null>(null);
   const toggleFocus = useMutation({
     mutationFn: (personIds: string[]) => homeApi.putFocus(familyId!, personIds),
     onSuccess: async () => {
@@ -44,6 +46,23 @@ export function PersonPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.focus(familyId) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.home(familyId) }),
+      ]);
+    },
+  });
+  const saveLiving = useMutation({
+    mutationFn: (living: boolean) =>
+      familyGraph.updatePerson(
+        personId!,
+        livingDeathWriteFields({ living, yearOnly: false, dayValue: '', yearBe: '' })
+      ),
+    onSuccess: async () => {
+      setLivingDraft(null);
+      if (!personId) return;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.person(personId) }),
+        familyId
+          ? queryClient.invalidateQueries({ queryKey: queryKeys.people(familyId) })
+          : Promise.resolve(),
       ]);
     },
   });
@@ -59,6 +78,8 @@ export function PersonPage() {
 
   const name = personDisplayName(person);
   const years = formatNodeYears(person);
+  const living = livingDraft ?? isPersonLiving(person);
+  const livingDirty = living !== isPersonLiving(person);
   const focusedIds = focus.data?.items.map((item) => item.person.id) ?? [];
   const focused = focusedIds.includes(person.id);
   const focusUnavailable = focus.isError || focus.isPending;
@@ -126,6 +147,32 @@ export function PersonPage() {
       {toggleFocus.isError ? (
         <p className="text-body text-destructive">{messageForError(toggleFocus.error)}</p>
       ) : null}
+
+      <div className="flex flex-col gap-3">
+        <div className="flex min-h-11 items-center gap-3">
+          <Checkbox
+            id="person-living"
+            checked={living}
+            disabled={saveLiving.isPending}
+            onCheckedChange={(value) => setLivingDraft(value === true)}
+          />
+          <Label htmlFor="person-living" className="text-body font-normal">
+            {copy['person.living']}
+          </Label>
+        </div>
+        {livingDirty ? (
+          <Button
+            type="button"
+            disabled={saveLiving.isPending}
+            onClick={() => saveLiving.mutate(living)}
+          >
+            {copy['person.save']}
+          </Button>
+        ) : null}
+        {saveLiving.isError ? (
+          <p className="text-caption text-destructive">{messageForError(saveLiving.error)}</p>
+        ) : null}
+      </div>
 
       <section className="flex flex-col gap-2">
         <h3 className="text-body font-semibold">{interpolateHeading(copy['person.facts.title'], { name })}</h3>

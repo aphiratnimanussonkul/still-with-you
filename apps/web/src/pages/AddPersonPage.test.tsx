@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { copy, interpolate } from '@/copy';
+import { ApiClientError } from '@/lib/api-errors';
 import { mockAccount, mockFamilies, mockMembers, mockPeople } from '@/mocks/data';
 
 vi.mock('@/lib/api-client', () => ({
@@ -114,6 +115,8 @@ describe('AddPersonPage', () => {
           display_name: 'น้องใหม่',
           relation_label: 'น้อง',
           is_living: true,
+          death_date: null,
+          death_date_precision: null,
           relationship: { kind: 'child_of', person_id: mockPeople[2].id },
         })
       )
@@ -230,5 +233,22 @@ describe('AddPersonPage', () => {
     fireEvent.click(screen.getByRole('button', { name: copy['person.add.submit'] }));
     await waitFor(() => expect(familyGraph.createPerson).toHaveBeenCalled());
     expect(screen.queryByText(interpolate(copy['person.invite.after.title'], { ชื่อ: 'ทวด' }))).toBeNull();
+  });
+
+  it('maps POST field relationship.person_id onto the relationship picker', async () => {
+    vi.mocked(familyGraph.createPerson).mockRejectedValue(
+      new ApiClientError('INVALID_RELATIONSHIP', 'invalid related person', 400, 'relationship.person_id')
+    );
+
+    renderAt(`/family/people/new?kind=child_of&person=${mockPeople[2].id}`);
+    fireEvent.change(await screen.findByLabelText(copy['person.name_label']), {
+      target: { value: 'น้องใหม่' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: copy['person.add.submit'] }));
+    await waitFor(() => expect(familyGraph.createPerson).toHaveBeenCalled());
+    const picker = document.getElementById('person-related');
+    expect(picker?.getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByText(copy['error.INVALID_INPUT'])).toBeTruthy();
+    expect(document.getElementById('person-related-error')).toBeTruthy();
   });
 });

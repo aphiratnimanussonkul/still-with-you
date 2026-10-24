@@ -37,6 +37,31 @@ export function deathDateFields(input: {
   return { death_date: day, death_date_precision: 'day' };
 }
 
+/**
+ * PATCH is_living: true with a leftover death_date is 400 INVALID_DEATH_DATE.
+ * Always send both death keys as null when marking someone living.
+ */
+export function livingDeathWriteFields(input: {
+  living: boolean;
+  yearOnly: boolean;
+  dayValue: string;
+  yearBe: string;
+}): {
+  is_living: boolean;
+  death_date: string | null;
+  death_date_precision: DatePrecision | null;
+} {
+  if (input.living) {
+    return { is_living: true, death_date: null, death_date_precision: null };
+  }
+  const death = deathDateFields({ ...input, living: false });
+  return {
+    is_living: false,
+    death_date: death?.death_date ?? null,
+    death_date_precision: death?.death_date_precision ?? null,
+  };
+}
+
 /** Mock/API responses must send null, not omit the key, when there is no death date. */
 export function deathDatePrecisionOrNull(
   deathDate: string | null | undefined,

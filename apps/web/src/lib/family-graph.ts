@@ -10,6 +10,7 @@ import {
   type PersonRelationshipKind,
   type PersonResponse,
   type RelationshipResponse,
+  type UpdatePerson,
 } from '@still-with-you/contracts';
 import { z } from 'zod';
 import { request } from '@/lib/api-client';
@@ -90,6 +91,7 @@ export type FamilyMember = z.infer<typeof familyMemberSchema>;
 export type FamilyPerson = PersonResponse;
 export type FamilyRelationship = RelationshipResponse;
 export type CreatePersonBody = CreatePerson;
+export type UpdatePersonBody = UpdatePerson;
 export type CreatePersonResult = CreatePersonResponse;
 export type RelationshipKind = PersonRelationshipKind;
 export type PersonInvite = z.infer<typeof personInviteSchema>;
@@ -138,6 +140,13 @@ export const familyGraph = {
   createPerson(familyId: string, body: CreatePersonBody) {
     return request(`/v1/families/${familyId}/people`, createPersonResultSchema, {
       method: 'POST',
+      body,
+    });
+  },
+
+  updatePerson(personId: string, body: UpdatePersonBody) {
+    return request(`/v1/people/${personId}`, familyPersonSchema, {
+      method: 'PATCH',
       body,
     });
   },

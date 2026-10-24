@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { copy, interpolate } from '@/copy';
 import { useMe } from '@/hooks/use-me';
 import { useSelectedFamily } from '@/hooks/use-selected-family';
-import { messageForError } from '@/lib/api-errors';
+import { fieldForError, messageForError } from '@/lib/api-errors';
 import {
   familyGraph,
   isPersonLiving,
@@ -20,7 +20,7 @@ import {
   type RelationshipKind,
 } from '@/lib/family-graph';
 import { findMyPerson } from '@/lib/family-tree';
-import { deathDateFields } from '@/lib/person-years';
+import { livingDeathWriteFields } from '@/lib/person-years';
 import { queryKeys } from '@/lib/query-client';
 import { cn } from '@/lib/utils';
 
@@ -109,18 +109,16 @@ function AddPersonForm({
 
   const create = useMutation({
     mutationFn: () => {
-      const death = deathDateFields({
-        living,
-        yearOnly: deathYearOnly,
-        dayValue: deathDay,
-        yearBe: deathBe,
-      });
       return familyGraph.createPerson(familyId, {
         display_name: name.trim(),
-        is_living: living,
+        ...livingDeathWriteFields({
+          living,
+          yearOnly: deathYearOnly,
+          dayValue: deathDay,
+          yearBe: deathBe,
+        }),
         ...(nickname.trim() ? { relation_label: nickname.trim() } : {}),
         ...(photoId ? { avatar_media_id: photoId } : {}),
-        ...(death ?? {}),
         ...(kind && relatedId ? { relationship: { kind, person_id: relatedId } } : {}),
       });
     },
@@ -129,6 +127,7 @@ function AddPersonForm({
       await queryClient.invalidateQueries({ queryKey: queryKeys.people(familyId) });
     },
   });
+  const relatedFieldError = fieldForError(create.error) === 'person-related';
 
   const showInvite = useMemo(
     () => Boolean(saved && isAdmin && isPersonLiving(saved)),
@@ -193,6 +192,8 @@ function AddPersonForm({
           <select
             id="person-related"
             aria-label={relationshipLabel}
+            aria-invalid={relatedFieldError}
+            aria-describedby={relatedFieldError ? 'person-related-error' : undefined}
             className={selectClassName}
             value={relatedId}
             disabled={Boolean(saved)}
@@ -205,6 +206,11 @@ function AddPersonForm({
               </option>
             ))}
           </select>
+          {relatedFieldError ? (
+            <p id="person-related-error" className="text-caption text-destructive">
+              {messageForError(create.error)}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex min-h-11 items-center gap-3">
@@ -269,7 +275,7 @@ function AddPersonForm({
           </div>
         )}
 
-        {create.isError ? (
+        {create.isError && !relatedFieldError ? (
           <p className="text-caption text-destructive">{messageForError(create.error)}</p>
         ) : null}
 
