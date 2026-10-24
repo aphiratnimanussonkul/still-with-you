@@ -276,13 +276,44 @@ export const meTrashListResponseSchema = z.object({
 });
 
 // Notification schemas
+export const notificationTypeSchema = z.enum(['contribution_added', 'invite_accepted']);
+
+export const contributionAddedPayloadSchema = z.object({
+  actor_display_name: z.string(),
+  event_title: z.string(),
+  event_id: uuidSchema,
+  family_id: uuidSchema,
+});
+
+export const inviteAcceptedPayloadSchema = z.object({
+  actor_display_name: z.string(),
+  family_name: z.string(),
+  family_id: uuidSchema,
+  person_id: uuidSchema.nullable(),
+  person_display_name: z.string().nullable(),
+});
+
+export const notificationPayloadSchema = z.union([
+  contributionAddedPayloadSchema,
+  inviteAcceptedPayloadSchema,
+]);
+
+export const notificationIdParamSchema = z.object({
+  id: uuidSchema,
+});
+
 export const notificationResponseSchema = z.object({
   id: uuidSchema,
-  account_id: uuidSchema,
-  type: z.string(),
-  payload: z.record(z.unknown()),
+  type: notificationTypeSchema,
+  payload: notificationPayloadSchema,
   created_at: z.string().datetime(),
   read_at: z.string().datetime().nullable(),
+});
+
+export const notificationListResponseSchema = z.object({
+  notifications: z.array(notificationResponseSchema),
+  next_cursor: z.string().nullable(),
+  unread_count: z.number().int().nonnegative(),
 });
 
 export const FOCUS_MAX_PER_FAMILY = 10;
@@ -498,6 +529,11 @@ export type TrashResponse = z.infer<typeof trashResponseSchema>;
 export type MeTrashItem = z.infer<typeof meTrashItemSchema>;
 export type MeTrashListResponse = z.infer<typeof meTrashListResponseSchema>;
 export type NotificationResponse = z.infer<typeof notificationResponseSchema>;
+export type NotificationListResponse = z.infer<typeof notificationListResponseSchema>;
+export type NotificationTypeName = z.infer<typeof notificationTypeSchema>;
+export type ContributionAddedPayload = z.infer<typeof contributionAddedPayloadSchema>;
+export type InviteAcceptedPayload = z.infer<typeof inviteAcceptedPayloadSchema>;
+export type NotificationIdParam = z.infer<typeof notificationIdParamSchema>;
 export type UpdateFocus = z.infer<typeof updateFocusSchema>;
 export type CreateFact = z.infer<typeof createFactSchema>;
 export type SkipFact = z.infer<typeof skipFactSchema>;

@@ -18,6 +18,7 @@ import {
   mintInviteToken,
   publicInviteUrl,
 } from '../lib/invites.js';
+import { insertNotification, NotificationType } from '../lib/notifications.js';
 
 /**
  * Family and member management routes
@@ -365,6 +366,14 @@ const familyRoutes: FastifyPluginAsync = async (fastify) => {
         action: 'invite_accept',
         targetType: 'invite',
         targetId: invite.id,
+      });
+
+      await insertNotification(tx, {
+        accountId: invite.invitedBy,
+        actorAccountId: request.user!.id,
+        familyId: invite.familyId,
+        type: NotificationType.INVITE_ACCEPTED,
+        personId: invite.personId ?? null,
       });
 
       return { familyId: invite.familyId, personId: invite.personId ?? null };

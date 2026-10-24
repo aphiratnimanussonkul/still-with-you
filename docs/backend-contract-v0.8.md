@@ -3,7 +3,7 @@
 **Updated:** Oct 22, 2026  
 **Status:** Canonical spec.  
 **Supersedes:** [v0.7](./backend-contract-v0.7.md). **[v0.6](./backend-contract-v0.6.md) is cancelled** (never deployed; do not use `/quick-question` or `/persons/{id}/answers`).  
-**Changes from v0.7:** family-tree people profile (gender, birth date + precision, computed age, bio, avatar); `person_relationships`; person PATCH/DELETE; steward person invites; GET people returns `{ people, relationships }`; public invite preview; invite create `url`; people events list  
+**Changes from v0.7:** family-tree people profile (gender, birth date + precision, computed age, bio, avatar); `person_relationships`; person PATCH/DELETE; steward person invites; GET people returns `{ people, relationships }`; public invite preview; invite create `url`; people events list; in-app notifications (`contribution_added`, `invite_accepted`)  
 **Requirements v1.2 (AC-19..AC-27):** family steward, `archived_at` / `deletable_at`, 7-day permanent delete, `canManageEvent`, owner-only stories  
 **References:** Domain Model v0.4 (Kret), Requirements v1.1 / v1.2, Kret media contract v0.5, Kret focus + quick questions spec, Kret family-tree decisions (locked 22 Oct 2026)
 
@@ -389,6 +389,8 @@ v0.6 paths **`/quick-question`** and **`/persons/{id}/answers`** are not impleme
 | GET | `/v1/me` | Current account |
 | PATCH | `/v1/me/consent` | Marketing consent |
 | GET | `/v1/me/trash` | Caller's restorable trashed stories |
+| GET | `/v1/me/notifications` | Caller's notifications (`?cursor=`), `{ notifications, next_cursor, unread_count }` |
+| POST | `/v1/notifications/{id}/read` | Mark one notification read (owner only; others **404**) |
 | DELETE | `/v1/me` | Account deletion |
 | GET | `/v1/families` | Families the caller belongs to |
 | POST | `/v1/families` | Create family; creator is first steward |
@@ -436,8 +438,6 @@ v0.6 paths **`/quick-question`** and **`/persons/{id}/answers`** are not impleme
 | GET | `/v1/people/{id}/facts` | `{ groups: […] }` |
 | PATCH | `/v1/facts/{id}` | Author only |
 | DELETE | `/v1/facts/{id}` | Author or steward |
-
-Not yet implemented (do not call): `GET /v1/me/notifications`, `POST /v1/notifications/{id}/read`.
 
 ### 4.1 Account & Consent (NEW in v0.4)
 
@@ -918,7 +918,70 @@ Authenticated. Returns the caller's **own** `trashed` contributions that can sti
 
 ### 4.7 Notifications
 
-Not deployed. Do not call `GET /v1/me/notifications` or `POST /v1/notifications/{id}/read`.
+In-app notifications. Rows live in `notifications` (`account_id`, `type`, `payload jsonb`, `created_at`, `read_at`). The table already exists (RLS on; `anon`/`authenticated` revoked). List uses `?cursor=` (newest `created_at`, then `id`).
+
+| Method | Path | Permission | Notes |
+|--------|------|------------|-------|
+| GET | `/v1/me/notifications?cursor=` | Authenticated | **Only the caller's** rows **for families they still belong to**. Newest first. `{ notifications, next_cursor, unread_count }`. `unread_count` uses the same membership filter (total unread, not the page size) |
+| POST | `/v1/notifications/{id}/read` | Owner | Idempotent. **200** `{ id, type, payload, created_at, read_at }`. Already-read returns the same `read_at`. Missing, **non-uuid `{id}`**, or **another account's** notification → **404 `NOT_FOUND`** (not 403, never 500) |
+
+```json
+// GET /v1/me/notifications
+{
+  "notifications": [
+    {
+      "id": "…",
+      "type": "contribution_added",
+      "payload": {
+        "actor_display_name": "Member",
+        "event_title": "วันเกิดยาย",
+        "event_id": "…",
+        "family_id": "…"
+      },
+      "created_at": "2026-10-22T00:00:00.000Z",
+      "read_at": null
+    },
+    {
+      "id": "…",
+      "type": "invite_accepted",
+      "payload": {
+        "actor_display_name": "Invitee",
+        "family_name": "บ้านนิมานัส",
+        "family_id": "…",
+        "person_id": null,
+        "person_display_name": null
+      },
+      "created_at": "2026-10-21T00:00:00.000Z",
+      "read_at": null
+    }
+  ],
+  "next_cursor": null,
+  "unread_count": 2
+}
+
+// POST /v1/notifications/{id}/read — 200 (same item shape as GET)
+{
+  "id": "…",
+  "type": "contribution_added",
+  "payload": {
+    "actor_display_name": "Member",
+    "event_title": "วันเกิดยาย",
+    "event_id": "…",
+    "family_id": "…"
+  },
+  "created_at": "2026-10-22T00:00:00.000Z",
+  "read_at": "2026-10-22T00:01:00.000Z"
+}
+```
+
+Names are **snapshotted into `payload` at insert**. A later rename of the actor, event, family, or person does **not** change existing notifications. Do not insert if the recipient is not an **active** `family_members` row. List and `unread_count` omit notifications whose `payload.family_id` is a family the caller has left.
+
+Types created by the API (keep this list small):
+
+| `type` | When | GET `payload` |
+|--------|------|----------------|
+| `contribution_added` | Another member adds a contribution to an event you created. Creating an event (first story) does **not** notify. Self-contribute does **not** notify. Recipient must still be an active family member | `{ actor_display_name, event_title, event_id, family_id }` |
+| `invite_accepted` | Someone accepts a family or person invite you sent. Recipient must still be an active family member | `{ actor_display_name, family_name, family_id, person_id, person_display_name }` (`person_id` / `person_display_name` are `null` when there is no person) |
 
 ### 4.8 Focus people (NEW in v0.5; canonical in v0.8)
 
@@ -1088,6 +1151,7 @@ JWKS_URI=${SUPABASE_URL}/auth/v1/.well-known/jwks.json
 - `GET /v1/invites/{token}` public preview `{ family_name, inviter_display_name, person_display_name, expires_at }`, per-IP rate limit
 - `POST /v1/invites/{token}/accept` body `{}` → **200** `{ family_id, person_id }`
 - `GET /v1/people/{id}/events?cursor=` (family members; archived visibility matches family events)
+- `GET /v1/me/notifications?cursor=` (`{ notifications, next_cursor, unread_count }`) and `POST /v1/notifications/{id}/read` (owner; other account or non-uuid `{id}` **404**). Types: `contribution_added` `{ actor_display_name, event_title, event_id, family_id }`, `invite_accepted` `{ actor_display_name, family_name, family_id, person_id, person_display_name }`. Names snapshotted at insert. List/`unread_count` only families the caller still belongs to
 - `GET /v1/families/{id}/people` returns `{ people, relationships }`
 - Media `purpose` `story` \| `avatar` (avatar limit 1 per person)
 - `person_relationships` composite FKs onto `people(id, family_id)` so both ends are the same family
@@ -1099,7 +1163,7 @@ JWKS_URI=${SUPABASE_URL}/auth/v1/.well-known/jwks.json
 - The unused v0.7 generic `relationships` table is replaced by `person_relationships`
 
 ### Unchanged
-- Members, events (except people-events list), contributions, trash, focus, facts
+- Members, events (except people-events list), contributions (except notifying the event creator), trash, focus, facts
 - v0.6 remains cancelled
 
 ## 9b. Changes Summary (v0.5 → v0.7)
