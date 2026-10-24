@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { personListResponseSchema, personResponseSchema } from '@still-with-you/contracts';
 import {
+  createPersonResponseSchema,
+  createPersonSchema,
+  personListResponseSchema,
+  personResponseSchema,
+} from '@still-with-you/contracts';
+import {
+  createPersonResultSchema,
   familyInviteSchema,
   familyInvitesSchema,
   familyMembersSchema,
   familyPeopleSchema,
   familyPersonSchema,
+  personNodeLabel,
 } from '@/lib/family-graph';
 
 const personId = '77777777-7777-4777-8777-777777777777';
@@ -23,9 +30,9 @@ const apiPerson = {
   family_name: null,
   relation_label: 'ยาย',
   gender: null,
+  is_living: true,
   birth_date: null,
   birth_date_precision: 'day' as const,
-  is_living: true,
   death_date: null,
   death_date_precision: null,
   age: null,
@@ -61,6 +68,62 @@ describe('family-graph vs live API handlers', () => {
     expect(personListResponseSchema.parse(apiPeopleList).relationships).toHaveLength(1);
     expect(familyPersonSchema.parse(apiPerson).name).toBe('ยายสมศรี');
     expect(personResponseSchema.parse(apiPerson).invite_status).toBe('none');
+    expect(
+      personResponseSchema.parse({
+        ...apiPerson,
+        is_living: false,
+        death_date: '2022-01-01',
+        death_date_precision: 'year',
+      }).is_living
+    ).toBe(false);
+    expect(
+      personResponseSchema.parse({
+        ...apiPerson,
+        death_date: null,
+        death_date_precision: null,
+      }).death_date_precision
+    ).toBeNull();
+  });
+
+  it('parses POST /people as 201 {person, relationship|null}', () => {
+    const wrapped = createPersonResponseSchema.parse({
+      person: apiPerson,
+      relationship: apiPeopleList.relationships[0],
+    });
+    expect(wrapped.person.display_name).toBe('ยายสมศรี');
+    expect(wrapped.relationship?.type).toBe('spouse');
+    expect(createPersonResultSchema.parse({ person: apiPerson, relationship: null }).relationship).toBeNull();
+    expect(createPersonResponseSchema.safeParse(apiPerson).success).toBe(false);
+    expect(createPersonResponseSchema.safeParse({ person: apiPerson }).success).toBe(false);
+  });
+
+  it('accepts relation_label on createPerson and null death_date_precision', () => {
+    expect(
+      createPersonSchema.parse({
+        display_name: 'น้องใหม่',
+        relation_label: 'น้อง',
+        is_living: true,
+        death_date: null,
+        death_date_precision: null,
+      })
+    ).toMatchObject({
+      relation_label: 'น้อง',
+      death_date_precision: null,
+    });
+    expect(
+      createPersonSchema.parse({
+        display_name: 'ทวด',
+        is_living: false,
+        death_date: '2022-03-15',
+        death_date_precision: 'day',
+      }).death_date_precision
+    ).toBe('day');
+  });
+
+  it('labels a tree node with relation_label when present', () => {
+    expect(personNodeLabel(apiPerson)).toBe('ยาย');
+    expect(personNodeLabel({ ...apiPerson, relation_label: null })).toBe('ยายสมศรี');
+    expect(personNodeLabel({ ...apiPerson, relation_label: '  ' })).toBe('ยายสมศรี');
   });
 
   it('parses GET /members as the handler row (no left_at)', () => {

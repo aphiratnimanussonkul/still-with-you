@@ -41,6 +41,22 @@ describe('copy v0.4', () => {
       'คำตอบจากคำถามเล็กๆ ของทุกคนในครอบครัวจะมาอยู่ที่นี่'
     );
     expect(copy['person.facts.answer.meta']).toBe('ตอบโดย {ผู้ตอบ} · {วันที่}');
+    expect(copy['family.tab.graph']).toBe('ผัง');
+    expect(copy['family.tab.list']).toBe('รายชื่อ');
+    expect(copy['person.add.submit']).toBe('เพิ่มในผัง');
+    expect(copy['person.nickname.label']).toBe('ชื่อเรียก (ไม่บังคับ)');
+    expect(copy['person.nickname.placeholder']).toBe('เช่น ยาย ลุงหนึ่ง');
+    expect(copy['person.living']).toBe('ยังมีชีวิตอยู่');
+    expect(copy['person.relationship.of_you']).toBe('เป็นอะไรกับคุณ');
+    expect(copy['person.relationship.of_name']).toBe('เป็นอะไรกับ {ชื่อ}');
+    expect(copy['person.relationship.parent']).toBe('เป็นพ่อแม่ของ');
+    expect(copy['person.relationship.child']).toBe('เป็นลูกของ');
+    expect(copy['person.relationship.spouse']).toBe('เป็นคู่ของ');
+    expect(copy['tree.back_to_me']).toBe('กลับมาที่ฉัน');
+    expect(copy['tree.node.add_parent']).toBe('เพิ่มพ่อแม่');
+    expect(copy['error.INVALID_DEATH_DATE']).toBe(
+      'วันที่จากไปต้องไม่ก่อนวันเกิด และไม่เกินวันนี้'
+    );
   });
 
   it('uses specified photo-limit copy with placeholders', () => {

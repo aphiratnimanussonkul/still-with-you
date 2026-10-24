@@ -1,5 +1,5 @@
 import type { AccountResponse, EventResponse, FamilyResponse } from '@still-with-you/contracts';
-import type { ContributionItem, FamilyMember, FamilyPerson, TrashItem } from '@/lib/family-graph';
+import type { ContributionItem, FamilyMember, FamilyPerson, FamilyRelationship, TrashItem } from '@/lib/family-graph';
 
 export const mockAccount: AccountResponse = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -65,6 +65,8 @@ export const mockEvents: EventResponse[] = [
   },
 ];
 
+export const mockMePersonId = '55555555-5555-4555-8555-555555555555';
+
 export const mockPeople: FamilyPerson[] = [
   {
     id: '77777777-7777-4777-8777-777777777777',
@@ -73,9 +75,12 @@ export const mockPeople: FamilyPerson[] = [
     name: 'ยายสมศรี',
     relation_label: 'ยาย',
     account_id: null,
-    is_living: true,
-    death_date: null,
-    death_date_precision: null,
+    is_living: false,
+    birth_date: '1937-08-01',
+    birth_date_precision: 'day',
+    death_date: '2022-01-01',
+    death_date_precision: 'year',
+    age: 84,
   },
   {
     id: '87878787-8787-4878-8878-878787878787',
@@ -85,8 +90,54 @@ export const mockPeople: FamilyPerson[] = [
     relation_label: 'ปู่',
     account_id: null,
     is_living: true,
+    birth_date: '1935-01-01',
+    birth_date_precision: 'year',
     death_date: null,
     death_date_precision: null,
+    age: 91,
+  },
+  {
+    id: mockMePersonId,
+    family_id: mockFamilies[0].id,
+    display_name: mockAccount.display_name,
+    name: mockAccount.display_name,
+    account_id: mockAccount.id,
+    is_living: true,
+    birth_date: '1990-03-01',
+    birth_date_precision: 'day',
+    death_date: null,
+    death_date_precision: null,
+    age: 36,
+  },
+];
+
+export const mockRelationships: FamilyRelationship[] = [
+  {
+    id: '12121212-1212-4121-8121-121212121212',
+    family_id: mockFamilies[0].id,
+    person_id: mockPeople[1].id,
+    related_person_id: mockPeople[0].id,
+    type: 'spouse',
+    created_by_account_id: mockAccount.id,
+    created_at: '2026-10-06T00:00:00.000Z',
+  },
+  {
+    id: '13131313-1313-4131-8131-131313131313',
+    family_id: mockFamilies[0].id,
+    person_id: mockPeople[0].id,
+    related_person_id: mockMePersonId,
+    type: 'parent',
+    created_by_account_id: mockAccount.id,
+    created_at: '2026-10-06T00:00:00.000Z',
+  },
+  {
+    id: '14141414-1414-4141-8141-141414141414',
+    family_id: mockFamilies[0].id,
+    person_id: mockPeople[1].id,
+    related_person_id: mockMePersonId,
+    type: 'parent',
+    created_by_account_id: mockAccount.id,
+    created_at: '2026-10-06T00:00:00.000Z',
   },
 ];
 

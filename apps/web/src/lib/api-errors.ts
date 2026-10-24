@@ -23,6 +23,15 @@ export class ApiClientError extends Error {
   }
 }
 
+/** Map API `error.field` onto the add/edit person form control id. */
+export function fieldForError(error: unknown): string | undefined {
+  if (!(error instanceof ApiClientError) || !error.field) return undefined;
+  if (error.field === 'relationship.person_id' || error.field === 'relationship') {
+    return 'person-related';
+  }
+  return error.field;
+}
+
 const CODE_COPY: Partial<Record<string, string>> = {
   [ErrorCode.STORY_REQUIRED]: copy['error.STORY_REQUIRED'],
   [ErrorCode.CONFIRM_TEXT_MISMATCH]: copy['error.CONFIRM_TEXT_MISMATCH'],
@@ -106,6 +115,14 @@ export function messageForError(error: unknown): string {
 
     if (error.code === ErrorCode.ALREADY_ANSWERED) {
       return copy['error.ALREADY_ANSWERED'];
+    }
+
+    if (error.code === ErrorCode.INVALID_DEATH_DATE) {
+      return copy['error.INVALID_DEATH_DATE'];
+    }
+
+    if (error.code === ErrorCode.INVALID_RELATIONSHIP || error.code === ErrorCode.RELATIONSHIP_EXISTS) {
+      return copy['error.INVALID_INPUT'];
     }
 
     if (error.code === ErrorCode.INTERNAL_ERROR || error.status >= 500) {

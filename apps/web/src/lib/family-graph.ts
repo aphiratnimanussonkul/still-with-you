@@ -2,9 +2,15 @@
  * Isolated members / invites / people client (tree + invite are not in api-client).
  */
 import {
+  createPersonResponseSchema,
   personListResponseSchema,
   personResponseSchema,
+  type CreatePerson,
+  type CreatePersonResponse,
+  type PersonRelationshipKind,
   type PersonResponse,
+  type RelationshipResponse,
+  type UpdatePerson,
 } from '@still-with-you/contracts';
 import { z } from 'zod';
 import { request } from '@/lib/api-client';
@@ -42,6 +48,18 @@ export const familyInvitesSchema = z.object({
 
 export const familyPersonSchema = personResponseSchema;
 export const familyPeopleSchema = personListResponseSchema;
+export const createPersonResultSchema = createPersonResponseSchema;
+/** Person-invite preview is web-only; Frank's contracts PR does not ship this schema. */
+export const personInviteSchema = z.object({
+  id: z.string().uuid(),
+  family_id: z.string().uuid().optional(),
+  person_id: z.string().uuid().optional(),
+  email: z.string(),
+  status: z.enum(['pending', 'accepted', 'revoked', 'expired']).optional(),
+  url: z.string().url().optional(),
+  expires_at: z.string().datetime(),
+  created_at: z.string().datetime().optional(),
+});
 
 export const contributionItemSchema = z.object({
   id: z.string().uuid(),
@@ -71,8 +89,29 @@ export const trashListSchema = z.object({
 
 export type FamilyMember = z.infer<typeof familyMemberSchema>;
 export type FamilyPerson = PersonResponse;
+export type FamilyRelationship = RelationshipResponse;
+export type CreatePersonBody = CreatePerson;
+export type UpdatePersonBody = UpdatePerson;
+export type CreatePersonResult = CreatePersonResponse;
+export type RelationshipKind = PersonRelationshipKind;
+export type PersonInvite = z.infer<typeof personInviteSchema>;
 export type ContributionItem = z.infer<typeof contributionItemSchema>;
 export type TrashItem = z.infer<typeof trashItemSchema>;
+
+export function personDisplayName(person: Pick<FamilyPerson, 'name' | 'display_name'>): string {
+  return person.display_name || person.name;
+}
+
+export function personNodeLabel(
+  person: Pick<FamilyPerson, 'name' | 'display_name' | 'relation_label'>
+): string {
+  const nickname = person.relation_label?.trim();
+  return nickname || personDisplayName(person);
+}
+
+export function isPersonLiving(person: Pick<FamilyPerson, 'is_living'>): boolean {
+  return person.is_living !== false;
+}
 
 export const familyGraph = {
   listMembers(familyId: string) {
@@ -94,10 +133,28 @@ export const familyGraph = {
     return request(`/v1/families/${familyId}/people`, familyPeopleSchema);
   },
 
-  createPerson(familyId: string, body: { name: string; relation_label?: string }) {
-    return request(`/v1/families/${familyId}/people`, familyPersonSchema, {
+  getPerson(personId: string) {
+    return request(`/v1/people/${personId}`, familyPersonSchema);
+  },
+
+  createPerson(familyId: string, body: CreatePersonBody) {
+    return request(`/v1/families/${familyId}/people`, createPersonResultSchema, {
       method: 'POST',
       body,
+    });
+  },
+
+  updatePerson(personId: string, body: UpdatePersonBody) {
+    return request(`/v1/people/${personId}`, familyPersonSchema, {
+      method: 'PATCH',
+      body,
+    });
+  },
+
+  createPersonInvite(personId: string, email: string) {
+    return request(`/v1/people/${personId}/invites`, personInviteSchema, {
+      method: 'POST',
+      body: { email },
     });
   },
 
