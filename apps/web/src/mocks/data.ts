@@ -1,4 +1,9 @@
-import type { AccountResponse, EventResponse, FamilyResponse } from '@still-with-you/contracts';
+import type {
+  AccountResponse,
+  EventResponse,
+  FamilyResponse,
+  NotificationResponse,
+} from '@still-with-you/contracts';
 import type { ContributionItem, FamilyMember, FamilyPerson, TrashItem } from '@/lib/family-graph';
 
 export const mockAccount: AccountResponse = {
@@ -135,3 +140,43 @@ export const mockFocusIds: Record<string, string[]> = {
   [mockFamilies[0].id]: [mockPeople[0].id, mockPeople[1].id],
   [mockFamilies[1].id]: [],
 };
+
+export const mockNotifications: NotificationResponse[] = [
+  {
+    id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    type: 'contribution_added',
+    payload: {
+      actor_display_name: 'Mint',
+      event_title: 'ทริปทะเลกับคุณยาย',
+      event_id: mockEvents[0].id,
+      family_id: mockFamilies[0].id,
+    },
+    created_at: '2026-10-22T08:00:00.000Z',
+    read_at: null,
+  },
+  {
+    id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    type: 'invite_accepted',
+    payload: {
+      actor_display_name: 'Mae',
+      family_name: mockFamilies[0].name,
+      family_id: mockFamilies[0].id,
+      person_id: mockPeople[0].id,
+      person_display_name: mockPeople[0].display_name,
+    },
+    created_at: '2026-10-21T08:00:00.000Z',
+    read_at: null,
+  },
+  {
+    id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    type: 'contribution_added',
+    payload: {
+      actor_display_name: 'Mint',
+      event_title: 'วันเกิดยาย',
+      event_id: mockEvents[1].id,
+      family_id: mockFamilies[0].id,
+    },
+    created_at: '2026-10-20T08:00:00.000Z',
+    read_at: '2026-10-20T09:00:00.000Z',
+  },
+];
