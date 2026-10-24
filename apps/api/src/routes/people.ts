@@ -175,6 +175,7 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
           relatedPersonId: mapped.relatedPersonId,
           type: mapped.type,
           createdByAccountId: request.user!.id,
+          missingPersonField: 'relationship.person_id',
         });
       }
 

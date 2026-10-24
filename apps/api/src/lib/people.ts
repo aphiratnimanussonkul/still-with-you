@@ -311,6 +311,7 @@ export async function insertPersonRelationship(
     relatedPersonId: string;
     type: 'parent' | 'spouse';
     createdByAccountId: string;
+    missingPersonField?: string;
   }
 ) {
   let personId = input.personId;
@@ -348,14 +349,19 @@ export async function insertPersonRelationship(
     .limit(1);
 
   if (!left) {
-    throw new AppError(ErrorCode.INVALID_INPUT, 'person_id must belong to this family', 400, 'person_id');
+    throw new AppError(
+      ErrorCode.INVALID_INPUT,
+      'person_id must belong to this family',
+      400,
+      input.missingPersonField ?? 'person_id'
+    );
   }
   if (!right) {
     throw new AppError(
       ErrorCode.INVALID_INPUT,
       'related_person_id must belong to this family',
       400,
-      'related_person_id'
+      input.missingPersonField ?? 'related_person_id'
     );
   }
 

@@ -211,13 +211,36 @@ describe('People v2 (living, death, inline relationship)', () => {
     });
   });
 
-  it('rolls back the person when the inline relationship is invalid', async () => {
-    const res = await createPerson({
-      name: 'จะไม่ถูกบันทึก',
-      relationship: { kind: 'parent_of', person_id: UNKNOWN_UUID },
+  it('uses field relationship.person_id when the target is missing or other-family, and rolls back', async () => {
+    const otherFamily = await server.inject({
+      method: 'POST',
+      url: '/v1/families',
+      headers: await auth(stewardToken),
+      payload: { name: 'บ้านอื่น' },
     });
-    expect(res.statusCode).toBe(400);
-    expect(JSON.parse(res.body).error.code).toBe('INVALID_INPUT');
+    const otherFamilyId = JSON.parse(otherFamily.body).id;
+    const [outsider] = await db
+      .insert(people)
+      .values({
+        familyId: otherFamilyId,
+        displayName: 'คนนอก',
+        createdByAccountId: steward.id,
+      })
+      .returning();
+
+    for (const kind of ['parent_of', 'child_of', 'spouse_of'] as const) {
+      for (const person_id of [UNKNOWN_UUID, outsider.id]) {
+        const res = await createPerson({
+          name: `ไม่ผ่าน-${kind}`,
+          relationship: { kind, person_id },
+        });
+        expect(res.statusCode).toBe(400);
+        expect(JSON.parse(res.body).error).toMatchObject({
+          code: 'INVALID_INPUT',
+          field: 'relationship.person_id',
+        });
+      }
+    }
 
     const listed = await server.inject({
       method: 'GET',
@@ -227,6 +250,30 @@ describe('People v2 (living, death, inline relationship)', () => {
     expect(JSON.parse(listed.body).people).toEqual([]);
     const rows = await db.select().from(people).where(eq(people.familyId, familyId));
     expect(rows).toHaveLength(0);
+  });
+
+  it('enforces living/death_date and precision pairing at the database', async () => {
+    await expect(
+      db.insert(people).values({
+        familyId,
+        displayName: 'มีชีวิตแต่มีวันจากไป',
+        createdByAccountId: member.id,
+        isLiving: true,
+        deathDate: '2020-01-01',
+        deathDatePrecision: 'day',
+      })
+    ).rejects.toThrow(/living_or_no_death_date|check/i);
+
+    await expect(
+      db.insert(people).values({
+        familyId,
+        displayName: 'วันจากไปไม่มีความแม่น',
+        createdByAccountId: member.id,
+        isLiving: false,
+        deathDate: '2020-01-01',
+        deathDatePrecision: null,
+      })
+    ).rejects.toThrow(/death_date_precision_pair|check/i);
   });
 
   it('returns INVALID_RELATIONSHIP for a parent cycle on inline create', async () => {

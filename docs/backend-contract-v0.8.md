@@ -679,7 +679,7 @@ Validation:
 - `gender` not `female` \| `male` \| `other` \| `null` → **400 `INVALID_INPUT`** `field: "gender"`
 - `birth_date` in the future (Asia/Bangkok) → **400 `INVALID_BIRTH_DATE`** `field: "birth_date"`
 - If `death_date` is set, `is_living` must be `false`; `death_date` must be `>= birth_date` and `<=` today (Asia/Bangkok); `death_date_precision` is required iff `death_date` is set (`null` otherwise). Deceased may omit `death_date`. Otherwise **400 `INVALID_DEATH_DATE`**
-- Optional inline `relationship: { kind: parent_of \| child_of \| spouse_of, person_id }` on create maps to a `person_relationships` `parent` / `spouse` row in the same transaction (failure rolls back the person). Errors reuse **400 `INVALID_RELATIONSHIP`** / **409 `RELATIONSHIP_EXISTS`**
+- Optional inline `relationship: { kind: parent_of \| child_of \| spouse_of, person_id }` on create maps to a `person_relationships` `parent` / `spouse` row in the same transaction (failure rolls back the person). Target not in this family → **400 `INVALID_INPUT`** `field: "relationship.person_id"`. Errors reuse **400 `INVALID_RELATIONSHIP`** / **409 `RELATIONSHIP_EXISTS`**
 - `birth_date_precision` not `day` \| `year` → **400 `INVALID_INPUT`** `field: "birth_date_precision"`
 - Year-only: client may send `birth_date` as `YYYY-01-01` or `YYYY`; stored as `YYYY-01-01` with `birth_date_precision = 'year'`
 - `bio` longer than 2000 after trim → **400 `INVALID_INPUT`** `field: "bio"`
