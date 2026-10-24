@@ -4,7 +4,7 @@ import { Link, RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { copy, interpolate } from '@/copy';
 import { ApiClientError } from '@/lib/api-errors';
-import { mockFamilies, mockMembers, mockPeople } from '@/mocks/data';
+import { mockAccount, mockFamilies, mockMembers, mockPeople } from '@/mocks/data';
 
 vi.mock('@/lib/api-client', () => ({
   api: {
@@ -103,7 +103,7 @@ describe('PersonFormPage', () => {
       person_id: created.id,
       related_person_id: mockPeople[0].id,
       type: 'parent',
-      created_by_account_id: mockPeople[0].created_by_account_id,
+      created_by_account_id: mockPeople[0].created_by_account_id ?? mockAccount.id,
       created_at: '2026-10-22T00:00:00.000Z',
     });
   });
