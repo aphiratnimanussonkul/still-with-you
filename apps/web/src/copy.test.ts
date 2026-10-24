@@ -9,6 +9,14 @@ describe('copy v0.4', () => {
     expect(leftovers).toEqual([]);
   });
 
+  it('uses Eddy contribution-photo copy', () => {
+    expect(copy['contribution.photos.label']).toBe('รูปภาพ (ไม่บังคับ)');
+    expect(copy['contribution.photo.alt']).toBe('รูปที่ {ชื่อผู้เล่า} แนบไว้ {i} จาก {n}');
+    expect(copy['contribution.photos.viewer.counter']).toBe('{i}/{n}');
+    expect(copy['photo.load_error']).toBe('โหลดรูปนี้ไม่ได้');
+    expect(copy['contribution.photos.more']).toBe('ดูรูปอีก {n} รูป');
+  });
+
   it('uses locked v0.4 wording for create, tree, cancel, and admin confirm split', () => {
     expect(copy['family.create.submit']).toBe('สร้างครอบครัว');
     expect(copy['family.tab.tree']).toBe('แผนผังครอบครัว');

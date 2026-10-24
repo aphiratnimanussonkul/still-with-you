@@ -286,6 +286,11 @@ export const copy = {
   'story.add.context': 'เล่าใน {ชื่อความทรงจำ} ไม่ทับเรื่องเล่าของใคร',
   'story.save': 'บันทึก',
   'story.action.edit': 'แก้ไข',
+  'contribution.photos.label': 'รูปภาพ (ไม่บังคับ)',
+  'contribution.photo.alt': 'รูปที่ {ชื่อผู้เล่า} แนบไว้ {i} จาก {n}',
+  'contribution.photos.viewer.counter': '{i}/{n}',
+  'photo.load_error': 'โหลดรูปนี้ไม่ได้',
+  'contribution.photos.more': 'ดูรูปอีก {n} รูป',
 
   // --- บุคคล / แผนผัง ---
   'person.add.action': 'เพิ่มคน',
@@ -359,6 +364,7 @@ const NAME_VAR_KEYS = new Set([
   'ชื่อครอบครัว',
   'ชื่อคนเริ่ม',
   'ชื่อเจ้าของ',
+  'ชื่อผู้เล่า',
   'ชื่อผู้ดูแล',
   'ชื่อผู้ชวน',
   'ข้อความต้นของเรื่องเล่า',
