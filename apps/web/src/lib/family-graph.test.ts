@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createPersonSchema, personListResponseSchema, personResponseSchema } from '@still-with-you/contracts';
+import {
+  createPersonResponseSchema,
+  createPersonSchema,
+  personListResponseSchema,
+  personResponseSchema,
+} from '@still-with-you/contracts';
 import {
   createPersonResultSchema,
   familyInviteSchema,
@@ -25,9 +30,9 @@ const apiPerson = {
   family_name: null,
   relation_label: 'ยาย',
   gender: null,
+  is_living: true,
   birth_date: null,
   birth_date_precision: 'day' as const,
-  is_living: true,
   death_date: null,
   death_date_precision: null,
   age: null,
@@ -63,9 +68,14 @@ describe('family-graph vs live API handlers', () => {
     expect(personListResponseSchema.parse(apiPeopleList).relationships).toHaveLength(1);
     expect(familyPersonSchema.parse(apiPerson).name).toBe('ยายสมศรี');
     expect(personResponseSchema.parse(apiPerson).invite_status).toBe('none');
-    expect(personResponseSchema.parse({ ...apiPerson, is_living: false, death_date: '2022-01-01' }).is_living).toBe(
-      false
-    );
+    expect(
+      personResponseSchema.parse({
+        ...apiPerson,
+        is_living: false,
+        death_date: '2022-01-01',
+        death_date_precision: 'year',
+      }).is_living
+    ).toBe(false);
     expect(
       personResponseSchema.parse({
         ...apiPerson,
@@ -75,14 +85,16 @@ describe('family-graph vs live API handlers', () => {
     ).toBeNull();
   });
 
-  it('parses POST /people as {person, relationship} and as a bare person', () => {
-    const wrapped = createPersonResultSchema.parse({
-      person: { ...apiPerson, is_living: true },
+  it('parses POST /people as 201 {person, relationship|null}', () => {
+    const wrapped = createPersonResponseSchema.parse({
+      person: apiPerson,
       relationship: apiPeopleList.relationships[0],
     });
     expect(wrapped.person.display_name).toBe('ยายสมศรี');
     expect(wrapped.relationship?.type).toBe('spouse');
-    expect(createPersonResultSchema.parse(apiPerson).relationship).toBeNull();
+    expect(createPersonResultSchema.parse({ person: apiPerson, relationship: null }).relationship).toBeNull();
+    expect(createPersonResponseSchema.safeParse(apiPerson).success).toBe(false);
+    expect(createPersonResponseSchema.safeParse({ person: apiPerson }).success).toBe(false);
   });
 
   it('accepts relation_label on createPerson and null death_date_precision', () => {

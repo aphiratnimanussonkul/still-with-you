@@ -3,13 +3,11 @@
  */
 import {
   createPersonResponseSchema,
-  personInviteResponseSchema,
   personListResponseSchema,
   personResponseSchema,
   type CreatePerson,
   type CreatePersonResponse,
-  type CreateRelationshipKind,
-  type PersonInviteResponse,
+  type PersonRelationshipKind,
   type PersonResponse,
   type RelationshipResponse,
 } from '@still-with-you/contracts';
@@ -49,11 +47,18 @@ export const familyInvitesSchema = z.object({
 
 export const familyPersonSchema = personResponseSchema;
 export const familyPeopleSchema = personListResponseSchema;
-export const createPersonResultSchema = z.union([
-  createPersonResponseSchema,
-  personResponseSchema.transform((person) => ({ person, relationship: null })),
-]);
-export const personInviteSchema = personInviteResponseSchema;
+export const createPersonResultSchema = createPersonResponseSchema;
+/** Person-invite preview is web-only; Frank's contracts PR does not ship this schema. */
+export const personInviteSchema = z.object({
+  id: z.string().uuid(),
+  family_id: z.string().uuid().optional(),
+  person_id: z.string().uuid().optional(),
+  email: z.string(),
+  status: z.enum(['pending', 'accepted', 'revoked', 'expired']).optional(),
+  url: z.string().url().optional(),
+  expires_at: z.string().datetime(),
+  created_at: z.string().datetime().optional(),
+});
 
 export const contributionItemSchema = z.object({
   id: z.string().uuid(),
@@ -86,8 +91,8 @@ export type FamilyPerson = PersonResponse;
 export type FamilyRelationship = RelationshipResponse;
 export type CreatePersonBody = CreatePerson;
 export type CreatePersonResult = CreatePersonResponse;
-export type RelationshipKind = CreateRelationshipKind;
-export type PersonInvite = PersonInviteResponse;
+export type RelationshipKind = PersonRelationshipKind;
+export type PersonInvite = z.infer<typeof personInviteSchema>;
 export type ContributionItem = z.infer<typeof contributionItemSchema>;
 export type TrashItem = z.infer<typeof trashItemSchema>;
 

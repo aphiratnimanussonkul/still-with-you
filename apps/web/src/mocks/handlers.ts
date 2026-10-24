@@ -6,6 +6,7 @@ import {
   createFamilySchema,
   createMediaUploadSchema,
   createPersonResponseSchema,
+  createPersonSchema,
   eventListResponseSchema,
   eventResponseSchema,
   familyListResponseSchema,
@@ -14,7 +15,6 @@ import {
   homeResponseSchema,
   mediaItemSchema,
   personFactsResponseSchema,
-  personInviteResponseSchema,
   personListResponseSchema,
   personResponseSchema,
   mediaUploadSessionSchema,
@@ -47,6 +47,7 @@ import {
   familyInviteSchema,
   familyInvitesSchema,
   familyMembersSchema,
+  personInviteSchema,
 } from '@/lib/family-graph';
 import { deathDatePrecisionOrNull } from '@/lib/person-years';
 import { HOME_QUESTION_TEMPLATES, fillQuestionText, homeQuestionId } from '@/mocks/home-questions';
@@ -511,17 +512,14 @@ export const handlers = [
   http.post(`${api}/v1/families/:fid/people`, async ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    const body = (await request.json()) as {
-      name?: string;
-      display_name?: string;
-      is_living?: boolean;
-      birth_date?: string | null;
-      death_date?: string | null;
-      death_date_precision?: 'day' | 'year' | null;
-      avatar_media_id?: string | null;
-      relation_label?: string | null;
-      relationship?: { kind: 'parent_of' | 'child_of' | 'spouse_of'; person_id: string };
-    };
+    const parsed = createPersonSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return HttpResponse.json(
+        { error: { code: 'INVALID_INPUT', message: 'invalid person', field: 'display_name' } },
+        { status: 400 }
+      );
+    }
+    const body = parsed.data;
     const name = (body.display_name ?? body.name)?.trim();
     if (!name) {
       return HttpResponse.json(
@@ -652,7 +650,7 @@ export const handlers = [
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       created_at: new Date().toISOString(),
     };
-    return jsonContract(personInviteResponseSchema, created, { status: 201 });
+    return jsonContract(personInviteSchema, created, { status: 201 });
   }),
 
   http.get(`${api}/v1/events/:id/contributions`, ({ request, params }) => {
