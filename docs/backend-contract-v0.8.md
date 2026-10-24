@@ -406,7 +406,7 @@ v0.6 paths **`/quick-question`** and **`/persons/{id}/answers`** are not impleme
 | POST | `/v1/invites/{token}/accept` | Accept invite. Body `{}`. Login required. **200** `{ family_id, person_id }` |
 | DELETE | `/v1/invites/{id}` | Revoke invite |
 | GET | `/v1/families/{id}/people` | `{ people: […], relationships: […] }` (v0.8 adds `relationships`) |
-| POST | `/v1/families/{id}/people` | Create person |
+| POST | `/v1/families/{id}/people` | Create person (`{ person, relationship }`) |
 | GET | `/v1/people/{id}` | One person (member of that family) |
 | PATCH | `/v1/people/{id}` | Update person |
 | DELETE | `/v1/people/{id}` | Soft-delete person |
@@ -584,9 +584,11 @@ Any **active family member** may create a person. The **creator** (`created_by_a
 
 `age` is computed, never stored. Timezone is **`Asia/Bangkok`**.
 
-- No `birth_date` → `age` is `null`
-- `birth_date_precision = 'day'` → whole years from `birth_date` to today in Bangkok
-- `birth_date_precision = 'year'` → whole years using calendar year only (stored date is `YYYY-01-01`). The API still returns that integer. The **web** labels it as approximate; the API does **not** add an `approximate` flag
+- Living (`is_living = true`):
+  - No `birth_date` → `age` is `null`
+  - `birth_date_precision = 'day'` → whole years from `birth_date` to today in Bangkok
+  - `birth_date_precision = 'year'` → whole years using calendar year only (stored date is `YYYY-01-01`). The API still returns that integer. The **web** labels it as approximate; the API does **not** add an `approximate` flag
+- Deceased (`is_living = false`): `age` is age at death when both `birth_date` and `death_date` are set; otherwise `null`
 - Future `birth_date` (Bangkok today) is rejected on write
 
 `invite_status` is computed, not stored:
@@ -608,6 +610,9 @@ Any **active family member** may create a person. The **creator** (`created_by_a
   "gender": "female",
   "birth_date": "1942-01-01",
   "birth_date_precision": "year",
+  "is_living": true,
+  "death_date": null,
+  "death_date_precision": null,
   "age": 84,
   "bio": "ชอบทำขนมไทย",
   "avatar_media_id": "…",
@@ -626,7 +631,7 @@ Any **active family member** may create a person. The **creator** (`created_by_a
 | Method | Path | Permission | Notes |
 |--------|------|------------|-------|
 | GET | `/v1/families/{id}/people` | Member | `{ "people": […], "relationships": […] }`. Live people only, `display_name` ascending. Non-member or missing family → **404 NOT_FOUND** |
-| POST | `/v1/families/{id}/people` | Member | Create. **201** person |
+| POST | `/v1/families/{id}/people` | Member | Create. **201** `{ "person": …, "relationship": … \| null }` |
 | GET | `/v1/people/{id}` | Member of that family | Same person object. Missing, other family, or soft-deleted → **404 NOT_FOUND** |
 | GET | `/v1/people/{id}/events?cursor=` | Member of that family | Events linked via `event_people`. Active for all members; archived only for the event creator or steward (same as `GET /v1/families/{id}/events`). `{ events, next_cursor }`. Missing / other family / soft-deleted person → **404 NOT_FOUND** |
 | PATCH | `/v1/people/{id}` | Creator, steward, or linked account | Partial update. **200** person |
@@ -641,8 +646,13 @@ Any **active family member** may create a person. The **creator** (`created_by_a
   "gender": "female",
   "birth_date": "1942-01-01",
   "birth_date_precision": "year",
+  "is_living": true,
+  "death_date": null,
+  "death_date_precision": null,
+  "relation_label": "ยาย",
   "bio": "ชอบทำขนมไทย",
-  "avatar_media_id": null
+  "avatar_media_id": null,
+  "relationship": { "kind": "parent_of", "person_id": "…" }
 }
 
 // PATCH /v1/people/{id} — all fields optional
@@ -653,6 +663,9 @@ Any **active family member** may create a person. The **creator** (`created_by_a
   "gender": null,
   "birth_date": "1942-03-12",
   "birth_date_precision": "day",
+  "is_living": false,
+  "death_date": "2020-01-01",
+  "death_date_precision": "year",
   "bio": "…",
   "avatar_media_id": "…"
 }
@@ -665,6 +678,8 @@ Validation:
 - Missing/blank `display_name` (or `name`) → **400 `NAME_REQUIRED`** with `field` matching the key the client sent (`display_name` or `name`)
 - `gender` not `female` \| `male` \| `other` \| `null` → **400 `INVALID_INPUT`** `field: "gender"`
 - `birth_date` in the future (Asia/Bangkok) → **400 `INVALID_BIRTH_DATE`** `field: "birth_date"`
+- If `death_date` is set, `is_living` must be `false`; `death_date` must be `>= birth_date` and `<=` today (Asia/Bangkok); `death_date_precision` is required iff `death_date` is set (`null` otherwise). Deceased may omit `death_date`. Otherwise **400 `INVALID_DEATH_DATE`**
+- Optional inline `relationship: { kind: parent_of \| child_of \| spouse_of, person_id }` on create maps to a `person_relationships` `parent` / `spouse` row in the same transaction (failure rolls back the person). Target not in this family → **400 `INVALID_INPUT`** `field: "relationship.person_id"`. Errors reuse **400 `INVALID_RELATIONSHIP`** / **409 `RELATIONSHIP_EXISTS`**
 - `birth_date_precision` not `day` \| `year` → **400 `INVALID_INPUT`** `field: "birth_date_precision"`
 - Year-only: client may send `birth_date` as `YYYY-01-01` or `YYYY`; stored as `YYYY-01-01` with `birth_date_precision = 'year'`
 - `bio` longer than 2000 after trim → **400 `INVALID_INPUT`** `field: "bio"`
@@ -1033,6 +1048,7 @@ Canonical paths (no `/quick-question`, no `/persons/{id}/answers`):
 | 400 | `INVALID_INPUT` | Validation failed. `person_ids` not in the family uses `field: "person_ids"`. Unknown/inactive question uses `field: "question_id"`. Invalid `gender`, `bio`, `birth_date_precision`, relationship `type`, media `purpose`, or unknown `avatar_media_id` use the corresponding `field` |
 | 400 | `NAME_REQUIRED` | Person `display_name` (or v0.7 alias `name`) missing or whitespace-only. `field` is `display_name` or `name` |
 | 400 | `INVALID_BIRTH_DATE` | `birth_date` is in the future (Asia/Bangkok). `field: "birth_date"` |
+| 400 | `INVALID_DEATH_DATE` | `death_date` is set while living, is before `birth_date`, is in the future (Asia/Bangkok), or `death_date_precision` does not match whether `death_date` is set |
 | 400 | `INVALID_RELATIONSHIP` | Self-link (`person_id` = `related_person_id`) **or** parent cycle (a person cannot be a parent of their own ancestor). **No** `SELF_RELATIONSHIP` code |
 | 400 | `ANSWER_REQUIRED` | Fact `answer_text` missing or whitespace-only. `field: "answer_text"` |
 | 400 | `FILE_TYPE_NOT_ALLOWED` | Legacy file validation |
@@ -1155,7 +1171,7 @@ JWKS_URI=${SUPABASE_URL}/auth/v1/.well-known/jwks.json
 - `GET /v1/families/{id}/people` returns `{ people, relationships }`
 - Media `purpose` `story` \| `avatar` (avatar limit 1 per person)
 - `person_relationships` composite FKs onto `people(id, family_id)` so both ends are the same family
-- Error codes: **400 `NAME_REQUIRED`**, **400 `INVALID_BIRTH_DATE`**, **400 `INVALID_RELATIONSHIP`** (self-link and parent cycle; no `SELF_RELATIONSHIP`), **409 `RELATIONSHIP_EXISTS`**, **409 `PERSON_LINKED`**, **409 `PERSON_ALREADY_LINKED`**, **410 `INVITE_INVALID`**. Avatar attach reuses **409 `MEDIA_NOT_READY`** (not completed) and **422 `UPLOAD_MISMATCH`** (wrong purpose or family)
+- Error codes: **400 `NAME_REQUIRED`**, **400 `INVALID_BIRTH_DATE`**, **400 `INVALID_DEATH_DATE`**, **400 `INVALID_RELATIONSHIP`** (self-link and parent cycle; no `SELF_RELATIONSHIP`), **409 `RELATIONSHIP_EXISTS`**, **409 `PERSON_LINKED`**, **409 `PERSON_ALREADY_LINKED`**, **410 `INVITE_INVALID`**. Avatar attach reuses **409 `MEDIA_NOT_READY`** (not completed) and **422 `UPLOAD_MISMATCH`** (wrong purpose or family)
 
 ### Changed
 - Empty person name is **400 `NAME_REQUIRED`** (no longer `INVALID_INPUT` `field: "name"`)

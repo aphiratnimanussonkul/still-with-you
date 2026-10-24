@@ -73,6 +73,9 @@ export const mockPeople: FamilyPerson[] = [
     name: 'ยายสมศรี',
     relation_label: 'ยาย',
     account_id: null,
+    is_living: true,
+    death_date: null,
+    death_date_precision: null,
   },
   {
     id: '87878787-8787-4878-8878-878787878787',
@@ -81,6 +84,9 @@ export const mockPeople: FamilyPerson[] = [
     name: 'ปู่สมชาย',
     relation_label: 'ปู่',
     account_id: null,
+    is_living: true,
+    death_date: null,
+    death_date_precision: null,
   },
 ];
 

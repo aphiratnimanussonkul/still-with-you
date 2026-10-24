@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
-import { db, accounts, events, families, familyMembers, notifications, people } from '../lib/db/index.js';
+import { db, accounts, events, families, familyMembers, notifications, people, sql } from '../lib/db/index.js';
 import { eq } from 'drizzle-orm';
 import { tokenFromInviteUrl } from '../lib/invites.js';
 import { NotificationType } from '../lib/notifications.js';
@@ -401,7 +401,7 @@ describe('Notifications API', () => {
       headers: await auth(stewardToken),
       payload: { name: 'ยาย' },
     });
-    const personId = JSON.parse(personRes.body).id;
+    const personId = JSON.parse(personRes.body).person.id;
     const invitee = await createTestAccount('n-linked', 'n-linked@example.com', 'Linked');
     const inviteeToken = await generateTestToken(invitee.authId, invitee.email!);
     const inviteRes = await server.inject({
@@ -507,5 +507,49 @@ describe('Notifications API', () => {
     const listBody = JSON.parse(list.body);
     expect(listBody.unread_count).toBe(0);
     expect(listBody.notifications[0].read_at).toBe(firstBody.read_at);
+  });
+
+  it('stores payload as a jsonb object and still reads old string rows', async () => {
+    const created = await server.inject({
+      method: 'POST',
+      url: `/v1/families/${familyId}/events`,
+      headers: await auth(creatorToken),
+      payload: { title: 'วันเกิด', story: 'เรื่องแรก' },
+    });
+    const eventId = JSON.parse(created.body).id;
+    await server.inject({
+      method: 'POST',
+      url: `/v1/events/${eventId}/contributions`,
+      headers: await auth(memberToken),
+      payload: { story: 'เรื่องของฉัน' },
+    });
+
+    const stored = await sql<{ t: string }[]>`
+      select jsonb_typeof(payload) as t
+      from notifications
+      where account_id = ${creator.id}
+      order by created_at desc
+      limit 1
+    `;
+    expect(stored[0]?.t).toBe('object');
+
+    const stringPayload = JSON.stringify({
+      actor_display_name: 'เก่า',
+      event_title: 'เรื่องเก่า',
+      event_id: eventId,
+      family_id: familyId,
+    });
+    await sql`
+      insert into notifications (account_id, type, payload)
+      values (${creator.id}::uuid, 'contribution_added', to_jsonb(${stringPayload}::text))
+    `;
+    const list = await server.inject({
+      method: 'GET',
+      url: '/v1/me/notifications',
+      headers: await auth(creatorToken),
+    });
+    const items = JSON.parse(list.body).notifications as Array<{ payload: Record<string, unknown> }>;
+    expect(items.some((item) => item.payload.actor_display_name === 'เก่า')).toBe(true);
+    expect(items.some((item) => item.payload.actor_display_name === 'Member')).toBe(true);
   });
 });

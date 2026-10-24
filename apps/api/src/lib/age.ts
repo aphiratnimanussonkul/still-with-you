@@ -45,6 +45,14 @@ export function normalizeBirthDate(
   return raw;
 }
 
+export function compareYmd(left: string, right: string): number {
+  const a = asYmd(left);
+  const b = asYmd(right);
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
 export function computeAge(
   birthDate: string | Date | null | undefined,
   precision: BirthDatePrecision | null | undefined,
@@ -61,4 +69,38 @@ export function computeAge(
     age -= 1;
   }
   return age;
+}
+
+export function computeAgeAt(
+  birthDate: string | Date,
+  birthPrecision: BirthDatePrecision | null | undefined,
+  asOfDate: string | Date,
+  asOfPrecision: BirthDatePrecision | null | undefined
+): number {
+  const [by, bm, bd] = asYmd(birthDate).split('-').map(Number);
+  const [ay, am, ad] = asYmd(asOfDate).split('-').map(Number);
+  if ((birthPrecision ?? 'day') === 'year' || (asOfPrecision ?? 'day') === 'year') {
+    return ay - by;
+  }
+  let age = ay - by;
+  if (am < bm || (am === bm && ad < bd)) {
+    age -= 1;
+  }
+  return age;
+}
+
+export function computePersonAge(opts: {
+  isLiving: boolean;
+  birthDate: string | Date | null | undefined;
+  birthPrecision: BirthDatePrecision | null | undefined;
+  deathDate?: string | Date | null;
+  deathPrecision?: BirthDatePrecision | null;
+  now?: Date;
+}): number | null {
+  if (!opts.birthDate) return null;
+  if (opts.isLiving) {
+    return computeAge(opts.birthDate, opts.birthPrecision, opts.now);
+  }
+  if (!opts.deathDate) return null;
+  return computeAgeAt(opts.birthDate, opts.birthPrecision, opts.deathDate, opts.deathPrecision);
 }

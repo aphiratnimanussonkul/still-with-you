@@ -60,14 +60,14 @@ describe('GET /v1/people/:id/events', () => {
       headers: await auth(creatorToken),
       payload: { name: 'ยาย' },
     });
-    personId = JSON.parse(personRes.body).id;
+    personId = JSON.parse(personRes.body).person.id;
     const otherPersonRes = await server.inject({
       method: 'POST',
       url: `/v1/families/${familyId}/people`,
       headers: await auth(creatorToken),
       payload: { name: 'ตา' },
     });
-    otherPersonId = JSON.parse(otherPersonRes.body).id;
+    otherPersonId = JSON.parse(otherPersonRes.body).person.id;
   });
 
   afterEach(async () => {

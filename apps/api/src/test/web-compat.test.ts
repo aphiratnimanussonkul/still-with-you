@@ -137,12 +137,17 @@ describe('Web-compat routes (contributions list, people, envelope, api-client)',
         payload: { name: '  ยายสมศรี  ', relation_label: 'ยาย' },
       });
       expect(created.statusCode).toBe(201);
-      const person = JSON.parse(created.body);
+      const createdBody = JSON.parse(created.body);
+      expect(createdBody.relationship).toBeNull();
+      const person = createdBody.person;
       expect(person).toMatchObject({
         family_id: familyId,
         name: 'ยายสมศรี',
         relation_label: 'ยาย',
         account_id: null,
+        is_living: true,
+        death_date: null,
+        death_date_precision: null,
       });
       expect(person.id).toBeTruthy();
 
@@ -201,8 +206,8 @@ describe('Web-compat routes (contributions list, people, envelope, api-client)',
         payload: { name: 'ปู่สมชาย', relation_label: 'ปู่' },
       });
       expect(created.statusCode).toBe(201);
-      const id = JSON.parse(created.body).id;
-      expect(JSON.parse(created.body).relation_label).toBe('ปู่');
+      const id = JSON.parse(created.body).person.id;
+      expect(JSON.parse(created.body).person.relation_label).toBe('ปู่');
 
       const listed = await server.inject({
         method: 'GET',

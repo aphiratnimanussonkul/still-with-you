@@ -32,6 +32,10 @@ describe('Family tree (contract v0.8)', () => {
     });
   }
 
+  function createdPerson(res: { body: string }) {
+    return JSON.parse(res.body).person;
+  }
+
   beforeEach(async () => {
     server = await createTestServer();
     await cleanupTestData();
@@ -89,7 +93,7 @@ describe('Family tree (contract v0.8)', () => {
       for (const gender of ['female', 'male', 'other', null]) {
         const res = await createPerson(memberToken, { name: `คน-${gender}`, gender });
         expect(res.statusCode).toBe(201);
-        expect(JSON.parse(res.body).gender).toBe(gender);
+        expect(createdPerson(res).gender).toBe(gender);
       }
       const bad = await createPerson(memberToken, { name: 'ไม่ใช่', gender: 'unknown' });
       expect(bad.statusCode).toBe(400);
@@ -106,8 +110,11 @@ describe('Family tree (contract v0.8)', () => {
         gender: 'female',
       });
       expect(created.statusCode).toBe(201);
-      const person = JSON.parse(created.body);
+      const person = createdPerson(created);
       expect(person.age).toBe(computeAge('1942-01-01', 'year'));
+      expect(person.is_living).toBe(true);
+      expect(person.death_date).toBeNull();
+      expect(person.death_date_precision).toBeNull();
       expect(person.invite_status).toBe('none');
       expect(person.birth_date_precision).toBe('year');
 
@@ -134,7 +141,7 @@ describe('Family tree (contract v0.8)', () => {
     it('lets any member create; creator, steward, or linked account edit; others 403', async () => {
       const created = await createPerson(memberToken, { name: 'ปู่' });
       expect(created.statusCode).toBe(201);
-      const id = JSON.parse(created.body).id;
+      const id = createdPerson(created).id;
 
       const creatorPatch = await server.inject({
         method: 'PATCH',
@@ -190,7 +197,7 @@ describe('Family tree (contract v0.8)', () => {
 
     it('lets creator or steward soft-delete; linked self cannot; other member 403', async () => {
       const created = await createPerson(memberToken, { name: 'ลบได้' });
-      const id = JSON.parse(created.body).id;
+      const id = createdPerson(created).id;
 
       const otherDelete = await server.inject({
         method: 'DELETE',
@@ -218,7 +225,7 @@ describe('Family tree (contract v0.8)', () => {
   describe('soft delete', () => {
     it('keeps stories, removes person_facts, and returns 409 PERSON_LINKED when account_id is set', async () => {
       const created = await createPerson(memberToken, { name: 'ยาย' });
-      const id = JSON.parse(created.body).id;
+      const id = createdPerson(created).id;
 
       const event = await server.inject({
         method: 'POST',
@@ -259,7 +266,7 @@ describe('Family tree (contract v0.8)', () => {
       expect(stories[0].story).toBe('เล่าเรื่องยาย');
 
       const linked = await createPerson(memberToken, { name: 'คนลิงก์' });
-      const linkedId = JSON.parse(linked.body).id;
+      const linkedId = createdPerson(linked).id;
       const invite = await server.inject({
         method: 'POST',
         url: `/v1/people/${linkedId}/invites`,
@@ -284,9 +291,9 @@ describe('Family tree (contract v0.8)', () => {
 
   describe('relationships', () => {
     it('stores parent and spouse; self-link and cycles are 400 INVALID_RELATIONSHIP; duplicates 409', async () => {
-      const a = JSON.parse((await createPerson(memberToken, { name: 'A' })).body);
-      const b = JSON.parse((await createPerson(memberToken, { name: 'B' })).body);
-      const c = JSON.parse((await createPerson(memberToken, { name: 'C' })).body);
+      const a = createdPerson(await createPerson(memberToken, { name: 'A' }));
+      const b = createdPerson(await createPerson(memberToken, { name: 'B' }));
+      const c = createdPerson(await createPerson(memberToken, { name: 'C' }));
 
       const self = await server.inject({
         method: 'POST',
@@ -380,7 +387,7 @@ describe('Family tree (contract v0.8)', () => {
   describe('person invites', () => {
     it('is steward-only; links account_id on accept; PERSON_ALREADY_LINKED and INVITE_INVALID', async () => {
       const created = await createPerson(memberToken, { name: 'ลิงก์ฉัน' });
-      const id = JSON.parse(created.body).id;
+      const id = createdPerson(created).id;
 
       const memberInvite = await server.inject({
         method: 'POST',
@@ -431,7 +438,7 @@ describe('Family tree (contract v0.8)', () => {
       expect(JSON.parse(again.body).error.code).toBe('PERSON_ALREADY_LINKED');
 
       const doomed = await createPerson(memberToken, { name: 'ลบแล้ว' });
-      const doomedId = JSON.parse(doomed.body).id;
+      const doomedId = createdPerson(doomed).id;
       await server.inject({
         method: 'DELETE',
         url: `/v1/people/${doomedId}`,
@@ -447,7 +454,7 @@ describe('Family tree (contract v0.8)', () => {
       expect(JSON.parse(invalid.body).error.code).toBe('INVITE_INVALID');
 
       const live = await createPerson(memberToken, { name: 'จะถูกลบ' });
-      const liveId = JSON.parse(live.body).id;
+      const liveId = createdPerson(live).id;
       const pendingInvite = await server.inject({
         method: 'POST',
         url: `/v1/people/${liveId}/invites`,
@@ -472,7 +479,7 @@ describe('Family tree (contract v0.8)', () => {
 
   describe('avatar_media_id', () => {
     it('returns 409 MEDIA_NOT_READY when not completed and 422 UPLOAD_MISMATCH for wrong purpose or family', async () => {
-      const person = JSON.parse((await createPerson(memberToken, { name: 'รูป' })).body);
+      const person = createdPerson(await createPerson(memberToken, { name: 'รูป' }));
 
       const [pending] = await db
         .insert(media)

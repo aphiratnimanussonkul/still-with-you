@@ -88,8 +88,13 @@ export async function insertNotification(
   await client.insert(notifications).values({
     accountId: input.accountId,
     type: input.type,
-    payload: dsql`${JSON.stringify(payload)}::jsonb`,
+    payload: jsonbObject(payload),
   });
+}
+
+/** Embed JSON as a jsonb object literal. Drizzle/postgres.js otherwise store a string. */
+function jsonbObject(value: Record<string, unknown>) {
+  return dsql.raw(`'${JSON.stringify(value).replace(/'/g, "''")}'::jsonb`);
 }
 
 async function snapshotInvitePayload(

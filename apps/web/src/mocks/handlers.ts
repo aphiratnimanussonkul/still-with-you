@@ -520,6 +520,9 @@ export const handlers = [
       name,
       relation_label: body.relation_label ?? null,
       account_id: null,
+      is_living: true,
+      death_date: null,
+      death_date_precision: null,
     };
     people.push(created);
     return jsonContract(personResponseSchema, created, { status: 201 });

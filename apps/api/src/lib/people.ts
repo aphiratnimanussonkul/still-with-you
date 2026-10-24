@@ -5,13 +5,21 @@ import {
   errorMessages,
   MEDIA_READ_TTL_SECONDS,
   type CreatePerson,
+  type PersonRelationshipKind,
   type UpdatePerson,
 } from '@still-with-you/contracts';
 import { db, media, people, personRelationships } from './db/index.js';
-import { asYmd, computeAge, isFutureBirthDate, normalizeBirthDate, type BirthDatePrecision } from './age.js';
+import {
+  asYmd,
+  compareYmd,
+  computePersonAge,
+  isFutureBirthDate,
+  normalizeBirthDate,
+  type BirthDatePrecision,
+} from './age.js';
 import { getMediaStorage } from './media/storage.js';
 
-type QueryClient = Pick<typeof db, 'select' | 'update'>;
+type QueryClient = Pick<typeof db, 'select' | 'update' | 'insert'>;
 
 export type PersonRow = typeof people.$inferSelect;
 
@@ -89,6 +97,70 @@ export function parseBirthFields(body: CreatePerson | UpdatePerson): {
     );
   }
   return { birthDate: normalized, precision: resolvedPrecision };
+}
+
+function invalidDeath(field: 'death_date' | 'death_date_precision' | 'is_living' = 'death_date'): never {
+  throw new AppError(
+    ErrorCode.INVALID_DEATH_DATE,
+    errorMessages[ErrorCode.INVALID_DEATH_DATE],
+    400,
+    field
+  );
+}
+
+export function parseDeathFields(
+  body: CreatePerson | UpdatePerson,
+  current: {
+    isLiving: boolean;
+    deathDate: string | Date | null;
+    deathDatePrecision: BirthDatePrecision | null;
+    birthDate: string | Date | null;
+  }
+): {
+  isLiving: boolean;
+  deathDate: string | null;
+  deathPrecision: BirthDatePrecision | null;
+} {
+  const isLiving = body.is_living ?? current.isLiving;
+
+  let deathDate: string | null;
+  let deathPrecision: BirthDatePrecision | null;
+
+  if (body.death_date === undefined) {
+    deathDate = current.deathDate ? asYmd(current.deathDate) : null;
+    deathPrecision =
+      body.death_date_precision === undefined
+        ? current.deathDatePrecision
+        : body.death_date_precision;
+  } else if (body.death_date === null) {
+    deathDate = null;
+    deathPrecision = null;
+  } else {
+    const inferred: BirthDatePrecision = /^\d{4}$/.test(body.death_date) ? 'year' : 'day';
+    deathPrecision = body.death_date_precision ?? inferred;
+    deathDate = normalizeBirthDate(body.death_date, deathPrecision);
+  }
+
+  if (body.death_date === undefined && body.death_date_precision !== undefined) {
+    if (body.death_date_precision === null) {
+      deathDate = null;
+      deathPrecision = null;
+    } else if (!deathDate) {
+      invalidDeath('death_date_precision');
+    }
+  }
+
+  if (deathDate && !deathPrecision) invalidDeath('death_date_precision');
+  if (!deathDate && deathPrecision) invalidDeath('death_date_precision');
+  if (deathDate && isLiving) invalidDeath('death_date');
+  if (deathDate && isFutureBirthDate(deathDate)) invalidDeath('death_date');
+
+  const birthDate = current.birthDate ? asYmd(current.birthDate) : null;
+  if (deathDate && birthDate && compareYmd(deathDate, birthDate) < 0) {
+    invalidDeath('death_date');
+  }
+
+  return { isLiving, deathDate, deathPrecision };
 }
 
 export async function assertAvatarMedia(
@@ -215,6 +287,120 @@ export async function wouldCreateParentCycle(
   return false;
 }
 
+export function mapRelationshipKind(
+  kind: PersonRelationshipKind,
+  newPersonId: string,
+  otherPersonId: string
+): { personId: string; relatedPersonId: string; type: 'parent' | 'spouse' } {
+  if (kind === 'parent_of') {
+    return { personId: newPersonId, relatedPersonId: otherPersonId, type: 'parent' };
+  }
+  if (kind === 'child_of') {
+    return { personId: otherPersonId, relatedPersonId: newPersonId, type: 'parent' };
+  }
+  const [personId, relatedPersonId] =
+    otherPersonId < newPersonId ? [otherPersonId, newPersonId] : [newPersonId, otherPersonId];
+  return { personId, relatedPersonId, type: 'spouse' };
+}
+
+export async function insertPersonRelationship(
+  client: QueryClient,
+  input: {
+    familyId: string;
+    personId: string;
+    relatedPersonId: string;
+    type: 'parent' | 'spouse';
+    createdByAccountId: string;
+    missingPersonField?: string;
+  }
+) {
+  let personId = input.personId;
+  let relatedPersonId = input.relatedPersonId;
+  if (input.type === 'spouse' && relatedPersonId < personId) {
+    personId = input.relatedPersonId;
+    relatedPersonId = input.personId;
+  }
+
+  if (personId === relatedPersonId) {
+    throw new AppError(
+      ErrorCode.INVALID_RELATIONSHIP,
+      errorMessages[ErrorCode.INVALID_RELATIONSHIP],
+      400
+    );
+  }
+
+  const [left] = await client
+    .select({ id: people.id })
+    .from(people)
+    .where(
+      and(eq(people.id, personId), eq(people.familyId, input.familyId), isNull(people.deletedAt))
+    )
+    .limit(1);
+  const [right] = await client
+    .select({ id: people.id })
+    .from(people)
+    .where(
+      and(
+        eq(people.id, relatedPersonId),
+        eq(people.familyId, input.familyId),
+        isNull(people.deletedAt)
+      )
+    )
+    .limit(1);
+
+  if (!left) {
+    throw new AppError(
+      ErrorCode.INVALID_INPUT,
+      'person_id must belong to this family',
+      400,
+      input.missingPersonField ?? 'person_id'
+    );
+  }
+  if (!right) {
+    throw new AppError(
+      ErrorCode.INVALID_INPUT,
+      'related_person_id must belong to this family',
+      400,
+      input.missingPersonField ?? 'related_person_id'
+    );
+  }
+
+  if (input.type === 'parent' && (await wouldCreateParentCycle(client, personId, relatedPersonId))) {
+    throw new AppError(
+      ErrorCode.INVALID_RELATIONSHIP,
+      errorMessages[ErrorCode.INVALID_RELATIONSHIP],
+      400
+    );
+  }
+
+  const [existing] = await client
+    .select({ id: personRelationships.id })
+    .from(personRelationships)
+    .where(
+      and(
+        eq(personRelationships.personId, personId),
+        eq(personRelationships.relatedPersonId, relatedPersonId),
+        eq(personRelationships.type, input.type)
+      )
+    )
+    .limit(1);
+  if (existing) {
+    throw new AppError(ErrorCode.RELATIONSHIP_EXISTS, errorMessages[ErrorCode.RELATIONSHIP_EXISTS], 409);
+  }
+
+  const [created] = await client
+    .insert(personRelationships)
+    .values({
+      familyId: input.familyId,
+      personId,
+      relatedPersonId,
+      type: input.type,
+      createdByAccountId: input.createdByAccountId,
+    })
+    .returning();
+  return created;
+}
+
 export async function toPersonResponse(
   person: PersonRow,
   inviteStatus: 'none' | 'pending' | 'linked',
@@ -245,7 +431,16 @@ export async function toPersonResponse(
     gender: person.gender,
     birth_date: person.birthDate ? asYmd(person.birthDate) : null,
     birth_date_precision: person.birthDatePrecision,
-    age: computeAge(person.birthDate ?? null, person.birthDatePrecision),
+    is_living: person.isLiving,
+    death_date: person.deathDate ? asYmd(person.deathDate) : null,
+    death_date_precision: (person.deathDatePrecision as BirthDatePrecision | null) ?? null,
+    age: computePersonAge({
+      isLiving: person.isLiving,
+      birthDate: person.birthDate ?? null,
+      birthPrecision: person.birthDatePrecision,
+      deathDate: person.deathDate ?? null,
+      deathPrecision: (person.deathDatePrecision as BirthDatePrecision | null) ?? null,
+    }),
     bio: person.bio,
     avatar_media_id: person.avatarMediaId,
     avatar_url: avatarUrl,

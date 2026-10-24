@@ -84,7 +84,7 @@ describe('Invite preview, URL, and accept (Kret)', () => {
         headers: await auth(stewardToken),
         payload: { name: 'ยาย' },
       });
-      const personId = JSON.parse(personRes.body).id;
+      const personId = JSON.parse(personRes.body).person.id;
       const created = await server.inject({
         method: 'POST',
         url: `/v1/people/${personId}/invites`,
@@ -129,7 +129,7 @@ describe('Invite preview, URL, and accept (Kret)', () => {
         headers: await auth(stewardToken),
         payload: { name: 'ตาแดง' },
       });
-      const personId = JSON.parse(personRes.body).id;
+      const personId = JSON.parse(personRes.body).person.id;
       const created = await server.inject({
         method: 'POST',
         url: `/v1/people/${personId}/invites`,
@@ -266,7 +266,7 @@ describe('Invite preview, URL, and accept (Kret)', () => {
         headers: await auth(stewardToken),
         payload: { name: 'ปู่' },
       });
-      const personId = JSON.parse(personRes.body).id;
+      const personId = JSON.parse(personRes.body).person.id;
       const created = await server.inject({
         method: 'POST',
         url: `/v1/people/${personId}/invites`,

@@ -30,11 +30,13 @@ import { toEventResponse } from '../lib/event-response.js';
 import { inviteExpiresAt, mintInviteToken, publicInviteUrl } from '../lib/invites.js';
 import {
   attachAvatar,
+  insertPersonRelationship,
   inviteStatusFor,
+  mapRelationshipKind,
   parseBirthFields,
+  parseDeathFields,
   resolvePersonName,
   toPersonResponse,
-  wouldCreateParentCycle,
 } from '../lib/people.js';
 
 async function requireFamilyMember(familyId: string, accountId: string) {
@@ -130,6 +132,12 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     const body = createPersonSchema.parse(request.body);
     const { displayName } = resolvePersonName(body, true);
     const birth = parseBirthFields(body);
+    const death = parseDeathFields(body, {
+      isLiving: true,
+      deathDate: null,
+      deathDatePrecision: null,
+      birthDate: birth.birthDate === undefined ? null : birth.birthDate,
+    });
 
     const created = await db.transaction(async (tx) => {
       const [row] = await tx
@@ -142,6 +150,9 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
           gender: body.gender === undefined ? null : body.gender,
           birthDate: birth.birthDate === undefined ? null : birth.birthDate,
           birthDatePrecision: birth.precision ?? 'day',
+          isLiving: death.isLiving,
+          deathDate: death.deathDate,
+          deathDatePrecision: death.deathPrecision,
           bio: body.bio === undefined ? null : body.bio,
           createdByAccountId: request.user!.id,
         })
@@ -153,13 +164,29 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
           familyId: request.params.fid,
           mediaId: body.avatar_media_id,
         });
-        const [updated] = await tx.select().from(people).where(eq(people.id, row.id)).limit(1);
-        return updated;
       }
-      return row;
+
+      let relationship: typeof personRelationships.$inferSelect | null = null;
+      if (body.relationship) {
+        const mapped = mapRelationshipKind(body.relationship.kind, row.id, body.relationship.person_id);
+        relationship = await insertPersonRelationship(tx, {
+          familyId: request.params.fid,
+          personId: mapped.personId,
+          relatedPersonId: mapped.relatedPersonId,
+          type: mapped.type,
+          createdByAccountId: request.user!.id,
+          missingPersonField: 'relationship.person_id',
+        });
+      }
+
+      const [person] = await tx.select().from(people).where(eq(people.id, row.id)).limit(1);
+      return { person: person!, relationship };
     });
 
-    return reply.status(201).send(await toPersonResponse(created, 'none'));
+    return reply.status(201).send({
+      person: await toPersonResponse(created.person, 'none'),
+      relationship: created.relationship ? toRelationshipResponse(created.relationship) : null,
+    });
   });
 
   fastify.get<{ Params: { id: string } }>('/people/:id', async (request, reply) => {
@@ -183,6 +210,13 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     const body = updatePersonSchema.parse(request.body);
     const name = resolvePersonName(body, false);
     const birth = parseBirthFields(body);
+    const nextBirth = birth.birthDate === undefined ? person.birthDate : birth.birthDate;
+    const death = parseDeathFields(body, {
+      isLiving: person.isLiving,
+      deathDate: person.deathDate,
+      deathDatePrecision: (person.deathDatePrecision as 'day' | 'year' | null) ?? null,
+      birthDate: nextBirth,
+    });
 
     const updated = await db.transaction(async (tx) => {
       if (body.avatar_media_id !== undefined) {
@@ -202,6 +236,13 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
           ...(body.gender !== undefined && { gender: body.gender }),
           ...(birth.birthDate !== undefined && { birthDate: birth.birthDate }),
           ...(birth.precision !== undefined && { birthDatePrecision: birth.precision }),
+          ...(body.is_living !== undefined || body.death_date !== undefined || body.death_date_precision !== undefined
+            ? {
+                isLiving: death.isLiving,
+                deathDate: death.deathDate,
+                deathDatePrecision: death.deathPrecision,
+              }
+            : {}),
           ...(body.bio !== undefined && { bio: body.bio }),
           updatedAt: new Date(),
         })
@@ -253,49 +294,6 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     await requireFamilyMember(request.params.fid, request.user!.id);
     const body = createRelationshipSchema.parse(request.body);
 
-    if (body.person_id === body.related_person_id) {
-      throw new AppError(
-        ErrorCode.INVALID_RELATIONSHIP,
-        errorMessages[ErrorCode.INVALID_RELATIONSHIP],
-        400
-      );
-    }
-
-    const [left] = await db
-      .select()
-      .from(people)
-      .where(
-        and(
-          eq(people.id, body.person_id),
-          eq(people.familyId, request.params.fid),
-          isNull(people.deletedAt)
-        )
-      )
-      .limit(1);
-    const [right] = await db
-      .select()
-      .from(people)
-      .where(
-        and(
-          eq(people.id, body.related_person_id),
-          eq(people.familyId, request.params.fid),
-          isNull(people.deletedAt)
-        )
-      )
-      .limit(1);
-
-    if (!left) {
-      throw new AppError(ErrorCode.INVALID_INPUT, 'person_id must belong to this family', 400, 'person_id');
-    }
-    if (!right) {
-      throw new AppError(
-        ErrorCode.INVALID_INPUT,
-        'related_person_id must belong to this family',
-        400,
-        'related_person_id'
-      );
-    }
-
     let personId = body.person_id;
     let relatedPersonId = body.related_person_id;
     if (body.type === 'spouse' && relatedPersonId < personId) {
@@ -303,39 +301,13 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
       relatedPersonId = body.person_id;
     }
 
-    if (body.type === 'parent' && (await wouldCreateParentCycle(db, personId, relatedPersonId))) {
-      throw new AppError(
-        ErrorCode.INVALID_RELATIONSHIP,
-        errorMessages[ErrorCode.INVALID_RELATIONSHIP],
-        400
-      );
-    }
-
-    const [existing] = await db
-      .select()
-      .from(personRelationships)
-      .where(
-        and(
-          eq(personRelationships.personId, personId),
-          eq(personRelationships.relatedPersonId, relatedPersonId),
-          eq(personRelationships.type, body.type)
-        )
-      )
-      .limit(1);
-    if (existing) {
-      throw new AppError(ErrorCode.RELATIONSHIP_EXISTS, errorMessages[ErrorCode.RELATIONSHIP_EXISTS], 409);
-    }
-
-    const [created] = await db
-      .insert(personRelationships)
-      .values({
-        familyId: request.params.fid,
-        personId,
-        relatedPersonId,
-        type: body.type,
-        createdByAccountId: request.user!.id,
-      })
-      .returning();
+    const created = await insertPersonRelationship(db, {
+      familyId: request.params.fid,
+      personId,
+      relatedPersonId,
+      type: body.type,
+      createdByAccountId: request.user!.id,
+    });
 
     return reply.status(201).send(toRelationshipResponse(created));
   });
