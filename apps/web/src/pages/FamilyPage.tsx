@@ -1,28 +1,26 @@
 import { useState } from 'react';
 import { PlusIcon } from '@phosphor-icons/react/Plus';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { FamilySwitcher } from '@/components/FamilySwitcher';
 import { Illustration } from '@/components/Illustration';
+import { PersonFactsSection } from '@/components/PersonFactsSection';
 import { QueryLoading } from '@/components/QueryLoading';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Icon } from '@/components/ui/icon';
-import { copy, interpolate, interpolateHeading, truncateName } from '@/copy';
-import { formatThaiDate } from '@/lib/dates';
+import { copy, interpolate, truncateName } from '@/copy';
 import { useMe } from '@/hooks/use-me';
 import { useSelectedFamily } from '@/hooks/use-selected-family';
 import { api } from '@/lib/api-client';
 import { messageForError } from '@/lib/api-errors';
-import { familyGraph, type FamilyPerson } from '@/lib/family-graph';
+import { familyGraph, personDisplayName } from '@/lib/family-graph';
 import { FOCUS_MAX, homeApi } from '@/lib/home-api';
 import { queryKeys } from '@/lib/query-client';
-
-function displayPersonName(person: Pick<FamilyPerson, 'name' | 'display_name'>) {
-  return person.display_name || person.name;
-}
 
 export function FamilyPage() {
   const queryClient = useQueryClient();
@@ -112,7 +110,6 @@ export function FamilyPage() {
 
 function TreePanel({ familyId }: { familyId: string }) {
   const queryClient = useQueryClient();
-  const [personName, setPersonName] = useState('');
   const people = useQuery({
     queryKey: queryKeys.people(familyId),
     queryFn: () => familyGraph.listPeople(familyId),
@@ -120,13 +117,6 @@ function TreePanel({ familyId }: { familyId: string }) {
   const focus = useQuery({
     queryKey: queryKeys.focus(familyId),
     queryFn: () => homeApi.getFocus(familyId),
-  });
-  const createPerson = useMutation({
-    mutationFn: () => familyGraph.createPerson(familyId, { name: personName.trim() }),
-    onSuccess: async () => {
-      setPersonName('');
-      await queryClient.invalidateQueries({ queryKey: queryKeys.people(familyId) });
-    },
   });
   const toggleFocus = useMutation({
     mutationFn: (personIds: string[]) => homeApi.putFocus(familyId, personIds),
@@ -169,95 +159,86 @@ function TreePanel({ familyId }: { familyId: string }) {
         </div>
       ) : items.length > 0 ? (
         <ul className="flex flex-col gap-3">
-          {items.map((person) => (
-            <li key={person.id}>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="truncate">{truncateName(displayPersonName(person))}</CardTitle>
-                  {person.relation_label ? (
-                    <CardDescription>
-                      {interpolate(copy['person.relation.meta'], { ความสัมพันธ์: person.relation_label })}
-                    </CardDescription>
-                  ) : null}
-                </CardHeader>
-                <CardContent className="flex flex-col gap-2">
-                  <div className="flex min-h-11 items-start gap-3">
-                    <Checkbox
-                      id={`focus-${person.id}`}
-                      checked={focused.has(person.id)}
-                      disabled={
-                        focusUnavailable ||
-                        toggleFocus.isPending ||
-                        (!focused.has(person.id) && focusedIds.length >= FOCUS_MAX)
-                      }
-                      onCheckedChange={(value) => {
-                        if (focusUnavailable) return;
-                        const next = focusedIds.filter((id) => id !== person.id);
-                        if (value === true) {
-                          if (next.length >= FOCUS_MAX) return;
-                          next.push(person.id);
-                        }
-                        toggleFocus.mutate(next);
-                      }}
-                    />
-                    <div className="flex flex-col gap-1">
-                      <Label htmlFor={`focus-${person.id}`} className="text-body font-normal">
-                        {copy['family.focus.toggle']}
-                      </Label>
-                      <p className="text-caption text-muted-foreground">{copy['family.focus.note']}</p>
-                      {focus.isError ? (
-                        <>
-                          <p className="text-caption text-destructive">{copy['family.focus.load_error']}</p>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => void focus.refetch()}
-                          >
-                            {copy['family.focus.load_error.action']}
-                          </Button>
-                        </>
+          {items.map((person) => {
+            const name = personDisplayName(person);
+            return (
+              <li key={person.id}>
+                <Card>
+                  <CardHeader>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <CardTitle className="truncate">
+                        <Link to={`/family/people/${person.id}`} className="hover:underline">
+                          {truncateName(name)}
+                        </Link>
+                      </CardTitle>
+                      {!person.account_id ? (
+                        <Badge variant="secondary">{copy['person.unjoined']}</Badge>
                       ) : null}
                     </div>
-                  </div>
-                  <PersonFactsSection personId={person.id} name={displayPersonName(person)} />
-                </CardContent>
-              </Card>
-            </li>
-          ))}
+                    {person.relation_label ? (
+                      <CardDescription>
+                        {interpolate(copy['person.relation.meta'], { ความสัมพันธ์: person.relation_label })}
+                      </CardDescription>
+                    ) : null}
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-2">
+                    <div className="flex min-h-11 items-start gap-3">
+                      <Checkbox
+                        id={`focus-${person.id}`}
+                        checked={focused.has(person.id)}
+                        disabled={
+                          focusUnavailable ||
+                          toggleFocus.isPending ||
+                          (!focused.has(person.id) && focusedIds.length >= FOCUS_MAX)
+                        }
+                        onCheckedChange={(value) => {
+                          if (focusUnavailable) return;
+                          const next = focusedIds.filter((id) => id !== person.id);
+                          if (value === true) {
+                            if (next.length >= FOCUS_MAX) return;
+                            next.push(person.id);
+                          }
+                          toggleFocus.mutate(next);
+                        }}
+                      />
+                      <div className="flex flex-col gap-1">
+                        <Label htmlFor={`focus-${person.id}`} className="text-body font-normal">
+                          {copy['family.focus.toggle']}
+                        </Label>
+                        <p className="text-caption text-muted-foreground">{copy['family.focus.note']}</p>
+                        {focus.isError ? (
+                          <>
+                            <p className="text-caption text-destructive">{copy['family.focus.load_error']}</p>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => void focus.refetch()}
+                            >
+                              {copy['family.focus.load_error.action']}
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                    <PersonFactsSection personId={person.id} name={name} />
+                    <Button asChild variant="ghost" size="sm">
+                      <Link to={`/family/people/new?related=${person.id}`}>{copy['person.add.action']}</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{copy['person.add.title']}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form
-            className="flex flex-col gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (personName.trim()) createPerson.mutate();
-            }}
-          >
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="person-name">{copy['person.name_label']}</Label>
-              <Input
-                id="person-name"
-                value={personName}
-                onChange={(event) => setPersonName(event.target.value)}
-                placeholder={copy['person.name_placeholder']}
-              />
-            </div>
-            {createPerson.isError ? (
-              <p className="text-caption text-destructive">{messageForError(createPerson.error)}</p>
-            ) : null}
-            <Button type="submit" disabled={createPerson.isPending || !personName.trim()}>
-              {copy['person.save']}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <Button asChild>
+        <Link to="/family/people/new">
+          <Icon as={PlusIcon} size={20} />
+          {copy['person.add.action']}
+        </Link>
+      </Button>
     </div>
   );
 }
@@ -275,7 +256,7 @@ function MembersPanel({ familyId }: { familyId: string }) {
     queryFn: () => familyGraph.listInvites(familyId),
   });
   const invite = useMutation({
-    mutationFn: () => familyGraph.createInvite(familyId, email.trim()),
+    mutationFn: () => familyGraph.createInvite(familyId, { email: email.trim() }),
     onSuccess: async () => {
       setEmail('');
       await queryClient.invalidateQueries({ queryKey: queryKeys.invites(familyId) });
@@ -363,54 +344,3 @@ function MembersPanel({ familyId }: { familyId: string }) {
   );
 }
 
-function PersonFactsSection({ personId, name }: { personId: string; name: string }) {
-  const facts = useQuery({
-    queryKey: queryKeys.facts(personId),
-    queryFn: () => homeApi.listFacts(personId),
-  });
-  const answers =
-    facts.data?.groups.flatMap((group) =>
-      group.answers.map((answer) => ({
-        ...answer,
-        questionText: group.question.text,
-      }))
-    ) ?? [];
-
-  return (
-    <section className="flex flex-col gap-2">
-      <h3 className="text-body font-semibold">
-        {interpolateHeading(copy['person.facts.title'], { name })}
-      </h3>
-      {facts.isPending ? <QueryLoading /> : null}
-      {facts.isError ? (
-        <p className="text-caption text-destructive">{messageForError(facts.error)}</p>
-      ) : null}
-      {facts.isSuccess && answers.length === 0 ? (
-        <>
-          <p className="text-body text-muted-foreground">
-            {interpolateHeading(copy['person.facts.empty.title'], { name })}
-          </p>
-          <p className="text-caption text-muted-foreground">{copy['person.facts.empty.body']}</p>
-        </>
-      ) : null}
-      {facts.isSuccess && answers.length > 0 ? (
-        <ul className="flex flex-col gap-2">
-          {answers.map((answer) => (
-            <li key={answer.id} className="flex flex-col gap-1">
-              <p className="text-caption text-muted-foreground">{answer.questionText}</p>
-              <p className="text-body">{answer.answer_text}</p>
-              {answer.author && answer.created_at ? (
-                <p className="text-caption text-muted-foreground">
-                  {interpolate(copy['person.facts.answer.meta'], {
-                    ผู้ตอบ: answer.author.display_name,
-                    วันที่: formatThaiDate(answer.created_at),
-                  })}
-                </p>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </section>
-  );
-}

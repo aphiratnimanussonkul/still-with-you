@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { personListResponseSchema, personResponseSchema } from '@still-with-you/contracts';
+import { mockPeople, mockPersonOther } from '@/mocks/data';
 import {
+  acceptPersonInviteResponseSchema,
+  createPersonSchema,
+  createRelationshipSchema,
   familyInviteSchema,
   familyInvitesSchema,
   familyMembersSchema,
   familyPeopleSchema,
   familyPersonSchema,
+  personDisplayName,
+  personInvitePreviewSchema,
+  personInviteSchema,
+  updatePersonSchema,
 } from '@/lib/family-graph';
 
 const personId = '77777777-7777-4777-8777-777777777777';
@@ -99,5 +107,102 @@ describe('family-graph vs live API handlers', () => {
     expect(created.url).toContain('/invite/');
     expect(created.status).toBeUndefined();
     expect(created.created_at).toBeUndefined();
+  });
+});
+
+describe('family people contract v0.8', () => {
+  it('requires display_name and defaults relationships to []', () => {
+    expect(createPersonSchema.safeParse({}).success).toBe(false);
+    expect(createPersonSchema.parse({ name: 'ยายสมศรี' }).name).toBe('ยายสมศรี');
+    expect(createPersonSchema.parse({ display_name: ' ยายสมศรี ' }).display_name).toBe('ยายสมศรี');
+    expect(createPersonSchema.parse({ display_name: 'ยายสมศรี', gender: null }).gender).toBeNull();
+    expect(createPersonSchema.parse({ display_name: 'ยายสมศรี', gender: 'other' }).gender).toBe('other');
+    expect(familyPeopleSchema.parse({ people: [mockPersonOther], relationships: [] }).people[0]?.gender).toBe(
+      'other'
+    );
+    expect(createPersonSchema.safeParse({ display_name: 'ยาย', bio: 'x'.repeat(2001) }).success).toBe(
+      false
+    );
+    expect(familyPeopleSchema.parse({ people: mockPeople, relationships: [] }).relationships).toEqual([]);
+  });
+
+  it('parses parent and spouse relationships', () => {
+    expect(
+      createRelationshipSchema.parse({
+        person_id: mockPeople[0].id,
+        related_person_id: mockPeople[1].id,
+        type: 'parent',
+      }).type
+    ).toBe('parent');
+    expect(
+      createRelationshipSchema.safeParse({
+        person_id: mockPeople[0].id,
+        related_person_id: mockPeople[1].id,
+        type: 'child',
+      }).success
+    ).toBe(false);
+  });
+
+  it('allows a partial PATCH and uses display_name for the person label', () => {
+    expect(updatePersonSchema.parse({ family_name: 'นิมานุสสรณ์กุล' }).family_name).toBe(
+      'นิมานุสสรณ์กุล'
+    );
+    expect(personDisplayName(mockPeople[0])).toBe('ยายสมศรี');
+    expect(personDisplayName({ display_name: '', name: 'ปู่สมชาย' })).toBe('ปู่สมชาย');
+  });
+
+  it('accepts birth_date_precision and person invite payloads', () => {
+    expect(
+      createPersonSchema.parse({
+        display_name: 'ยาย',
+        birth_date: '1948',
+        birth_date_precision: 'year',
+        gender: 'female',
+        avatar_media_id: null,
+      })
+    ).toMatchObject({ birth_date: '1948', birth_date_precision: 'year', gender: 'female' });
+    expect(
+      personInviteSchema.parse({
+        id: mockPeople[0].id,
+        person_id: mockPeople[0].id,
+        family_id: mockPeople[0].family_id,
+        email: 'user@example.com',
+        status: 'pending',
+        expires_at: '2026-10-29T00:00:00.000Z',
+        created_at: '2026-10-22T00:00:00.000Z',
+        url: 'http://localhost:5173/invites/dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      }).url
+    ).toBe('http://localhost:5173/invites/dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+    expect(
+      personInvitePreviewSchema.parse({
+        family_name: 'บ้านเรา',
+        inviter_display_name: 'สมศรี',
+        person_display_name: 'ยายสมศรี',
+        expires_at: '2026-10-29T00:00:00.000Z',
+      })
+    ).toEqual({
+      family_name: 'บ้านเรา',
+      inviter_display_name: 'สมศรี',
+      person_display_name: 'ยายสมศรี',
+      expires_at: '2026-10-29T00:00:00.000Z',
+    });
+    expect(
+      personInvitePreviewSchema.parse({
+        family_name: 'บ้านเรา',
+        inviter_display_name: 'สมศรี',
+        person_display_name: null,
+        expires_at: '2026-10-29T00:00:00.000Z',
+      }).person_display_name
+    ).toBeNull();
+    expect(personInvitePreviewSchema.safeParse({ status: 'pending' }).success).toBe(false);
+    expect(
+      acceptPersonInviteResponseSchema.parse({
+        family_id: mockPeople[0].family_id,
+        person_id: mockPeople[0].id,
+      })
+    ).toEqual({
+      family_id: mockPeople[0].family_id,
+      person_id: mockPeople[0].id,
+    });
   });
 });

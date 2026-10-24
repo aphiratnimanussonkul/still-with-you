@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ErrorCode } from '@still-with-you/contracts';
 import { copy, interpolate } from '@/copy';
-import { ApiClientError, NetworkError, messageForError } from '@/lib/api-errors';
+import { ApiClientError, NetworkError, fieldForError, messageForError } from '@/lib/api-errors';
 import { formatThaiDate } from '@/lib/dates';
 
 function apiError(
@@ -121,5 +121,27 @@ describe('messageForError', () => {
   it('maps TOO_MANY_FOCUS and ALREADY_ANSWERED by code', () => {
     expect(messageForError(apiError(ErrorCode.TOO_MANY_FOCUS))).toBe(copy['error.TOO_MANY_FOCUS']);
     expect(messageForError(apiError(ErrorCode.ALREADY_ANSWERED))).toBe(copy['error.ALREADY_ANSWERED']);
+  });
+
+  it('maps people-CRUD codes, interpolates {name}, and keeps TBD codes generic', () => {
+    expect(messageForError(apiError('NAME_REQUIRED', undefined, 'display_name'))).toBe(
+      copy['error.NAME_REQUIRED']
+    );
+    expect(messageForError(apiError('INVALID_BIRTH_DATE', undefined, 'birth_date'))).toBe(
+      copy['error.INVALID_BIRTH_DATE']
+    );
+    expect(messageForError(apiError('PERSON_LINKED'), { name: 'ยายสมศรี' })).toBe(
+      interpolate(copy['error.PERSON_LINKED'], { name: 'ยายสมศรี' })
+    );
+    expect(messageForError(apiError('PERSON_ALREADY_LINKED'), { name: 'ยายสมศรี' })).toBe(
+      interpolate(copy['error.PERSON_ALREADY_LINKED'], { name: 'ยายสมศรี' })
+    );
+    expect(messageForError(apiError('INVITE_INVALID'))).toBe(copy['error.INVITE_INVALID']);
+    expect(messageForError(apiError('INVALID_RELATIONSHIP'))).toBe(copy['error.INVALID_RELATIONSHIP']);
+    expect(messageForError(apiError('SELF_RELATIONSHIP'))).toBe(copy['error.INVALID_RELATIONSHIP']);
+    expect(messageForError(apiError('RELATIONSHIP_EXISTS'))).toBe(copy['error.RELATIONSHIP_EXISTS']);
+    expect(messageForError(apiError('PERSON_SELF_LINK'))).toBe(copy['error.generic']);
+    expect(fieldForError(apiError('NAME_REQUIRED', undefined, 'display_name'))).toBe('display_name');
+    expect(fieldForError(apiError('INVALID_BIRTH_DATE', undefined, 'birth_date'))).toBe('birth_date');
   });
 });

@@ -115,4 +115,29 @@ describe('PhotoAttach', () => {
       expect(completeMediaUpload).toHaveBeenCalledWith(mediaId);
     });
   });
+
+  it('uploads an avatar with purpose and a single-photo limit', async () => {
+    const onStateChange = vi.fn();
+    render(
+      <PhotoAttach
+        familyId={familyId}
+        maxCount={1}
+        purpose="avatar"
+        label={copy['person.avatar.label']}
+        onStateChange={onStateChange}
+      />
+    );
+    expect(screen.getByText(copy['person.avatar.label'])).toBeTruthy();
+    expect(screen.getByLabelText(copy['a11y.add_photo']).hasAttribute('multiple')).toBe(false);
+    fireEvent.change(screen.getByLabelText(copy['a11y.add_photo']), {
+      target: { files: [jpeg()] },
+    });
+    await waitFor(() => {
+      expect(createMediaUpload).toHaveBeenCalledWith(familyId, {
+        content_type: 'image/webp',
+        size_bytes: 8,
+        purpose: 'avatar',
+      });
+    });
+  });
 });

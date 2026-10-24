@@ -46,7 +46,11 @@ const CODE_COPY: Partial<Record<string, string>> = {
  * FILE_TOO_LARGE / TOO_MANY_PHOTOS limit fields. Field names are never
  * appended to user-facing copy.
  */
-export function messageForError(error: unknown): string {
+export function fieldForError(error: unknown): string | undefined {
+  return error instanceof ApiClientError ? error.field : undefined;
+}
+
+export function messageForError(error: unknown, vars?: Record<string, string>): string {
   if (error instanceof NetworkError) {
     return copy['error.network'];
   }
@@ -106,6 +110,34 @@ export function messageForError(error: unknown): string {
 
     if (error.code === ErrorCode.ALREADY_ANSWERED) {
       return copy['error.ALREADY_ANSWERED'];
+    }
+
+    if (error.code === 'NAME_REQUIRED') {
+      return copy['error.NAME_REQUIRED'];
+    }
+
+    if (error.code === 'INVALID_BIRTH_DATE') {
+      return copy['error.INVALID_BIRTH_DATE'];
+    }
+
+    if (error.code === 'INVALID_RELATIONSHIP' || error.code === 'SELF_RELATIONSHIP') {
+      return copy['error.INVALID_RELATIONSHIP'];
+    }
+
+    if (error.code === 'RELATIONSHIP_EXISTS') {
+      return copy['error.RELATIONSHIP_EXISTS'];
+    }
+
+    if (error.code === 'PERSON_LINKED') {
+      return interpolate(copy['error.PERSON_LINKED'], { name: vars?.name ?? vars?.ชื่อ ?? '' });
+    }
+
+    if (error.code === 'PERSON_ALREADY_LINKED') {
+      return interpolate(copy['error.PERSON_ALREADY_LINKED'], { name: vars?.name ?? vars?.ชื่อ ?? '' });
+    }
+
+    if (error.code === 'INVITE_INVALID') {
+      return copy['error.INVITE_INVALID'];
     }
 
     if (error.code === ErrorCode.INTERNAL_ERROR || error.status >= 500) {

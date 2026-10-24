@@ -13,15 +13,19 @@ vi.mock('@/lib/api-client', () => ({
   },
 }));
 
-vi.mock('@/lib/family-graph', () => ({
-  familyGraph: {
-    listPeople: vi.fn(),
-    createPerson: vi.fn(),
-    listMembers: vi.fn(),
-    listInvites: vi.fn(),
-    createInvite: vi.fn(),
-  },
-}));
+vi.mock('@/lib/family-graph', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/family-graph')>('@/lib/family-graph');
+  return {
+    ...actual,
+    familyGraph: {
+      listPeople: vi.fn(),
+      createPerson: vi.fn(),
+      listMembers: vi.fn(),
+      listInvites: vi.fn(),
+      createInvite: vi.fn(),
+    },
+  };
+});
 
 vi.mock('@/lib/home-api', () => ({
   FOCUS_MAX: 10,
@@ -79,7 +83,7 @@ describe('FamilyPage', () => {
 
   it('lets the signed-in account focus more than one person', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
-    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
     vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([mockPeople[0].id]));
     vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
     vi.mocked(homeApi.putFocus).mockImplementation(async (_familyId, personIds) =>
@@ -105,7 +109,7 @@ describe('FamilyPage', () => {
 
   it('uses the focus toggle copy from the PO note', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
-    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
     vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([]));
     vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
 
@@ -116,17 +120,17 @@ describe('FamilyPage', () => {
 
   it('shows the profile facts empty state on each person card', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
-    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
     vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([]));
     vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
 
     renderPage();
     expect(
-      await screen.findByText(interpolateHeading(copy['person.facts.title'], { name: mockPeople[0].name }))
+      await screen.findByText(interpolateHeading(copy['person.facts.title'], { name: mockPeople[0].display_name }))
     ).toBeTruthy();
     expect(
       await screen.findByText(
-        interpolateHeading(copy['person.facts.empty.title'], { name: mockPeople[0].name })
+        interpolateHeading(copy['person.facts.empty.title'], { name: mockPeople[0].display_name })
       )
     ).toBeTruthy();
     expect(screen.getAllByText(copy['person.facts.empty.body']).length).toBeGreaterThan(0);
@@ -134,7 +138,7 @@ describe('FamilyPage', () => {
 
   it('shows answer meta on a person facts list', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
-    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
     vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([]));
     vi.mocked(homeApi.listFacts).mockImplementation(async (personId) => {
       if (personId !== mockPeople[0].id) return { groups: [] };
@@ -176,7 +180,7 @@ describe('FamilyPage', () => {
 
   it('keeps the people list when focus fails and retries from the toggle', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
-    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
     vi.mocked(homeApi.getFocus).mockRejectedValue(new Error('boom'));
     vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
 
@@ -194,7 +198,7 @@ describe('FamilyPage', () => {
     await waitFor(() => expect(vi.mocked(homeApi.getFocus).mock.calls.length).toBeGreaterThan(1));
   });
 
-  it('keeps the add-person form when the people list fails', async () => {
+  it('keeps the add-person action when the people list fails', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
     vi.mocked(familyGraph.listPeople).mockRejectedValue(new Error('boom'));
     vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([]));
@@ -203,7 +207,31 @@ describe('FamilyPage', () => {
     renderPage();
     expect(await screen.findByText(copy['error.generic'])).toBeTruthy();
     expect(screen.getByRole('button', { name: copy['family.focus.load_error.action'] })).toBeTruthy();
-    expect(screen.getByRole('button', { name: copy['person.save'] })).toBeTruthy();
+    expect(screen.getByRole('link', { name: copy['person.add.action'] })).toBeTruthy();
     expect(screen.queryByText('ยายสมศรี')).toBeNull();
+  });
+
+  it('links tree cards and add-person to people routes', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
+    vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([]));
+    vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
+
+    renderPage();
+    expect(
+      (await screen.findByRole('link', { name: mockPeople[0].display_name })).getAttribute('href')
+    ).toBe(`/family/people/${mockPeople[0].id}`);
+    expect(screen.getByRole('link', { name: mockPeople[1].display_name }).getAttribute('href')).toBe(
+      `/family/people/${mockPeople[1].id}`
+    );
+    const addLinks = screen.getAllByRole('link', { name: copy['person.add.action'] });
+    expect(addLinks.map((link) => link.getAttribute('href'))).toEqual(
+      expect.arrayContaining([
+        '/family/people/new',
+        `/family/people/new?related=${mockPeople[0].id}`,
+        `/family/people/new?related=${mockPeople[1].id}`,
+      ])
+    );
+    expect(screen.getAllByText(copy['person.unjoined']).length).toBe(2);
   });
 });

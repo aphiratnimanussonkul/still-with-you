@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ImageIcon } from '@phosphor-icons/react/Image';
 import { XIcon } from '@phosphor-icons/react/X';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Icon } from '@/components/ui/icon';
 import { copy, interpolate } from '@/copy';
 import { MEDIA_DEFAULTS, type MediaLimits } from '@/lib/media-config';
@@ -28,6 +29,10 @@ type PhotoDraft = {
 type PhotoAttachProps = {
   familyId: string;
   onStateChange: (state: PhotoAttachState) => void;
+  maxCount?: number;
+  purpose?: 'avatar';
+  label?: string;
+  existingUrl?: string | null;
 };
 
 function emit(photos: PhotoDraft[], onStateChange: (state: PhotoAttachState) => void) {
@@ -37,11 +42,21 @@ function emit(photos: PhotoDraft[], onStateChange: (state: PhotoAttachState) => 
   });
 }
 
-export function PhotoAttach({ familyId, onStateChange }: PhotoAttachProps) {
+export function PhotoAttach({
+  familyId,
+  onStateChange,
+  maxCount,
+  purpose,
+  label,
+  existingUrl,
+}: PhotoAttachProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [photos, setPhotos] = useState<PhotoDraft[]>([]);
-  const [limits, setLimits] = useState<MediaLimits>(MEDIA_DEFAULTS);
+  const [limits, setLimits] = useState<MediaLimits>({
+    ...MEDIA_DEFAULTS,
+    maxPerStory: maxCount ?? MEDIA_DEFAULTS.maxPerStory,
+  });
   const [banner, setBanner] = useState<string | null>(null);
   const photosRef = useRef(photos);
   photosRef.current = photos;
@@ -69,8 +84,12 @@ export function PhotoAttach({ familyId, onStateChange }: PhotoAttachProps) {
       const session = await createMediaUpload(familyId, {
         content_type: draft.contentType,
         size_bytes: draft.blob.size,
+        ...(purpose ? { purpose } : {}),
       });
-      setLimits({ maxBytes: session.max_bytes, maxPerStory: session.max_per_story });
+      setLimits({
+        maxBytes: session.max_bytes,
+        maxPerStory: maxCount ?? session.max_per_story,
+      });
       await putMediaFile(session.upload_url, draft.blob, draft.contentType, (percent) => {
         patch(draft.clientId, { progress: Math.max(10, Math.min(90, percent)) });
       });
@@ -123,11 +142,51 @@ export function PhotoAttach({ familyId, onStateChange }: PhotoAttachProps) {
 
   const readyCount = photos.filter((photo) => photo.status === 'ready').length;
   const showAdd = photos.length < limits.maxPerStory;
+  const latest = photos[photos.length - 1];
+  const avatarSrc = latest?.previewUrl ?? existingUrl ?? undefined;
+
+  if (purpose === 'avatar') {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-label font-medium">{label ?? copy['person.avatar.label']}</p>
+        <label htmlFor={inputId} className="w-fit cursor-pointer">
+          <Avatar className="size-24">
+            {avatarSrc ? <AvatarImage src={avatarSrc} alt="" /> : null}
+            <AvatarFallback>
+              <Icon as={ImageIcon} size={32} />
+            </AvatarFallback>
+          </Avatar>
+          <span className="sr-only">{copy['a11y.add_photo']}</span>
+        </label>
+        {latest?.status === 'uploading' ? (
+          <p className="text-caption text-muted-foreground">{latest.progress}%</p>
+        ) : null}
+        {latest?.status === 'failed' ? (
+          <button type="button" className="text-caption text-destructive" onClick={() => void uploadDraft(latest)}>
+            {copy['retry']}
+          </button>
+        ) : null}
+        <input
+          id={inputId}
+          ref={inputRef}
+          type="file"
+          className="sr-only"
+          accept="image/*,.heic,.heif"
+          aria-label={copy['a11y.add_photo']}
+          onChange={(event) => {
+            update([]);
+            void addFiles(event.target.files);
+          }}
+        />
+        {banner ? <p className="text-caption text-destructive">{banner}</p> : null}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-label font-medium">{copy['photo.label']}</p>
+        <p className="text-label font-medium">{label ?? copy['photo.label']}</p>
         <p className="text-caption text-muted-foreground">
           {interpolate(copy['photo.count'], {
             n: String(photos.length),
@@ -184,7 +243,7 @@ export function PhotoAttach({ familyId, onStateChange }: PhotoAttachProps) {
         type="file"
         className="sr-only"
         accept="image/*,.heic,.heif"
-        multiple
+        multiple={limits.maxPerStory > 1}
         aria-label={copy['a11y.add_photo']}
         onChange={(event) => void addFiles(event.target.files)}
       />
