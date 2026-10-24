@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeAge, isFutureBirthDate, normalizeBirthDate } from './age.js';
+import { computeAge, computePersonAge, isFutureBirthDate, normalizeBirthDate } from './age.js';
 
 describe('age (Asia/Bangkok)', () => {
   it('returns null without a birth date', () => {
@@ -26,5 +26,43 @@ describe('age (Asia/Bangkok)', () => {
     const now = new Date('2026-10-22T00:00:00.000Z');
     expect(isFutureBirthDate('2027-01-01', now)).toBe(true);
     expect(isFutureBirthDate('2020-01-01', now)).toBe(false);
+  });
+
+  it('uses today for living people and age-at-death when deceased', () => {
+    const now = new Date('2026-10-22T00:00:00.000Z');
+    expect(
+      computePersonAge({
+        isLiving: true,
+        birthDate: '2000-10-22',
+        birthPrecision: 'day',
+        now,
+      })
+    ).toBe(26);
+    expect(
+      computePersonAge({
+        isLiving: false,
+        birthDate: '1942-03-12',
+        birthPrecision: 'day',
+        deathDate: '2020-03-11',
+        deathPrecision: 'day',
+      })
+    ).toBe(77);
+    expect(
+      computePersonAge({
+        isLiving: false,
+        birthDate: '1942-01-01',
+        birthPrecision: 'year',
+        deathDate: '2020-01-01',
+        deathPrecision: 'year',
+      })
+    ).toBe(78);
+    expect(
+      computePersonAge({
+        isLiving: false,
+        birthDate: '1942-03-12',
+        birthPrecision: 'day',
+        deathDate: null,
+      })
+    ).toBeNull();
   });
 });

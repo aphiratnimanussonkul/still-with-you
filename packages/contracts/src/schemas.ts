@@ -326,7 +326,10 @@ export const updateFocusSchema = z.object({
 
 export const personGenderSchema = z.enum(['female', 'male', 'other']);
 export const birthDatePrecisionSchema = z.enum(['day', 'year']);
+export const deathDatePrecisionSchema = z.enum(['day', 'year']);
 export const relationshipTypeSchema = z.enum(['parent', 'spouse']);
+// Web family-tree v2 (PR #28) rebases on these exact field names.
+export const personRelationshipKindSchema = z.enum(['parent_of', 'child_of', 'spouse_of']);
 export const personInviteStatusSchema = z.enum(['none', 'pending', 'linked']);
 
 const optionalNameSchema = z.string().optional();
@@ -337,6 +340,11 @@ const birthDateInputSchema = z
   .nullable()
   .optional();
 
+export const inlineRelationshipSchema = z.object({
+  kind: personRelationshipKindSchema,
+  person_id: uuidSchema,
+});
+
 export const createPersonSchema = z.object({
   display_name: optionalNameSchema,
   name: optionalNameSchema,
@@ -345,8 +353,12 @@ export const createPersonSchema = z.object({
   gender: personGenderSchema.nullable().optional(),
   birth_date: birthDateInputSchema,
   birth_date_precision: birthDatePrecisionSchema.optional(),
+  is_living: z.boolean().optional(),
+  death_date: birthDateInputSchema,
+  death_date_precision: deathDatePrecisionSchema.nullable().optional(),
   bio: z.string().trim().max(2000).nullable().optional(),
   avatar_media_id: uuidSchema.nullable().optional(),
+  relationship: inlineRelationshipSchema.optional(),
 });
 
 export const updatePersonSchema = z.object({
@@ -357,6 +369,9 @@ export const updatePersonSchema = z.object({
   gender: personGenderSchema.nullable().optional(),
   birth_date: birthDateInputSchema,
   birth_date_precision: birthDatePrecisionSchema.optional(),
+  is_living: z.boolean().optional(),
+  death_date: birthDateInputSchema,
+  death_date_precision: deathDatePrecisionSchema.nullable().optional(),
   bio: z.string().trim().max(2000).nullable().optional(),
   avatar_media_id: uuidSchema.nullable().optional(),
 });
@@ -377,6 +392,9 @@ export const personResponseSchema = z.object({
   gender: personGenderSchema.nullable().optional(),
   birth_date: z.string().nullable().optional(),
   birth_date_precision: birthDatePrecisionSchema.optional(),
+  is_living: z.boolean(),
+  death_date: z.string().nullable(),
+  death_date_precision: deathDatePrecisionSchema.nullable(),
   age: z.number().int().nullable().optional(),
   bio: z.string().nullable().optional(),
   avatar_media_id: uuidSchema.nullable().optional(),
@@ -402,6 +420,11 @@ export const relationshipResponseSchema = z.object({
 export const personListResponseSchema = z.object({
   people: z.array(personResponseSchema),
   relationships: z.array(relationshipResponseSchema).optional(),
+});
+
+export const createPersonResponseSchema = z.object({
+  person: personResponseSchema,
+  relationship: relationshipResponseSchema.nullable(),
 });
 
 export const createFactSchema = z.object({
@@ -516,6 +539,9 @@ export type CreateRelationship = z.infer<typeof createRelationshipSchema>;
 export type PersonResponse = z.infer<typeof personResponseSchema>;
 export type RelationshipResponse = z.infer<typeof relationshipResponseSchema>;
 export type PersonListResponse = z.infer<typeof personListResponseSchema>;
+export type CreatePersonResponse = z.infer<typeof createPersonResponseSchema>;
+export type InlineRelationship = z.infer<typeof inlineRelationshipSchema>;
+export type PersonRelationshipKind = z.infer<typeof personRelationshipKindSchema>;
 export type CreateUpload = z.infer<typeof createUploadSchema>;
 export type CreateMediaUpload = z.infer<typeof createMediaUploadSchema>;
 export type UploadResponse = z.infer<typeof uploadResponseSchema>;
