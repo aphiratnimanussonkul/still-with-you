@@ -19,6 +19,11 @@ describe('copy v0.4', () => {
       'person.edit.action',
       'person.delete.action',
       'person.delete.confirm.primary',
+      'notification.list.title',
+      'notification.empty.title',
+      'notification.empty.body',
+      'notification.load_more',
+      'a11y.notification.unread',
     ]);
   });
 
@@ -44,9 +49,9 @@ describe('copy v0.4', () => {
     expect(copy['person.relationship.spouse']).toBe('เป็นคู่ของ');
     expect(copy['relation.type.child']).toBe('เป็นลูกของ');
     expect(copy['person.status.uninvited']).toBe('ยังไม่ได้เชิญ');
-    expect(copy['person.invite.status.none']).toBe('ยังไม่ได้ชวน');
     expect(copy['person.status.pending']).toBe('รอตอบรับคำเชิญ');
     expect(copy['person.status.linked']).toBe('เป็นสมาชิกแล้ว');
+    expect(copy['person.invite.status.none']).toBe('ยังไม่ได้ชวน');
     expect(copy['person.age.approx']).toBe('อายุประมาณ {n} ปี');
     expect(copy['person.birth.mode.year']).toBe('รู้แค่ปีเกิด');
     expect(copy['error.INVALID_RELATIONSHIP']).toBe(
@@ -118,6 +123,13 @@ describe('copy v0.4', () => {
     expect(copy['contribution.photos.viewer.counter']).toBe('{i}/{n}');
     expect(copy['photo.load_error']).toBe('โหลดรูปนี้ไม่ได้');
     expect(copy['contribution.photos.more']).toBe('ดูรูปอีก {n} รูป');
+  });
+
+  it('uses Eddy notification bodies exactly', () => {
+    expect(copy['notification.contribution_added']).toBe('{actor_display_name} เล่าเรื่องใน {event_title}');
+    expect(copy['notification.invite_accepted']).toBe(
+      '{actor_display_name} รับคำเชิญและเข้าร่วม {family_name} แล้ว'
+    );
   });
 
   it('uses locked v0.4 wording for create, tree, cancel, and admin confirm split', () => {

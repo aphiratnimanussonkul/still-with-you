@@ -463,6 +463,15 @@ export const copy = {
   'a11y.add_photo': 'เพิ่มรูป',
   'a11y.member_more': 'ตัวเลือกของ {ชื่อ}',
   'a11y.memory_more': 'ตัวเลือกของความทรงจำ {ชื่อความทรงจำ}',
+
+  // --- Notifications (Eddy bodies only; other keys are placeholders) ---
+  'notification.contribution_added': '{actor_display_name} เล่าเรื่องใน {event_title}',
+  'notification.invite_accepted': '{actor_display_name} รับคำเชิญและเข้าร่วม {family_name} แล้ว',
+  'notification.list.title': 'TODO: notification list section title',
+  'notification.empty.title': 'TODO: notification empty title',
+  'notification.empty.body': 'TODO: notification empty body',
+  'notification.load_more': 'TODO: notification load more',
+  'a11y.notification.unread': 'TODO: unread notification indicator',
 } as const;
 
 export type CopyKey = keyof typeof copy;
