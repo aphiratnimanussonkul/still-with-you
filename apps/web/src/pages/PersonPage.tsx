@@ -87,7 +87,7 @@ export function PersonPage() {
   const age = person ? apiPersonAge(person) : null;
   const status = person ? inviteStatus(person) : 'none';
   const relationships =
-    people.data?.relationships.filter(
+    people.data?.relationships?.filter(
       (row) => row.person_id === personId || row.related_person_id === personId
     ) ?? [];
 
