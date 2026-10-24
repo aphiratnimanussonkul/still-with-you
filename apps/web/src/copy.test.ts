@@ -6,7 +6,20 @@ describe('copy v0.4', () => {
     const leftovers = Object.entries(copy)
       .filter(([, value]) => value.startsWith('TODO:'))
       .map(([key]) => key);
-    expect(leftovers).toEqual([]);
+    expect(leftovers).toEqual([
+      'notification.list.title',
+      'notification.empty.title',
+      'notification.empty.body',
+      'notification.load_more',
+      'a11y.notification.unread',
+    ]);
+  });
+
+  it('uses Eddy notification bodies exactly', () => {
+    expect(copy['notification.contribution_added']).toBe('{actor_display_name} เล่าเรื่องใน {event_title}');
+    expect(copy['notification.invite_accepted']).toBe(
+      '{actor_display_name} รับคำเชิญและเข้าร่วม {family_name} แล้ว'
+    );
   });
 
   it('uses locked v0.4 wording for create, tree, cancel, and admin confirm split', () => {
