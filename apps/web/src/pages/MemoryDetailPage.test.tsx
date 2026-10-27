@@ -73,6 +73,22 @@ describe('MemoryDetailPage stories isolation', () => {
     expect(screen.getByText(copy['contribution.photos.label'])).toBeTruthy();
     expect(screen.queryByText(copy['error.INTERNAL_ERROR'])).toBeNull();
   });
+
+  it('shows the generic unavailable state when the memory is 404', async () => {
+    vi.mocked(api.getEvent).mockRejectedValue(new ApiClientError('NOT_FOUND', 'gone', 404));
+    vi.mocked(familyGraph.listContributions).mockRejectedValue(
+      new ApiClientError('NOT_FOUND', 'gone', 404)
+    );
+
+    renderPage();
+    expect(await screen.findByText(copy['error.generic.body'])).toBeTruthy();
+    expect(screen.getByRole('link', { name: copy['common.back_home'] }).getAttribute('href')).toBe(
+      '/home'
+    );
+    expect(screen.getByRole('button', { name: copy['common.retry'] })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'ทริปทะเลกับคุณยาย' })).toBeNull();
+    expect(screen.queryByText(copy['page.not_found.title'])).toBeNull();
+  });
 });
 
 describe('MemoryDetailPage contribution photos', () => {

@@ -122,6 +122,7 @@ export const copy = {
   'error.INVITE_INVALID': 'คำเชิญนี้ใช้ไม่ได้แล้ว ขอคำเชิญใหม่จากผู้ดูแลครอบครัว',
   'error.INTERNAL_ERROR': 'ระบบขัดข้องชั่วคราว ข้อมูลของคุณยังอยู่ครบ ลองใหม่อีกครั้ง',
   'error.generic': 'มีบางอย่างผิดพลาด ลองใหม่อีกครั้ง',
+  'error.generic.body': 'ขอโทษด้วย ตอนนี้ยังเปิดหน้านี้ไม่ได้ เรื่องเล่าทั้งหมดยังอยู่ครบ ลองอีกครั้งได้เลย',
   'error.network': 'ยังเชื่อมต่อไม่ได้ ลองตรวจอินเทอร์เน็ต แล้วลองใหม่',
   'error.unknown': 'มีบางอย่างผิดพลาด ลองใหม่อีกครั้ง',
   'error.NOT_YET_DELETABLE.has_date':
@@ -444,6 +445,7 @@ export const copy = {
   // --- สถานะทั่วไป ---
   'common.cancel': 'ยกเลิก',
   'common.retry': 'ลองอีกครั้ง',
+  'common.back_home': 'กลับหน้าแรก',
   'loading': 'กำลังโหลด',
   'loading.slow': 'ใช้เวลานานกว่าปกติ รออีกสักครู่',
   'retry': 'ลองใหม่',
@@ -467,11 +469,16 @@ export const copy = {
   // --- Notifications (Eddy bodies only; other keys are placeholders) ---
   'notification.contribution_added': '{actor_display_name} เล่าเรื่องใน {event_title}',
   'notification.invite_accepted': '{actor_display_name} รับคำเชิญและเข้าร่วม {family_name} แล้ว',
-  'notification.list.title': 'TODO: notification list section title',
-  'notification.empty.title': 'TODO: notification empty title',
-  'notification.empty.body': 'TODO: notification empty body',
-  'notification.load_more': 'TODO: notification load more',
-  'a11y.notification.unread': 'TODO: unread notification indicator',
+  'notification.list.title': 'การแจ้งเตือน',
+  'notification.empty.title': 'ยังไม่มีอะไรใหม่',
+  'notification.empty.body': 'ถ้ามีใครมาเล่าเรื่องในความทรงจำของคุณ จะบอกที่นี่',
+  'notification.load_more': 'ดูเพิ่ม',
+  'notification.event_title.hidden': 'TODO: Eddy — notification.event_title.hidden',
+  'a11y.notification.unread': 'ยังไม่ได้อ่าน',
+  'notifications.list.title': 'การแจ้งเตือน',
+  'notifications.empty.title': 'ยังไม่มีอะไรใหม่',
+  'notifications.empty.body': 'ถ้ามีใครมาเล่าเรื่องในความทรงจำของคุณ จะบอกที่นี่',
+  'notifications.load_more': 'ดูเพิ่ม',
 } as const;
 
 export type CopyKey = keyof typeof copy;

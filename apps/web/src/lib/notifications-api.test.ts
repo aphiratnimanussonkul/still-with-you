@@ -54,4 +54,22 @@ describe('notifications contract', () => {
     expect(notificationBody(mockNotifications[1])).toBe('Mae รับคำเชิญและเข้าร่วม บ้านเรา แล้ว');
     expect(notificationHref(mockNotifications[1])).toBe('/family');
   });
+
+  it('accepts a null event_title and renders the hidden placeholder without crashing', () => {
+    const hidden = notificationResponseSchema.parse({
+      ...mockNotifications[0],
+      payload: {
+        ...mockNotifications[0].payload,
+        event_title: null,
+      },
+    });
+    expect(hidden.payload).toMatchObject({ event_title: null });
+    expect(notificationBody(hidden)).toBe(
+      interpolate(copy['notification.contribution_added'], {
+        actor_display_name: 'Mint',
+        event_title: copy['notification.event_title.hidden'],
+      })
+    );
+    expect(() => notificationBody(hidden)).not.toThrow();
+  });
 });

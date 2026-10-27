@@ -19,11 +19,7 @@ describe('copy v0.4', () => {
       'person.edit.action',
       'person.delete.action',
       'person.delete.confirm.primary',
-      'notification.list.title',
-      'notification.empty.title',
-      'notification.empty.body',
-      'notification.load_more',
-      'a11y.notification.unread',
+      'notification.event_title.hidden',
     ]);
   });
 
@@ -130,6 +126,19 @@ describe('copy v0.4', () => {
     expect(copy['notification.invite_accepted']).toBe(
       '{actor_display_name} รับคำเชิญและเข้าร่วม {family_name} แล้ว'
     );
+    expect(copy['notification.list.title']).toBe('การแจ้งเตือน');
+    expect(copy['notification.empty.title']).toBe('ยังไม่มีอะไรใหม่');
+    expect(copy['notification.empty.body']).toBe(
+      'ถ้ามีใครมาเล่าเรื่องในความทรงจำของคุณ จะบอกที่นี่'
+    );
+    expect(copy['notification.load_more']).toBe('ดูเพิ่ม');
+    expect(copy['a11y.notification.unread']).toBe('ยังไม่ได้อ่าน');
+    expect(copy['notifications.list.title']).toBe(copy['notification.list.title']);
+    expect(copy['error.generic.body']).toBe(
+      'ขอโทษด้วย ตอนนี้ยังเปิดหน้านี้ไม่ได้ เรื่องเล่าทั้งหมดยังอยู่ครบ ลองอีกครั้งได้เลย'
+    );
+    expect(copy['common.back_home']).toBe('กลับหน้าแรก');
+    expect(copy['common.retry']).toBe('ลองอีกครั้ง');
   });
 
   it('uses locked v0.4 wording for create, tree, cancel, and admin confirm split', () => {

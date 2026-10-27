@@ -30,7 +30,7 @@ export function notificationBody(item: NotificationResponse): string {
   if (item.type === 'contribution_added' && 'event_title' in item.payload) {
     return interpolate(copy['notification.contribution_added'], {
       actor_display_name: item.payload.actor_display_name,
-      event_title: item.payload.event_title,
+      event_title: item.payload.event_title ?? copy['notification.event_title.hidden'],
     });
   }
   if (item.type === 'invite_accepted' && 'family_name' in item.payload) {

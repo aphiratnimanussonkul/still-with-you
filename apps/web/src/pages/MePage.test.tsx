@@ -72,6 +72,25 @@ describe('MePage notifications', () => {
     expect(screen.getByRole('link', { name: copy['nav.trash'] })).toBeTruthy();
   });
 
+  it('renders a contribution notification when event_title is null', async () => {
+    const hidden = {
+      ...mockNotifications[0],
+      payload: {
+        ...mockNotifications[0].payload,
+        event_title: null,
+      },
+    };
+    vi.mocked(notificationsApi.list).mockResolvedValue({
+      notifications: [hidden],
+      next_cursor: null,
+      unread_count: 1,
+    });
+
+    renderPage();
+    expect(await screen.findByText(notificationBody(hidden))).toBeTruthy();
+    expect(screen.getByText(copy['settings.account.title'])).toBeTruthy();
+  });
+
   it('shows the empty placeholder when the list is empty', async () => {
     vi.mocked(notificationsApi.list).mockResolvedValue({
       notifications: [],
