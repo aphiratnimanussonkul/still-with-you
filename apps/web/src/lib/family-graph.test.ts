@@ -39,6 +39,7 @@ const apiPerson = {
   bio: null,
   avatar_media_id: null,
   avatar_url: null,
+  memory_count: 0,
   account_id: null,
   invite_status: 'none' as const,
   created_by_account_id: accountId,
@@ -67,7 +68,10 @@ describe('family-graph vs live API handlers', () => {
     expect(familyPeopleSchema.parse(apiPeopleList).people[0]?.display_name).toBe('ยายสมศรี');
     expect(personListResponseSchema.parse(apiPeopleList).relationships).toHaveLength(1);
     expect(familyPersonSchema.parse(apiPerson).name).toBe('ยายสมศรี');
+    expect(personResponseSchema.parse(apiPerson).memory_count).toBe(0);
     expect(personResponseSchema.parse(apiPerson).invite_status).toBe('none');
+    expect(personResponseSchema.safeParse({ ...apiPerson, name: undefined }).success).toBe(false);
+    expect(personResponseSchema.safeParse({ ...apiPerson, memory_count: undefined }).success).toBe(false);
     expect(
       personResponseSchema.parse({
         ...apiPerson,

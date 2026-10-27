@@ -26,7 +26,8 @@ import {
 } from '../lib/db/index.js';
 import { findActiveMember, isFamilySteward } from '../lib/authz.js';
 import { decodeEventCursor, encodeEventCursor } from '../lib/cursor.js';
-import { toEventResponse } from '../lib/event-response.js';
+import { presentEvents } from '../lib/event-response.js';
+import { countVisibleMemoriesForPerson, personMemoryCountExpr } from '../lib/event-visibility.js';
 import { inviteExpiresAt, mintInviteToken, publicInviteUrl } from '../lib/invites.js';
 import {
   attachAvatar,
@@ -98,13 +99,15 @@ function toRelationshipResponse(row: typeof personRelationships.$inferSelect) {
 
 const peopleRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { fid: string } }>('/families/:fid/people', async (request, reply) => {
-    await requireFamilyMember(request.params.fid, request.user!.id);
+    const member = await requireFamilyMember(request.params.fid, request.user!.id);
+    const steward = isFamilySteward(member.role);
 
     const rows = await db
       .select({
         person: people,
         pendingInviteId: invites.id,
         avatar: media,
+        memoryCount: personMemoryCountExpr(request.user!.id, steward),
       })
       .from(people)
       .leftJoin(invites, and(eq(invites.personId, people.id), eq(invites.status, 'pending')))
@@ -120,7 +123,12 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({
       people: await Promise.all(
         rows.map((row) =>
-          toPersonResponse(row.person, inviteStatusFor(row.person, row.pendingInviteId), row.avatar)
+          toPersonResponse(
+            row.person,
+            inviteStatusFor(row.person, row.pendingInviteId),
+            row.avatar,
+            Number(row.memoryCount ?? 0)
+          )
         )
       ),
       relationships: edges.map(toRelationshipResponse),
@@ -191,13 +199,21 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get<{ Params: { id: string } }>('/people/:id', async (request, reply) => {
     const person = await loadLivePerson(request.params.id);
-    await requirePersonFamilyMember(person, request.user!.id);
+    const member = await requirePersonFamilyMember(person, request.user!.id);
     const [pending] = await db
       .select({ id: invites.id })
       .from(invites)
       .where(and(eq(invites.personId, person.id), eq(invites.status, 'pending')))
       .limit(1);
-    return reply.send(await toPersonResponse(person, inviteStatusFor(person, pending?.id ?? null)));
+    const memoryCount = await countVisibleMemoriesForPerson(
+      person.id,
+      person.familyId,
+      request.user!.id,
+      isFamilySteward(member.role)
+    );
+    return reply.send(
+      await toPersonResponse(person, inviteStatusFor(person, pending?.id ?? null), undefined, memoryCount)
+    );
   });
 
   fastify.patch<{ Params: { id: string } }>('/people/:id', async (request, reply) => {
@@ -256,7 +272,15 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
       .from(invites)
       .where(and(eq(invites.personId, person.id), eq(invites.status, 'pending')))
       .limit(1);
-    return reply.send(await toPersonResponse(updated, inviteStatusFor(updated, pending?.id ?? null)));
+    const memoryCount = await countVisibleMemoriesForPerson(
+      updated.id,
+      updated.familyId,
+      request.user!.id,
+      isFamilySteward(member.role)
+    );
+    return reply.send(
+      await toPersonResponse(updated, inviteStatusFor(updated, pending?.id ?? null), undefined, memoryCount)
+    );
   });
 
   fastify.delete<{ Params: { id: string } }>('/people/:id', async (request, reply) => {
@@ -429,7 +453,7 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     const page = rows.slice(0, query.limit);
     const last = page[page.length - 1];
     return reply.send({
-      events: page.map((row) => toEventResponse(row.event)),
+      events: await presentEvents(page.map((row) => row.event)),
       next_cursor:
         rows.length > query.limit && last ? encodeEventCursor(last.event.createdAt, last.event.id) : null,
     });

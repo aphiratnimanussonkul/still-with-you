@@ -44,6 +44,8 @@ export const mockEvents: EventResponse[] = [
     created_at: '2026-10-03T00:00:00.000Z',
     updated_at: '2026-10-03T00:00:00.000Z',
     version: 1,
+    paused: false,
+    cover_url: null,
   },
   {
     id: '44444444-4444-4444-8444-444444444444',
@@ -62,6 +64,8 @@ export const mockEvents: EventResponse[] = [
     created_at: '2026-10-04T00:00:00.000Z',
     updated_at: '2026-10-10T00:00:00.000Z',
     version: 2,
+    paused: true,
+    cover_url: null,
   },
 ];
 
@@ -81,6 +85,8 @@ export const mockPeople: FamilyPerson[] = [
     death_date: '2022-01-01',
     death_date_precision: 'year',
     age: 84,
+    avatar_url: null,
+    memory_count: 2,
   },
   {
     id: '87878787-8787-4878-8878-878787878787',
@@ -95,6 +101,8 @@ export const mockPeople: FamilyPerson[] = [
     death_date: null,
     death_date_precision: null,
     age: 91,
+    avatar_url: null,
+    memory_count: 0,
   },
   {
     id: mockMePersonId,
@@ -108,6 +116,8 @@ export const mockPeople: FamilyPerson[] = [
     death_date: null,
     death_date_precision: null,
     age: 36,
+    avatar_url: null,
+    memory_count: 1,
   },
 ];
 
@@ -163,6 +173,8 @@ export const mockContributions: ContributionItem[] = [
     id: '88888888-8888-4888-8888-888888888888',
     event_id: mockEvents[0].id,
     owner_account_id: mockAccount.id,
+    author_id: mockAccount.id,
+    is_mine: true,
     owner_display_name: mockAccount.display_name,
     story: 'จำได้ว่าทะเลเงียบ',
     created_at: '2026-10-03T00:00:00.000Z',

@@ -99,6 +99,8 @@ describe('AddPersonPage', () => {
         death_date: null,
         death_date_precision: null,
         account_id: null,
+        avatar_url: null,
+        memory_count: 0,
       },
       relationship: null,
     });
@@ -142,6 +144,8 @@ describe('AddPersonPage', () => {
         death_date: '2022-03-15',
         death_date_precision: 'day',
         account_id: null,
+        avatar_url: null,
+        memory_count: 0,
       },
       relationship: null,
     });
@@ -184,6 +188,8 @@ describe('AddPersonPage', () => {
         death_date: '2022-01-01',
         death_date_precision: 'year',
         account_id: null,
+        avatar_url: null,
+        memory_count: 0,
       },
       relationship: null,
     });
@@ -223,6 +229,8 @@ describe('AddPersonPage', () => {
         death_date: null,
         death_date_precision: null,
         account_id: null,
+        avatar_url: null,
+        memory_count: 0,
       },
       relationship: null,
     });

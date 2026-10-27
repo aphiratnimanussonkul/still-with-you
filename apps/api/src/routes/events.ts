@@ -10,7 +10,7 @@ import {
 import { and, eq, ne, sql } from 'drizzle-orm';
 import { db, events, contributions, eventPeople, auditLog } from '../lib/db/index.js';
 import { findActiveMember, getActiveMember, canManageEvent, isFamilySteward } from '../lib/authz.js';
-import { archiveSchedule, toEventResponse } from '../lib/event-response.js';
+import { archiveSchedule, presentEvent, presentEvents } from '../lib/event-response.js';
 import { assertPeopleInFamily } from '../lib/people.js';
 import { attachMediaToStory, hardDeleteStoryMedia } from '../lib/media/attach.js';
 
@@ -106,7 +106,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       return created;
     });
 
-    return reply.status(201).send(toEventResponse(newEvent));
+    return reply.status(201).send(await presentEvent(newEvent));
   });
 
   // List events: active for all members; archived only for creator or steward
@@ -126,12 +126,12 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         isFamilySteward(member.role)
     );
 
-    return reply.send({ events: visible.map(toEventResponse) });
+    return reply.send({ events: await presentEvents(visible) });
   });
 
   fastify.get<{ Params: { id: string } }>('/events/:id', async (request, reply) => {
     const event = await requireVisibleEvent(request.params.id, request.user!.id);
-    return reply.send(toEventResponse(event));
+    return reply.send(await presentEvent(event));
   });
 
   fastify.patch<{ Params: { id: string } }>('/events/:id', async (request, reply) => {
@@ -187,7 +187,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       return row;
     });
 
-    return reply.send(toEventResponse(updated));
+    return reply.send(await presentEvent(updated));
   });
 
   fastify.post<{ Params: { id: string } }>('/events/:id/archive', async (request, reply) => {
@@ -217,7 +217,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       targetId: event.id,
     });
 
-    return reply.send(toEventResponse(updated));
+    return reply.send(await presentEvent(updated));
   });
 
   fastify.post<{ Params: { id: string } }>('/events/:id/unarchive', async (request, reply) => {
@@ -246,7 +246,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       targetId: event.id,
     });
 
-    return reply.send(toEventResponse(updated));
+    return reply.send(await presentEvent(updated));
   });
 
   // Permanent delete (AC-19): archived, cooling elapsed, creator or steward; confirm "ลบเรื่องนี้"

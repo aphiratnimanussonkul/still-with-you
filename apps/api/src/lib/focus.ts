@@ -1,48 +1,47 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import { db, eventPeople, events, focusPeople, people } from './db/index.js';
+import { and, asc, eq } from 'drizzle-orm';
+import { db, focusPeople, media, people } from './db/index.js';
+import { findActiveMember, isFamilySteward } from './authz.js';
+import { personMemoryCountExpr } from './event-visibility.js';
+import { signAvatarUrl } from './people.js';
 
 export type FocusItem = {
-  person: { id: string; display_name: string };
-  photo_url: null;
+  person: { id: string; display_name: string; name: string };
+  photo_url: string | null;
+  avatar_url: string | null;
   memory_count: number;
   position: number;
 };
 
 export async function listFocusItems(familyId: string, accountId: string): Promise<FocusItem[]> {
+  const member = await findActiveMember(familyId, accountId);
+  const steward = member ? isFamilySteward(member.role) : false;
+
   const rows = await db
     .select({
       personId: people.id,
       displayName: people.displayName,
       position: focusPeople.position,
+      avatar: media,
+      memoryCount: personMemoryCountExpr(accountId, steward),
     })
     .from(focusPeople)
     .innerJoin(people, eq(people.id, focusPeople.personId))
+    .leftJoin(media, eq(media.id, people.avatarMediaId))
     .where(and(eq(focusPeople.accountId, accountId), eq(focusPeople.familyId, familyId)))
     .orderBy(asc(focusPeople.position));
 
-  if (rows.length === 0) {
-    return [];
-  }
-
-  const ids = rows.map((row) => row.personId);
-  const counts = await db
-    .select({
-      personId: eventPeople.personId,
-      count: sql<number>`count(*)::int`,
+  return Promise.all(
+    rows.map(async (row) => {
+      const avatarUrl = await signAvatarUrl(row.avatar);
+      return {
+        person: { id: row.personId, display_name: row.displayName, name: row.displayName },
+        photo_url: avatarUrl,
+        avatar_url: avatarUrl,
+        memory_count: Number(row.memoryCount ?? 0),
+        position: row.position,
+      };
     })
-    .from(eventPeople)
-    .innerJoin(events, eq(events.id, eventPeople.eventId))
-    .where(and(inArray(eventPeople.personId, ids), eq(events.status, 'active')))
-    .groupBy(eventPeople.personId);
-
-  const countByPerson = new Map(counts.map((row) => [row.personId, Number(row.count)]));
-
-  return rows.map((row) => ({
-    person: { id: row.personId, display_name: row.displayName },
-    photo_url: null,
-    memory_count: countByPerson.get(row.personId) ?? 0,
-    position: row.position,
-  }));
+  );
 }
 
 export function toFactResponse(row: {

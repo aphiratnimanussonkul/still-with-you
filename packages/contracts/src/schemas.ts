@@ -153,6 +153,8 @@ export const eventResponseSchema = z.object({
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
   version: z.number().int(),
+  paused: z.boolean(),
+  cover_url: z.string().url().nullable(),
   media: z.array(mediaItemSchema).optional(),
 });
 
@@ -167,6 +169,12 @@ export const MEDIA_MAX_PER_CONTRIBUTION_DEFAULT = 20;
 export const MEDIA_UPLOAD_TTL_SECONDS = 10 * 60;
 export const MEDIA_READ_TTL_SECONDS = 5 * 60;
 export const MEDIA_ORPHAN_TTL_HOURS = 24;
+/** Signed-URL image transform for avatars: square ≥300px, cover-crop. Never stored. */
+export const AVATAR_TRANSFORM = {
+  width: 300,
+  height: 300,
+  resize: 'cover' as const,
+};
 
 export const mediaStatusSchema = z.enum(['pending', 'uploaded', 'ready', 'failed']);
 
@@ -199,6 +207,8 @@ export const contributionResponseSchema = z.object({
   id: uuidSchema,
   family_id: uuidSchema,
   owner_account_id: uuidSchema,
+  author_id: uuidSchema,
+  is_mine: z.boolean(),
   owner_display_name: z.string().optional(),
   narrator_person_id: uuidSchema.nullable(),
   event_id: uuidSchema.nullable(),
@@ -398,7 +408,8 @@ export const personResponseSchema = z.object({
   age: z.number().int().nullable().optional(),
   bio: z.string().nullable().optional(),
   avatar_media_id: uuidSchema.nullable().optional(),
-  avatar_url: z.string().url().nullable().optional(),
+  avatar_url: z.string().url().nullable(),
+  memory_count: z.number().int(),
   account_id: uuidSchema.nullable().optional(),
   invite_status: personInviteStatusSchema.optional(),
   created_by_account_id: uuidSchema.optional(),
@@ -443,11 +454,13 @@ export const updateFactSchema = z.object({
 export const focusPersonSchema = z.object({
   id: uuidSchema,
   display_name: z.string(),
+  name: z.string(),
 });
 
 export const focusItemSchema = z.object({
   person: focusPersonSchema,
   photo_url: z.string().url().nullable(),
+  avatar_url: z.string().url().nullable(),
   memory_count: z.number().int(),
   position: z.number().int(),
 });

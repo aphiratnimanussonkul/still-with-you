@@ -1,4 +1,7 @@
-import { EVENT_DELETE_COOLING_DAYS } from '@still-with-you/contracts';
+import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
+import { EVENT_DELETE_COOLING_DAYS, MEDIA_READ_TTL_SECONDS } from '@still-with-you/contracts';
+import { db, contributions, media } from './db/index.js';
+import { getMediaStorage } from './media/storage.js';
 
 export const EVENT_DELETE_COOLING_MS = EVENT_DELETE_COOLING_DAYS * 24 * 60 * 60 * 1000;
 
@@ -40,7 +43,7 @@ type EventRow = {
   version: number;
 };
 
-export function toEventResponse(event: EventRow) {
+export function toEventResponse(event: EventRow, coverUrl: string | null = null) {
   const schedule = archiveSchedule(event.archivedAt);
   return {
     id: event.id,
@@ -59,5 +62,50 @@ export function toEventResponse(event: EventRow) {
     created_at: event.createdAt.toISOString(),
     updated_at: event.updatedAt.toISOString(),
     version: event.version,
+    paused: event.status === 'archived',
+    cover_url: coverUrl,
   };
+}
+
+/** First completed photo of the earliest published story, signed on every response. */
+export async function loadEventCoverUrls(eventIds: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(eventIds)];
+  const covers = new Map<string, string>();
+  if (unique.length === 0) return covers;
+
+  const rows = await db
+    .select({
+      eventId: contributions.eventId,
+      storageKey: media.storageKey,
+    })
+    .from(contributions)
+    .innerJoin(
+      media,
+      and(
+        eq(media.storyId, contributions.id),
+        eq(media.purpose, 'story'),
+        isNull(media.deletedAt),
+        or(eq(media.status, 'uploaded'), eq(media.status, 'ready'))
+      )
+    )
+    .where(and(eq(contributions.status, 'published'), inArray(contributions.eventId, unique)))
+    .orderBy(asc(contributions.createdAt), asc(media.createdAt));
+
+  const storage = getMediaStorage();
+  for (const row of rows) {
+    if (!row.eventId || covers.has(row.eventId)) continue;
+    const signed = await storage.createSignedReadUrl(row.storageKey, MEDIA_READ_TTL_SECONDS);
+    covers.set(row.eventId, signed.signedUrl);
+  }
+  return covers;
+}
+
+export async function presentEvents(eventRows: EventRow[]) {
+  const covers = await loadEventCoverUrls(eventRows.map((event) => event.id));
+  return eventRows.map((event) => toEventResponse(event, covers.get(event.id) ?? null));
+}
+
+export async function presentEvent(event: EventRow) {
+  const [presented] = await presentEvents([event]);
+  return presented;
 }
