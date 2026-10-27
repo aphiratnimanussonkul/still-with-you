@@ -183,6 +183,8 @@ describe('contribution media contract', () => {
           id: mockContributions[0].id,
           event_id: mockContributions[0].event_id,
           owner_account_id: mockContributions[0].owner_account_id,
+          author_id: mockContributions[0].author_id,
+          is_mine: mockContributions[0].is_mine,
           owner_display_name: mockContributions[0].owner_display_name,
           story: mockContributions[0].story,
           created_at: mockContributions[0].created_at,
