@@ -64,16 +64,20 @@ export function MemoryDetailPage() {
     },
   });
 
+  const retryEvent = () => {
+    void event.refetch();
+  };
+
   if (event.isPending) return <QueryLoading />;
   if (event.isError) {
     const status = event.error instanceof ApiClientError ? event.error.status : 0;
     if (status === 404) {
-      return <MemoryUnavailableState onRetry={() => void event.refetch()} />;
+      return <MemoryUnavailableState onRetry={retryEvent} />;
     }
     return <p className="text-body text-destructive">{messageForError(event.error)}</p>;
   }
   if (!event.data) {
-    return <MemoryUnavailableState onRetry={() => void event.refetch()} />;
+    return <MemoryUnavailableState onRetry={retryEvent} />;
   }
 
   const items = stories.data?.contributions ?? [];
