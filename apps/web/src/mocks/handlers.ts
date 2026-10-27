@@ -7,6 +7,8 @@ import {
   createMediaUploadSchema,
   createPersonResponseSchema,
   createPersonSchema,
+  createRelationshipSchema,
+  relationshipResponseSchema,
   eventListResponseSchema,
   eventResponseSchema,
   familyListResponseSchema,
@@ -45,9 +47,11 @@ import {
   updateFactSchema,
 } from '@/lib/home-api';
 import {
+  acceptPersonInviteResponseSchema,
   familyInviteSchema,
   familyInvitesSchema,
   familyMembersSchema,
+  personInvitePreviewSchema,
   personInviteSchema,
 } from '@/lib/family-graph';
 import { deathDatePrecisionOrNull } from '@/lib/person-years';
@@ -90,6 +94,17 @@ const members = [...mockMembers];
 const trash = [...mockTrash];
 const invites: { id: string; family_id: string; email: string; status: 'pending'; expires_at: string; created_at: string }[] =
   [];
+const personInvites: Array<{
+  id: string;
+  family_id: string;
+  person_id: string;
+  email: string;
+  token: string;
+  status: 'pending' | 'accepted' | 'revoked';
+  url: string;
+  expires_at: string;
+  created_at: string;
+}> = [];
 const focusByFamily: Record<string, string[]> = { ...mockFocusIds };
 const skippedQuestions = new Set<string>();
 const answeredQuestions = new Set<string>();
@@ -667,6 +682,12 @@ export const handlers = [
     if (body.relation_label !== undefined) {
       person.relation_label = body.relation_label;
     }
+    if (body.gender !== undefined) person.gender = body.gender;
+    if (body.family_name !== undefined) person.family_name = body.family_name;
+    if (body.birth_date !== undefined) person.birth_date = body.birth_date;
+    if (body.birth_date_precision !== undefined) person.birth_date_precision = body.birth_date_precision;
+    if (body.bio !== undefined) person.bio = body.bio;
+    if (body.avatar_media_id !== undefined) person.avatar_media_id = body.avatar_media_id;
     return jsonContract(personResponseSchema, person);
   }),
 
@@ -691,17 +712,120 @@ export const handlers = [
         { status: 400 }
       );
     }
+    const token = crypto.randomUUID();
     const created = {
       id: crypto.randomUUID(),
       family_id: person.family_id,
       person_id: person.id,
       email: body.email.trim(),
+      token,
       status: 'pending' as const,
-      url: `https://app.example.com/invite/${crypto.randomUUID()}`,
+      url: `https://app.example.com/invites/${token}`,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       created_at: new Date().toISOString(),
     };
+    personInvites.push(created);
     return jsonContract(personInviteSchema, created, { status: 201 });
+  }),
+
+  http.get(`${api}/v1/invites/:token`, ({ params }) => {
+    const invite = personInvites.find((row) => row.token === params.token);
+    const expired = invite ? new Date(invite.expires_at).getTime() < Date.now() : false;
+    if (!invite || invite.status !== 'pending' || expired) {
+      return HttpResponse.json(
+        { error: { code: 'INVITE_INVALID', message: 'Invite invalid' } },
+        { status: 410 }
+      );
+    }
+    const invited = people.find((row) => row.id === invite.person_id);
+    const family = families.find((row) => row.id === invite.family_id);
+    return jsonContract(personInvitePreviewSchema, {
+      family_name: family?.name ?? '',
+      inviter_display_name: account.display_name,
+      person_display_name: invited?.display_name ?? null,
+      expires_at: invite.expires_at,
+    });
+  }),
+
+  http.post(`${api}/v1/invites/:token/accept`, ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const invite = personInvites.find((row) => row.token === params.token);
+    const expired = invite ? new Date(invite.expires_at).getTime() < Date.now() : false;
+    if (!invite || invite.status !== 'pending' || expired) {
+      return HttpResponse.json(
+        { error: { code: 'INVITE_INVALID', message: 'Invite invalid' } },
+        { status: 410 }
+      );
+    }
+    const invited = people.find((row) => row.id === invite.person_id);
+    if (!invited) {
+      return HttpResponse.json(
+        { error: { code: 'INVITE_INVALID', message: 'Invite invalid' } },
+        { status: 410 }
+      );
+    }
+    if (invited.account_id) {
+      return HttpResponse.json(
+        { error: { code: 'PERSON_ALREADY_LINKED', message: 'Person already linked' } },
+        { status: 409 }
+      );
+    }
+    invited.account_id = account.id;
+    invite.status = 'accepted';
+    if (!members.some((row) => row.family_id === invited.family_id && row.account_id === account.id)) {
+      members.push({
+        account_id: account.id,
+        family_id: invited.family_id,
+        role: 'member',
+        display_name: account.display_name,
+        joined_at: new Date().toISOString(),
+      });
+    }
+    return jsonContract(acceptPersonInviteResponseSchema, {
+      family_id: invited.family_id,
+      person_id: invited.id,
+    });
+  }),
+
+  http.post(`${api}/v1/families/:fid/relationships`, async ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const parsed = createRelationshipSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return HttpResponse.json(
+        { error: { code: ErrorCode.INVALID_RELATIONSHIP, message: 'invalid relationship' } },
+        { status: 400 }
+      );
+    }
+    let personId = parsed.data.person_id;
+    let relatedPersonId = parsed.data.related_person_id;
+    if (parsed.data.type === 'spouse' && relatedPersonId < personId) {
+      personId = parsed.data.related_person_id;
+      relatedPersonId = parsed.data.person_id;
+    }
+    const created = {
+      id: crypto.randomUUID(),
+      family_id: String(params.fid),
+      person_id: personId,
+      related_person_id: relatedPersonId,
+      type: parsed.data.type,
+      created_by_account_id: account.id,
+      created_at: new Date().toISOString(),
+    };
+    relationships.push(created);
+    return jsonContract(relationshipResponseSchema, created, { status: 201 });
+  }),
+
+  http.delete(`${api}/v1/relationships/:id`, ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const index = relationships.findIndex((row) => row.id === params.id);
+    if (index === -1) {
+      return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Relationship not found' } }, { status: 404 });
+    }
+    relationships.splice(index, 1);
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.get(`${api}/v1/events/:id/contributions`, ({ request, params }) => {

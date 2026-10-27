@@ -63,9 +63,46 @@ describe('PersonPage', () => {
     expect(await screen.findByText('ยายสมศรี')).toBeTruthy();
     expect(screen.getByText('2480–2565')).toBeTruthy();
     expect(screen.getByText(interpolate(copy['person.death.age'], { อายุ: '84' }))).toBeTruthy();
+    expect(screen.queryByText(interpolate(copy['person.age.exact'], { n: '84' }))).toBeNull();
     expect(
       screen.getByText(interpolateHeading(copy['person.facts.empty.title'], { name: 'ยายสมศรี' }))
     ).toBeTruthy();
+  });
+
+  it('shows approximate living age for year precision, hides age when null, and uses events.empty', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
+    vi.mocked(familyGraph.getPerson).mockResolvedValue({
+      ...mockPeople[1],
+      invite_status: 'none',
+    });
+    vi.mocked(homeApi.getFocus).mockResolvedValue({ items: [] });
+    vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
+
+    renderPerson(mockPeople[1].id);
+    expect(await screen.findByText(interpolate(copy['person.age.approx'], { n: '91' }))).toBeTruthy();
+    expect(screen.queryByText(interpolate(copy['person.age.exact'], { n: '91' }))).toBeNull();
+    expect(screen.getByText(copy['person.invite.status.none'])).toBeTruthy();
+    expect(
+      screen.getByText(interpolate(copy['person.events.empty'], { name: mockPeople[1].display_name }))
+    ).toBeTruthy();
+  });
+
+  it('hides living age when API age is null', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
+    vi.mocked(familyGraph.getPerson).mockResolvedValue({
+      ...mockPeople[2],
+      age: null,
+      invite_status: 'pending',
+    });
+    vi.mocked(homeApi.getFocus).mockResolvedValue({ items: [] });
+    vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
+
+    renderPerson(mockPeople[2].id);
+    expect(await screen.findByText(mockPeople[2].display_name)).toBeTruthy();
+    expect(screen.queryByText(/อายุ/)).toBeNull();
+    expect(screen.getByText(copy['person.status.pending'])).toBeTruthy();
   });
 
   it('lets the signed-in account focus the person', async () => {

@@ -43,7 +43,12 @@ export function appBarForPath(pathname: string): AppBarState {
   if (pathname === '/family') return { titleKey: 'nav.family', backTo: null };
   if (pathname === '/family/invite') return { titleKey: 'invite.title', backTo: '/family' };
   if (pathname === '/family/people/new') return { titleKey: 'person.add.title', backTo: '/family' };
+  if (/^\/family\/people\/[^/]+\/edit$/.test(pathname)) {
+    const personId = pathname.split('/')[3];
+    return { titleKey: 'person.edit.title', backTo: `/family/people/${personId}` };
+  }
   if (/^\/family\/people\/[^/]+$/.test(pathname)) return { titleKey: 'nav.family', backTo: '/family' };
+  if (pathname.startsWith('/invites/')) return { titleKey: 'invite.landing.accept', backTo: null };
   if (pathname === '/me') return { titleKey: 'nav.me', backTo: null };
   if (pathname === '/me/trash' || pathname === '/trash' || pathname.startsWith('/trash/')) {
     return { titleKey: 'trash.title', backTo: '/me' };

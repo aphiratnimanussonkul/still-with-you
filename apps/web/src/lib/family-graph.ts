@@ -3,10 +3,13 @@
  */
 import {
   createPersonResponseSchema,
+  createRelationshipSchema,
   personListResponseSchema,
   personResponseSchema,
+  relationshipResponseSchema,
   type CreatePerson,
   type CreatePersonResponse,
+  type CreateRelationship,
   type PersonRelationshipKind,
   type PersonResponse,
   type RelationshipResponse,
@@ -89,14 +92,29 @@ export const trashListSchema = z.object({
   items: z.array(trashItemSchema),
 });
 
+export const personInvitePreviewSchema = z.object({
+  family_name: z.string(),
+  inviter_display_name: z.string(),
+  person_display_name: z.string().nullable(),
+  expires_at: z.string().datetime(),
+});
+
+export const acceptPersonInviteResponseSchema = z.object({
+  family_id: z.string().uuid(),
+  person_id: z.string().uuid(),
+});
+
 export type FamilyMember = z.infer<typeof familyMemberSchema>;
 export type FamilyPerson = PersonResponse;
 export type FamilyRelationship = RelationshipResponse;
 export type CreatePersonBody = CreatePerson;
 export type UpdatePersonBody = UpdatePerson;
 export type CreatePersonResult = CreatePersonResponse;
+export type { CreatePerson, UpdatePerson };
 export type RelationshipKind = PersonRelationshipKind;
 export type PersonInvite = z.infer<typeof personInviteSchema>;
+export type PersonInvitePreview = z.infer<typeof personInvitePreviewSchema>;
+export type AcceptPersonInviteResponse = z.infer<typeof acceptPersonInviteResponseSchema>;
 export type ContributionItem = z.infer<typeof contributionItemSchema>;
 export type TrashItem = z.infer<typeof trashItemSchema>;
 
@@ -158,6 +176,28 @@ export const familyGraph = {
       method: 'POST',
       body: { email },
     });
+  },
+
+  getPersonInvite(token: string) {
+    return request(`/v1/invites/${token}`, personInvitePreviewSchema);
+  },
+
+  acceptPersonInvite(token: string) {
+    return request(`/v1/invites/${token}/accept`, acceptPersonInviteResponseSchema, {
+      method: 'POST',
+      body: {},
+    });
+  },
+
+  createRelationship(familyId: string, body: CreateRelationship) {
+    return request(`/v1/families/${familyId}/relationships`, relationshipResponseSchema, {
+      method: 'POST',
+      body: createRelationshipSchema.parse(body),
+    });
+  },
+
+  deleteRelationship(relationshipId: string) {
+    return request(`/v1/relationships/${relationshipId}`, z.void(), { method: 'DELETE' });
   },
 
   listContributions(eventId: string) {

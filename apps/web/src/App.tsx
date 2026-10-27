@@ -6,13 +6,16 @@ import { QueryLoading } from '@/components/QueryLoading';
 import { IconProvider } from '@/components/ui/icon';
 import { useAuth } from '@/hooks/use-auth';
 import { AUTH_CALLBACK_PATH, hasAuthCallbackParams } from '@/lib/auth-callback';
+import { useInviteReferrerPolicy } from '@/lib/invite-privacy';
 import { rememberFamilyId } from '@/lib/last-family';
 import { AuthCallbackPage } from '@/pages/AuthCallbackPage';
 import { ConsentPage } from '@/pages/ConsentPage';
 import { AddPersonPage } from '@/pages/AddPersonPage';
 import { FamilyPage } from '@/pages/FamilyPage';
-import { PersonPage } from '@/pages/PersonPage';
 import { HomePage } from '@/pages/HomePage';
+import { PersonFormPage } from '@/pages/PersonFormPage';
+import { PersonInvitePage } from '@/pages/PersonInvitePage';
+import { PersonPage } from '@/pages/PersonPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { MePage } from '@/pages/MePage';
 import { MemoriesPage } from '@/pages/MemoriesPage';
@@ -33,6 +36,7 @@ function LegacyFamilyMemoriesRedirect() {
 export function App() {
   const { session, loading } = useAuth();
   const location = useLocation();
+  useInviteReferrerPolicy(location.pathname);
 
   const signedOutTo = hasAuthCallbackParams(location)
     ? { pathname: AUTH_CALLBACK_PATH, search: location.search, hash: location.hash }
@@ -53,6 +57,7 @@ export function App() {
             path="/login"
             element={session ? <Navigate to="/home" replace /> : <LoginPage />}
           />
+          <Route path="/invites/:inviteId" element={<PersonInvitePage />} />
           <Route element={<RequireSession />}>
             <Route path="/consent" element={<ConsentPage />} />
             <Route path="/home" element={<HomePage />} />
@@ -60,6 +65,7 @@ export function App() {
             <Route path="/memories/:eventId" element={<MemoryDetailPage />} />
             <Route path="/family" element={<FamilyPage />} />
             <Route path="/family/people/new" element={<AddPersonPage />} />
+            <Route path="/family/people/:personId/edit" element={<PersonFormPage />} />
             <Route path="/family/people/:personId" element={<PersonPage />} />
             <Route path="/me" element={<MePage />} />
             <Route path="/me/trash" element={<TrashPage />} />

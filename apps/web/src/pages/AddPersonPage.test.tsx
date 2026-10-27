@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
-import { copy, interpolate } from '@/copy';
+import { copy, interpolate, personRelationLabel } from '@/copy';
 import { ApiClientError } from '@/lib/api-errors';
 import { mockAccount, mockFamilies, mockMembers, mockPeople } from '@/mocks/data';
 
@@ -63,7 +63,7 @@ describe('AddPersonPage', () => {
   it('orders photo, name, nickname, relationship-to-me, living, and เพิ่มในผัง', async () => {
     renderAt('/family/people/new');
     expect(await screen.findByTestId('photo-field')).toBeTruthy();
-    expect(screen.getByLabelText(copy['person.name_label'])).toBeTruthy();
+    expect(screen.getByLabelText(copy['person.name.label'])).toBeTruthy();
     expect(screen.getByLabelText(copy['person.nickname.label'])).toBeTruthy();
     expect(screen.getByPlaceholderText(copy['person.nickname.placeholder'])).toBeTruthy();
     const selects = await screen.findAllByRole('combobox');
@@ -73,7 +73,7 @@ describe('AddPersonPage', () => {
       'checked'
     );
     expect(screen.getByRole('button', { name: copy['person.add.submit'] })).toBeTruthy();
-    expect(screen.getAllByLabelText(copy['person.relationship.of_you']).length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText(personRelationLabel(null)).length).toBeGreaterThan(0);
     expect(screen.getByRole('option', { name: copy['person.relationship.parent'] })).toBeTruthy();
     expect(screen.getByRole('option', { name: copy['person.relationship.child'] })).toBeTruthy();
     expect(screen.getByRole('option', { name: copy['person.relationship.spouse'] })).toBeTruthy();
@@ -83,7 +83,7 @@ describe('AddPersonPage', () => {
     renderAt(`/family/people/new?kind=parent_of&person=${mockPeople[0].id}`);
     expect(
       await screen.findAllByLabelText(
-        interpolate(copy['person.relationship.of_name'], { ชื่อ: mockPeople[0].display_name })
+        personRelationLabel(mockPeople[0].display_name)
       )
     ).not.toHaveLength(0);
   });
@@ -107,7 +107,7 @@ describe('AddPersonPage', () => {
 
     renderAt(`/family/people/new?kind=child_of&person=${mockPeople[2].id}`);
     expect(await screen.findByDisplayValue(copy['person.relationship.child'])).toBeTruthy();
-    fireEvent.change(screen.getByLabelText(copy['person.name_label']), { target: { value: 'น้องใหม่' } });
+    fireEvent.change(screen.getByLabelText(copy['person.name.label']), { target: { value: 'น้องใหม่' } });
     fireEvent.change(screen.getByLabelText(copy['person.nickname.label']), { target: { value: 'น้อง' } });
     fireEvent.click(screen.getByRole('button', { name: copy['person.add.submit'] }));
     await waitFor(() =>
@@ -151,7 +151,7 @@ describe('AddPersonPage', () => {
     });
 
     renderAt('/family/people/new');
-    fireEvent.change(await screen.findByLabelText(copy['person.name_label']), {
+    fireEvent.change(await screen.findByLabelText(copy['person.name.label']), {
       target: { value: 'ทวดวัน' },
     });
     fireEvent.click(screen.getByLabelText(copy['person.living']));
@@ -195,7 +195,7 @@ describe('AddPersonPage', () => {
     });
 
     renderAt('/family/people/new');
-    fireEvent.change(await screen.findByLabelText(copy['person.name_label']), {
+    fireEvent.change(await screen.findByLabelText(copy['person.name.label']), {
       target: { value: 'ทวดปี' },
     });
     fireEvent.click(screen.getByLabelText(copy['person.living']));
@@ -236,7 +236,7 @@ describe('AddPersonPage', () => {
     });
 
     renderAt('/family/people/new');
-    fireEvent.change(await screen.findByLabelText(copy['person.name_label']), { target: { value: 'ทวด' } });
+    fireEvent.change(await screen.findByLabelText(copy['person.name.label']), { target: { value: 'ทวด' } });
     fireEvent.click(screen.getByLabelText(copy['person.living']));
     fireEvent.click(screen.getByRole('button', { name: copy['person.add.submit'] }));
     await waitFor(() => expect(familyGraph.createPerson).toHaveBeenCalled());
@@ -249,7 +249,7 @@ describe('AddPersonPage', () => {
     );
 
     renderAt(`/family/people/new?kind=child_of&person=${mockPeople[2].id}`);
-    fireEvent.change(await screen.findByLabelText(copy['person.name_label']), {
+    fireEvent.change(await screen.findByLabelText(copy['person.name.label']), {
       target: { value: 'น้องใหม่' },
     });
     fireEvent.click(screen.getByRole('button', { name: copy['person.add.submit'] }));

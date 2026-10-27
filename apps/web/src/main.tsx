@@ -1,15 +1,30 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter } from 'react-router-dom';
+import { RouterProvider, createBrowserRouter } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/hooks/use-auth';
 import { env } from '@/lib/env';
+import { installInviteLogRedaction } from '@/lib/invite-privacy';
 import { queryClient } from '@/lib/query-client';
 import { startMocks } from '@/lib/start-mocks';
 import { initializeAuth } from '@/lib/supabase';
 import { App } from './App';
 import './index.css';
+
+installInviteLogRedaction();
+
+const router = createBrowserRouter([
+  {
+    path: '*',
+    element: (
+      <>
+        <App />
+        <Toaster />
+      </>
+    ),
+  },
+]);
 
 async function bootstrap() {
   if (env.useMsw) {
@@ -21,10 +36,7 @@ async function bootstrap() {
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <BrowserRouter>
-            <App />
-            <Toaster />
-          </BrowserRouter>
+          <RouterProvider router={router} />
         </AuthProvider>
       </QueryClientProvider>
     </StrictMode>

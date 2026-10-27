@@ -56,6 +56,7 @@ export function PersonPhotoField({ familyId, onReady }: PersonPhotoFieldProps) {
 
   return (
     <div className="flex flex-col items-center gap-2">
+      <p className="text-label font-medium">{copy['person.add.photo.label']}</p>
       <input
         id={inputId}
         ref={inputRef}
@@ -67,7 +68,7 @@ export function PersonPhotoField({ familyId, onReady }: PersonPhotoFieldProps) {
       <button
         type="button"
         className="relative size-24 rounded-full border border-input bg-muted"
-        aria-label={copy['a11y.add_photo']}
+        aria-label={copy['person.add.photo.cta']}
         onClick={() => inputRef.current?.click()}
       >
         {previewUrl ? (

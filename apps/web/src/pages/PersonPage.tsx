@@ -11,6 +11,7 @@ import { useSelectedFamily } from '@/hooks/use-selected-family';
 import { messageForError } from '@/lib/api-errors';
 import { familyGraph, isPersonLiving, personDisplayName } from '@/lib/family-graph';
 import { FOCUS_MAX, homeApi } from '@/lib/home-api';
+import { apiPersonAge, personAgeCopyKey } from '@/lib/person-age';
 import { formatNodeYears, livingDeathWriteFields } from '@/lib/person-years';
 import { queryKeys } from '@/lib/query-client';
 
@@ -78,6 +79,20 @@ export function PersonPage() {
 
   const name = personDisplayName(person);
   const years = formatNodeYears(person);
+  const age = apiPersonAge(person);
+  const ageKey = personAgeCopyKey(person);
+  const livingAge =
+    isPersonLiving(person) && age != null && ageKey
+      ? interpolate(copy[ageKey], { n: String(age) })
+      : null;
+  const inviteStatusCopy =
+    person.invite_status === 'none'
+      ? copy['person.invite.status.none']
+      : person.invite_status === 'pending'
+        ? copy['person.status.pending']
+        : person.invite_status === 'linked'
+          ? copy['person.status.linked']
+          : null;
   const living = livingDraft ?? isPersonLiving(person);
   const livingDirty = living !== isPersonLiving(person);
   const focusedIds = focus.data?.items.map((item) => item.person.id) ?? [];
@@ -103,10 +118,14 @@ export function PersonPage() {
         )}
         <h2 className="text-h2 font-semibold">{name}</h2>
         {years ? <p className="text-body text-muted-foreground">{years}</p> : null}
+        {livingAge ? <p className="text-body text-muted-foreground">{livingAge}</p> : null}
         {!isPersonLiving(person) && person.age != null ? (
           <p className="text-body text-muted-foreground">
             {interpolate(copy['person.death.age'], { อายุ: String(person.age) })}
           </p>
+        ) : null}
+        {inviteStatusCopy ? (
+          <p className="text-caption text-muted-foreground">{inviteStatusCopy}</p>
         ) : null}
       </div>
 
@@ -157,7 +176,7 @@ export function PersonPage() {
             onCheckedChange={(value) => setLivingDraft(value === true)}
           />
           <Label htmlFor="person-living" className="text-body font-normal">
-            {copy['person.living']}
+            {copy['person.living.label']}
           </Label>
         </div>
         {livingDirty ? (
@@ -187,6 +206,11 @@ export function PersonPage() {
             </p>
             <p className="text-caption text-muted-foreground">{copy['person.facts.empty.body']}</p>
           </>
+        ) : null}
+        {person.memory_count === 0 ? (
+          <p className="text-body text-muted-foreground">
+            {interpolate(copy['person.events.empty'], { name })}
+          </p>
         ) : null}
         {facts.isSuccess && answers.length > 0 ? (
           <ul className="flex flex-col gap-2">
