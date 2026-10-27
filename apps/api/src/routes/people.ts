@@ -9,7 +9,7 @@ import {
   paginationQuerySchema,
   updatePersonSchema,
 } from '@still-with-you/contracts';
-import { and, asc, desc, eq, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import {
   accounts,
   db,
@@ -27,7 +27,11 @@ import {
 import { findActiveMember, isFamilySteward } from '../lib/authz.js';
 import { decodeEventCursor, encodeEventCursor } from '../lib/cursor.js';
 import { presentEvents } from '../lib/event-response.js';
-import { countVisibleMemoriesForPerson, personMemoryCountExpr } from '../lib/event-visibility.js';
+import {
+  countVisibleMemoriesForPerson,
+  personMemoryCountExpr,
+  visibleEventCondition,
+} from '../lib/event-visibility.js';
 import { inviteExpiresAt, mintInviteToken, publicInviteUrl } from '../lib/invites.js';
 import {
   attachAvatar,
@@ -99,15 +103,14 @@ function toRelationshipResponse(row: typeof personRelationships.$inferSelect) {
 
 const peopleRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { fid: string } }>('/families/:fid/people', async (request, reply) => {
-    const member = await requireFamilyMember(request.params.fid, request.user!.id);
-    const steward = isFamilySteward(member.role);
+    await requireFamilyMember(request.params.fid, request.user!.id);
 
     const rows = await db
       .select({
         person: people,
         pendingInviteId: invites.id,
         avatar: media,
-        memoryCount: personMemoryCountExpr(request.user!.id, steward),
+        memoryCount: personMemoryCountExpr(request.user!.id),
       })
       .from(people)
       .leftJoin(invites, and(eq(invites.personId, people.id), eq(invites.status, 'pending')))
@@ -199,18 +202,13 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get<{ Params: { id: string } }>('/people/:id', async (request, reply) => {
     const person = await loadLivePerson(request.params.id);
-    const member = await requirePersonFamilyMember(person, request.user!.id);
+    await requirePersonFamilyMember(person, request.user!.id);
     const [pending] = await db
       .select({ id: invites.id })
       .from(invites)
       .where(and(eq(invites.personId, person.id), eq(invites.status, 'pending')))
       .limit(1);
-    const memoryCount = await countVisibleMemoriesForPerson(
-      person.id,
-      person.familyId,
-      request.user!.id,
-      isFamilySteward(member.role)
-    );
+    const memoryCount = await countVisibleMemoriesForPerson(person.id, person.familyId, request.user!.id);
     return reply.send(
       await toPersonResponse(person, inviteStatusFor(person, pending?.id ?? null), undefined, memoryCount)
     );
@@ -275,8 +273,7 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     const memoryCount = await countVisibleMemoriesForPerson(
       updated.id,
       updated.familyId,
-      request.user!.id,
-      isFamilySteward(member.role)
+      request.user!.id
     );
     return reply.send(
       await toPersonResponse(updated, inviteStatusFor(updated, pending?.id ?? null), undefined, memoryCount)
@@ -419,21 +416,17 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
-  // Family members only. Archived events follow /families/{id}/events: creator or steward.
+  // Family members only. Archived events follow /families/{id}/events: creator only.
   fastify.get<{ Params: { id: string } }>('/people/:id/events', async (request, reply) => {
     const person = await loadLivePerson(request.params.id);
-    const member = await requirePersonFamilyMember(person, request.user!.id);
+    await requirePersonFamilyMember(person, request.user!.id);
     const query = paginationQuerySchema.parse(request.query);
-    const steward = isFamilySteward(member.role);
 
     const filters = [
       eq(eventPeople.personId, person.id),
       eq(events.familyId, person.familyId),
-      ne(events.status, 'deleted'),
+      visibleEventCondition(request.user!.id),
     ];
-    if (!steward) {
-      filters.push(or(eq(events.status, 'active'), eq(events.creatorAccountId, request.user!.id))!);
-    }
     if (query.cursor) {
       const cursor = decodeEventCursor(query.cursor);
       // Truncate to milliseconds so JS Date cursors match timestamptz values.

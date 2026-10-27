@@ -8,41 +8,20 @@ import {
   deleteEventSchema,
   errorMessages,
 } from '@still-with-you/contracts';
-import { and, eq, ne, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db, events, contributions, eventPeople, auditLog } from '../lib/db/index.js';
-import { findActiveMember, getActiveMember, canManageEvent, isFamilySteward } from '../lib/authz.js';
+import { getActiveMember, canManageEvent } from '../lib/authz.js';
 import { archiveSchedule, presentEvent, presentEvents } from '../lib/event-response.js';
+import { requireVisibleEvent, visibleEventCondition } from '../lib/event-visibility.js';
 import { assertPeopleInFamily } from '../lib/people.js';
 import { attachMediaToStory, hardDeleteStoryMedia } from '../lib/media/attach.js';
 
 /**
  * Event routes
- * Steward (family_members.role = admin) or creator may edit, archive, restore, delete.
+ * Steward or creator may edit and archive active events (canManageEvent).
+ * Archived events are visible to and restorable by the creator only.
  */
 const eventRoutes: FastifyPluginAsync = async (fastify) => {
-  async function loadEvent(id: string) {
-    const [event] = await db.select().from(events).where(eq(events.id, id)).limit(1);
-    if (!event || event.status === 'deleted') {
-      throw new AppError(ErrorCode.NOT_FOUND, 'Event not found', 404);
-    }
-    return event;
-  }
-
-  async function requireVisibleEvent(id: string, accountId: string) {
-    const event = await loadEvent(id);
-    const member = await findActiveMember(event.familyId, accountId);
-    if (!member) {
-      throw new AppError(ErrorCode.NOT_FOUND, 'Event not found', 404);
-    }
-    if (event.status === 'archived') {
-      const manager = event.creatorAccountId === accountId || isFamilySteward(member.role);
-      if (!manager) {
-        throw new AppError(ErrorCode.NOT_FOUND, 'Event not found', 404);
-      }
-    }
-    return event;
-  }
-
   // Create event (story required — becomes the first contribution)
   fastify.post<{ Params: { fid: string } }>('/families/:fid/events', async (request, reply) => {
     const { fid } = request.params;
@@ -110,24 +89,17 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send(await presentEvent(newEvent));
   });
 
-  // List events: active for all members; archived only for creator or steward
+  // List events: active for all members; archived only for creator_account_id
   fastify.get<{ Params: { fid: string } }>('/families/:fid/events', async (request, reply) => {
     const { fid } = request.params;
-    const member = await getActiveMember(fid, request.user!.id);
+    await getActiveMember(fid, request.user!.id);
 
     const rows = await db
       .select()
       .from(events)
-      .where(and(eq(events.familyId, fid), ne(events.status, 'deleted')));
+      .where(and(eq(events.familyId, fid), visibleEventCondition(request.user!.id)));
 
-    const visible = rows.filter(
-      (event) =>
-        event.status === 'active' ||
-        event.creatorAccountId === request.user!.id ||
-        isFamilySteward(member.role)
-    );
-
-    return reply.send({ events: await presentEvents(visible) });
+    return reply.send({ events: await presentEvents(rows) });
   });
 
   fastify.get<{ Params: { id: string } }>('/events/:id', async (request, reply) => {
@@ -270,18 +242,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(await presentEvent(updated));
   });
 
-  // Permanent delete (AC-19): archived, cooling elapsed, creator or steward; confirm "ลบเรื่องนี้"
+  // Permanent delete (AC-19): archived, cooling elapsed, creator or steward; confirm "ลบเรื่องนี้".
+  // Archived events the caller cannot see (including a steward who is not the creator) → 404.
   fastify.post<{ Params: { id: string } }>('/events/:id/delete', async (request, reply) => {
     const { id } = request.params;
-    const [event] = await db.select().from(events).where(eq(events.id, id)).limit(1);
-    if (!event || event.status === 'deleted') {
-      throw new AppError(ErrorCode.NOT_FOUND, 'Event not found', 404);
-    }
-
-    const member = await findActiveMember(event.familyId, request.user!.id);
-    if (!member) {
-      throw new AppError(ErrorCode.NOT_FOUND, 'Event not found', 404);
-    }
+    const event = await requireVisibleEvent(id, request.user!.id);
 
     // Permission first: neither creator nor steward → 403 FORBIDDEN (no dates)
     const manager = await canManageEvent(event, request.user!.id);

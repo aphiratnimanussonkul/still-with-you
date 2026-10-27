@@ -3,7 +3,8 @@
 **Updated:** Oct 27, 2026  
 **Status:** Canonical spec.  
 **Supersedes:** [v0.8](./backend-contract-v0.8.md). **[v0.6](./backend-contract-v0.6.md) is cancelled** (never deployed; do not use `/quick-question` or `/persons/{id}/answers`).  
-**Changes from v0.8:** optional optimistic concurrency on `PATCH /v1/events/{id}` via `events.version`. GET already returned `version`. When the client sends `version`, the update is compare-and-swap; mismatch is **409 `EVENT_EDIT_CONFLICT`** with `details.current_version` (no editor name). Omitting `version` still increments it. `version` will become required in a later PR. Migration `20261027140000_events_version.sql` is file-only until applied.  
+**Changes from v0.8:** archived events (`status = 'archived'`) are visible to and restorable by `events.creator_account_id` only. Stewards, other members, and contributors (including of their own stories) get **404 NOT_FOUND**. `memory_count`, home `recent_memories`, `GET /v1/people/{id}/events`, event detail, contributions, and media signed URLs follow that rule. Notifications that link to an archived event keep the row but return `payload.event_title: null` (nullable; no other event content) for anyone who cannot see the event. Matching RLS SELECT policies are in `20261027160000_archived_event_visibility.sql` (file-only; the API still uses a privileged role that bypasses RLS). Optional optimistic concurrency on `PATCH /v1/events/{id}` via `events.version`. GET already returned `version`. When the client sends `version`, the update is compare-and-swap; mismatch is **409 `EVENT_EDIT_CONFLICT`** with `details.current_version` (no editor name). Omitting `version` still increments it. `version` will become required in a later PR. Migration `20261027140000_events_version.sql` is file-only until applied.  
+**Changes from v0.7 (carried in v0.8):** family-tree people profile (gender, birth date + precision, computed age, bio, avatar); `person_relationships`; person PATCH/DELETE; steward person invites; GET people returns `{ people, relationships }`; public invite preview; invite create `url`; people events list; in-app notifications (`contribution_added`, `invite_accepted`)  
 **Requirements v1.2 (AC-19..AC-27):** family steward, `archived_at` / `deletable_at`, 7-day permanent delete, `canManageEvent`, owner-only stories  
 **References:** Domain Model v0.4 (Kret), Requirements v1.1 / v1.2, Kret media contract v0.5, Kret focus + quick questions spec, Kret family-tree decisions (locked 22 Oct 2026)
 
@@ -19,7 +20,7 @@ These override earlier drafts of this revision. Implementers must follow this ta
 | Duplicate relationship | **409 `RELATIONSHIP_EXISTS`**. |
 | Age | Not stored. API returns a computed integer `age` in `Asia/Bangkok` (or `null` when there is no `birth_date`). Year-precision age is labelled approximate **in the web only**; the API still returns that integer. |
 | Invites | `POST /v1/people/{id}/invites` (steward only). Do **not** add `person_id` to family invite bodies. Create **201** includes `url = {first WEB_ORIGIN}/invites/{token}`. Store only a hash of the token; return the url once. `GET /v1/invites/{token}` is public (secret token, never id). `POST /v1/invites/{token}/accept` body `{}`, login required, single use, 7-day expiry; **200** `{ family_id, person_id }`. Expired, used, revoked, or unknown → **410 `INVITE_INVALID`**. Already-linked person → **409 `PERSON_ALREADY_LINKED`**. |
-| People events | `GET /v1/people/{id}/events?cursor=` — family members only. Same visibility as `GET /v1/families/{id}/events` (archived visible only to the creator and the steward). |
+| People events | `GET /v1/people/{id}/events?cursor=` — family members only. Same visibility as `GET /v1/families/{id}/events` (archived visible only to `creator_account_id`). |
 | `birth_date_precision` | `'day'` \| `'year'`, default `'day'` (approved). Year-only dates are stored as `YYYY-01-01`. |
 | Same-family edges | `person_relationships` uses composite FKs `(person_id, family_id)` and `(related_person_id, family_id)` → `people(id, family_id)` (requires unique `(id, family_id)` on `people`). |
 | `avatar_media_id` | Must be `purpose = 'avatar'`, same family, and completed (`uploaded` or `ready`). Not completed → **409 `MEDIA_NOT_READY`**. Wrong purpose or family → **422 `UPLOAD_MISMATCH`** (existing media-mismatch 422; not a new code). |
@@ -29,9 +30,9 @@ These override earlier drafts of this revision. Implementers must follow this ta
 - PostgreSQL with UUID v7 for IDs, `timestamptz` (UTC) for timestamps
 - Use `story` field naming throughout DB and API (D5)
 - Authorization checked at backend for every request: must be active FamilyMember first, then check permission matrix and role. Exception: `GET /v1/invites/{token}` is unauthenticated (the token is the secret) and is rate-limited per IP
-- Row Level Security (RLS) enabled on all tables with NO policies for anon/authenticated (deny all) - API uses privileged role
+- Row Level Security (RLS) enabled on all tables. `anon`/`authenticated` remain revoked. SELECT policies on `events`, `event_people`, `contributions`, and `media` match creator-only archived visibility (`20261027160000_archived_event_visibility.sql`, file-only until applied). The API connects with a privileged role that **bypasses RLS** and must enforce the same rule in application code.
 - Private storage bucket with signed URLs. Story `media[].url` expires in **5 min** (`MEDIA_READ_TTL_SECONDS`). `avatar_url` and `cover_url` expire in **1 hour** (`MEDIA_AVATAR_COVER_TTL_SECONDS` = 3600)
-- 404 for cross-family or archived event access; 403 FORBIDDEN when resource exists but action not permitted
+- 404 for cross-family access and for archived events the caller did not create (stewards included); 403 FORBIDDEN when resource exists but action not permitted
 
 ## 2. Schema Changes (v0.4)
 
@@ -47,7 +48,8 @@ alter table family_members add column role member_role not null default 'member'
 -- Only stewards can invite members and promote/demote stewards
 -- Last-steward rules (LAST_ADMIN 409) unchanged
 -- All members can create events and contributions
--- Stewards or the event creator may edit/archive/restore/permanently delete events (canManageEvent)
+-- Stewards or the event creator may edit and archive *active* events (canManageEvent).
+-- Only creator_account_id can see or unarchive an archived event (stewards included → 404).
 ```
 
 ### 2.2 Marketing Consent
@@ -75,8 +77,9 @@ alter table accounts add column if not exists consent_answered_at timestamptz;
 ### 2.4 Row Level Security
 
 - RLS **enabled** on every table
-- **NO policies** for `anon` or `authenticated` roles (deny all)
-- API connects using a **privileged service role** and is the only entry point
+- `anon` / `authenticated` **revoked** (no GRANTs)
+- SELECT policies (file-only migration `20261027160000_archived_event_visibility.sql`): family members may read **active** events; **archived** events (and their contributions / story media) only when `creator_account_id` is the current account. No INSERT/UPDATE/DELETE policies.
+- API connects using a **privileged service role** that bypasses RLS and is the only entry point; it must apply the same filters in application code
 - Storage bucket is **private** (no direct access from frontend)
 
 ### 2.5 Family tree (NEW in v0.8)
@@ -532,13 +535,13 @@ Role-change errors: **403 FORBIDDEN** (caller is not an admin/steward), **404 NO
 | Method | Path | Permission | Notes |
 |--------|------|------------|-------|
 | POST | `/families/{fid}/events` | Member | Atomic create: event + first contribution + `event_people` + audit. **`story` required**. Optional `media_ids`. `person_ids` must belong to the family |
-| GET | `/families/{fid}/events?cursor=` | Member | Active for all members; archived only for creator or steward |
+| GET | `/families/{fid}/events?cursor=` | Member | Active for all members; archived only for `creator_account_id` |
 | GET | `/people/{id}/events?cursor=` | Member of that person's family | Events linked via `event_people`. Same archived visibility as family events. `{ events, next_cursor }` |
-| GET | `/events/{id}` | Per matrix | Archived: 404 unless creator or steward |
-| PATCH | `/events/{id}` | `canManageEvent` | Core fields and `person_ids` (replace `event_people` in the same transaction). Every `person_id` must belong to the event's family. Optional body `version` (integer, same value as GET). When present: atomic `UPDATE … WHERE id AND version`; on mismatch **409 `EVENT_EDIT_CONFLICT`** with `error.details.current_version` only (no editor name). When omitted: write still increments `version` (last write wins). **`version` will become required in a later PR.** Successful PATCH returns the new `version`. |
-| POST | `/events/{id}/archive` | `canManageEvent` | Sets `archived_at = now()` (re-archive overwrites). No auto-delete job |
-| POST | `/events/{id}/unarchive` | `canManageEvent` | Restore: `status=active`, `archived_at=null` |
-| POST | `/events/{id}/delete` | `canManageEvent` | Permanent delete (AC-19). Confirm text exactly `ลบเรื่องนี้` after trim |
+| GET | `/events/{id}` | Per matrix | Archived: **404 NOT_FOUND** unless `creator_account_id` (stewards included) |
+| PATCH | `/events/{id}` | `canManageEvent` | Core fields and `person_ids` (replace `event_people` in the same transaction). Every `person_id` must belong to the event's family. Archived and caller is not the creator → **404**. Optional body `version` (integer, same value as GET). When present: atomic `UPDATE … WHERE id AND version`; on mismatch **409 `EVENT_EDIT_CONFLICT`** with `error.details.current_version` only (no editor name). When omitted: write still increments `version` (last write wins). **`version` will become required in a later PR.** Successful PATCH returns the new `version`. |
+| POST | `/events/{id}/archive` | `canManageEvent` | Sets `archived_at = now()` (re-archive overwrites). No auto-delete job. Re-archive of someone else's event → **404** (caller cannot see it) |
+| POST | `/events/{id}/unarchive` | Event creator | Restore: `status=active`, `archived_at=null`. Steward / member / contributor → **404** |
+| POST | `/events/{id}/delete` | `canManageEvent` after the event is visible | Permanent delete (AC-19). Confirm text exactly `ลบเรื่องนี้` after trim. Archived event the caller did not create → **404** |
 
 Event responses include integer `version` (starts at **1**, incremented on every successful update including PATCH without a client `version`). They also include `archived_at` and `deletable_at` (`archived_at + 7 days`, ISO 8601 UTC). Both archive timestamps are `null` when the event is not archived. Responses include `paused` (`true` iff `status = 'archived'`) and `cover_url` (signed read URL of the first completed photo of the earliest published story, or `null`). `cover_url` is derived on every response and is not stored. TTL is **1 hour** (`MEDIA_AVATAR_COVER_TTL_SECONDS`).
 
@@ -646,14 +649,14 @@ Any **active family member** may create a person. The **creator** (`created_by_a
 }
 ```
 
-`name` is always present and is the same string as `display_name` (v0.7 alias, kept so the current web client keeps working). `gender` is `"female"` \| `"male"` \| `"other"` or `null`. `avatar_url` is derived on every response from `avatar_media_id` (never stored): a signed read URL (**1 hour**, `MEDIA_AVATAR_COVER_TTL_SECONDS`) when the media exists, `purpose = 'avatar'`, and status is `uploaded` or `ready`; otherwise `null`. When `MEDIA_IMAGE_TRANSFORMS=true`, the URL includes `AVATAR_TRANSFORM` (`width=300&height=300&resize=cover`). When the flag is false (default), the URL has no transform and the web crops with `object-fit: cover`. `memory_count` is the number of non-deleted events linked to that person with the same visibility as `GET /v1/people/{id}/events` (computed in the list query; archived counts for the steward or the event creator). Soft-deleted rows are never returned.
+`name` is always present and is the same string as `display_name` (v0.7 alias, kept so the current web client keeps working). `gender` is `"female"` \| `"male"` \| `"other"` or `null`. `avatar_url` is derived on every response from `avatar_media_id` (never stored): a signed read URL (**1 hour**, `MEDIA_AVATAR_COVER_TTL_SECONDS`) when the media exists, `purpose = 'avatar'`, and status is `uploaded` or `ready`; otherwise `null`. When `MEDIA_IMAGE_TRANSFORMS=true`, the URL includes `AVATAR_TRANSFORM` (`width=300&height=300&resize=cover`). When the flag is false (default), the URL has no transform and the web crops with `object-fit: cover`. `memory_count` is the number of non-deleted events linked to that person with the same visibility as `GET /v1/people/{id}/events` (computed in the list query; archived counts **only for the event creator**). Soft-deleted rows are never returned.
 
 | Method | Path | Permission | Notes |
 |--------|------|------------|-------|
 | GET | `/v1/families/{id}/people` | Member | `{ "people": […], "relationships": […] }`. Live people only, `display_name` ascending. Non-member or missing family → **404 NOT_FOUND** |
 | POST | `/v1/families/{id}/people` | Member | Create. **201** `{ "person": …, "relationship": … \| null }` |
 | GET | `/v1/people/{id}` | Member of that family | Same person object. Missing, other family, or soft-deleted → **404 NOT_FOUND** |
-| GET | `/v1/people/{id}/events?cursor=` | Member of that family | Events linked via `event_people`. Active for all members; archived only for the event creator or steward (same as `GET /v1/families/{id}/events`). `{ events, next_cursor }`. Missing / other family / soft-deleted person → **404 NOT_FOUND** |
+| GET | `/v1/people/{id}/events?cursor=` | Member of that family | Events linked via `event_people`. Active for all members; archived only for `creator_account_id` (same as `GET /v1/families/{id}/events`). `{ events, next_cursor }`. Missing / other family / soft-deleted person → **404 NOT_FOUND** |
 | PATCH | `/v1/people/{id}` | Creator, steward, or linked account | Partial update. **200** person |
 | DELETE | `/v1/people/{id}` | Creator or steward | Soft-delete (`deleted_at = now()`). **204**. Linked person (`account_id` not null) → **409 PERSON_LINKED** |
 
@@ -875,13 +878,13 @@ Person-invite errors:
 
 | Method | Path | Notes |
 |--------|------|-------|
-| GET | `/v1/events/{id}/contributions` | Event must exist and not be deleted. Caller must be an active family member; else **404 NOT_FOUND**. `{ contributions: […] }` using the contribution response (including `owner_display_name`, `author_id` = `owner_account_id`, `is_mine`, and `media[]` with signed read URLs). Excludes `trashed`/`purged`. Order `created_at` descending (newest first), then `id` descending |
-| POST | `/v1/events/{id}/contributions` | **`story` required** (AC-27). Optional `media_ids`. Event must be active. Video out of scope |
-| GET | `/v1/contributions/{id}` | Member. Includes `media[]` with signed read URLs (5 min) when the story is published and the origin event is not archived |
-| PATCH | `/v1/contributions/{id}` | **Owner only** (AC-24). Optional `media_ids` replaces the set; omitted ids are detached and soft-deleted |
-| POST | `/v1/contributions/{id}/trash` | Owner only. Media stays attached but URLs are not issued |
-| POST | `/v1/contributions/{id}/restore` | Owner only, origin not archived |
-| DELETE | `/v1/contributions/{id}` | Purge (owner only). Deletes media rows and storage objects |
+| GET | `/v1/events/{id}/contributions` | Same visibility as `GET /v1/events/{id}`. Archived and caller is not the event creator (steward, member, **contributor of their own story**) → **404 NOT_FOUND**. `{ contributions: […] }` using the contribution response (including `owner_display_name`, `author_id` = `owner_account_id`, `is_mine`, and `media[]` with signed read URLs). Excludes `trashed`/`purged`. Order `created_at` descending (newest first), then `id` descending |
+| POST | `/v1/events/{id}/contributions` | **`story` required** (AC-27). Optional `media_ids`. Event must be active. Archived and caller is not the creator → **404**; creator of an archived event → **409 EVENT_NOT_ACTIVE**. Video out of scope |
+| GET | `/v1/contributions/{id}` | Member, and the origin event must be visible. Archived origin and caller is not the event creator → **404** (including the story author). Includes `media[]` with signed read URLs (5 min) when the story is published and the origin event is not archived |
+| PATCH | `/v1/contributions/{id}` | **Owner only** (AC-24) after origin visibility. Archived origin and caller is not the event creator → **404**. Optional `media_ids` replaces the set; omitted ids are detached and soft-deleted |
+| POST | `/v1/contributions/{id}/trash` | Owner only after origin visibility. Archived origin and caller is not the event creator → **404**. Media stays attached but URLs are not issued |
+| POST | `/v1/contributions/{id}/restore` | Owner only, origin not archived. Archived origin and caller is not the event creator → **404**; event creator → **409 SOURCE_ARCHIVED** |
+| DELETE | `/v1/contributions/{id}` | Purge (owner only) after origin visibility. Archived origin and caller is not the event creator → **404**. Deletes media rows and storage objects |
 
 Story create/update `media_ids` (uuid[], default `[]`):
 - Every id must be the same family, `purpose = 'story'` (not an avatar), `uploader_account_id` == story author, status `uploaded` or `ready`, and not attached to another story
@@ -889,7 +892,7 @@ Story create/update `media_ids` (uuid[], default `[]`):
 - Not `uploaded`/`ready` → **409 MEDIA_NOT_READY** with `details.media_ids`
 - More than `MEDIA_MAX_PER_CONTRIBUTION` (default 20) → **422 TOO_MANY_PHOTOS**
 
-Reads: each story includes `media: [{ id, status, url, thumb_url, width, height, expires_at }]`. Signed read URLs (5 min) are issued only after confirming the requester is a current family member. `thumb_url` is null until status is `ready`. Trashed stories and archived events get no URLs.
+Reads: each story includes `media: [{ id, status, url, thumb_url, width, height, expires_at }]`. Signed read URLs (5 min) are issued only after confirming the requester is a current family member. `thumb_url` is null until status is `ready`. Trashed stories and archived events get no URLs (including for the event creator). Non-owners never receive the contribution payload when the origin is archived.
 
 ### 4.5 Uploads
 
@@ -957,7 +960,7 @@ In-app notifications. Rows live in `notifications` (`account_id`, `type`, `paylo
 
 | Method | Path | Permission | Notes |
 |--------|------|------------|-------|
-| GET | `/v1/me/notifications?cursor=` | Authenticated | **Only the caller's** rows **for families they still belong to**. Newest first. `{ notifications, next_cursor, unread_count }`. `unread_count` uses the same membership filter (total unread, not the page size) |
+| GET | `/v1/me/notifications?cursor=` | Authenticated | **Only the caller's** rows **for families they still belong to**. Newest first. `{ notifications, next_cursor, unread_count }`. `unread_count` uses the same membership filter (total unread, not the page size). For `contribution_added`, `event_title` is a **nullable string**. If `payload.event_id` is **archived** (or deleted) and the caller is not `creator_account_id`, the item is **kept** and **`event_title` is `null`** (no other event content; stored snapshot is unchanged; `event_id` and `family_id` stay). The event creator still receives the title |
 | POST | `/v1/notifications/{id}/read` | Owner | Idempotent. **200** `{ id, type, payload, created_at, read_at }`. Already-read returns the same `read_at`. Missing, **non-uuid `{id}`**, or **another account's** notification → **404 `NOT_FOUND`** (not 403, never 500) |
 
 ```json
@@ -1007,6 +1010,16 @@ In-app notifications. Rows live in `notifications` (`account_id`, `type`, `paylo
   "created_at": "2026-10-22T00:00:00.000Z",
   "read_at": "2026-10-22T00:01:00.000Z"
 }
+
+// GET /v1/me/notifications — same row when the event is archived and the
+// caller is not creator_account_id. Item is kept; event_title is null;
+// no other event content is returned.
+{
+  "actor_display_name": "Member",
+  "event_title": null,
+  "event_id": "…",
+  "family_id": "…"
+}
 ```
 
 Names are **snapshotted into `payload` at insert**. A later rename of the actor, event, family, or person does **not** change existing notifications. Do not insert if the recipient is not an **active** `family_members` row. List and `unread_count` omit notifications whose `payload.family_id` is a family the caller has left.
@@ -1015,7 +1028,7 @@ Types created by the API (keep this list small):
 
 | `type` | When | GET `payload` |
 |--------|------|----------------|
-| `contribution_added` | Another member adds a contribution to an event you created. Creating an event (first story) does **not** notify. Self-contribute does **not** notify. Recipient must still be an active family member | `{ actor_display_name, event_title, event_id, family_id }` |
+| `contribution_added` | Another member adds a contribution to an event you created. Creating an event (first story) does **not** notify. Self-contribute does **not** notify. Recipient must still be an active family member | `{ actor_display_name, event_title, event_id, family_id }`. `event_title` is `string \| null` (`null` when the event is archived/deleted and the caller is not its creator) |
 | `invite_accepted` | Someone accepts a family or person invite you sent. Recipient must still be an active family member | `{ actor_display_name, family_name, family_id, person_id, person_display_name }` (`person_id` / `person_display_name` are `null` when there is no person) |
 
 ### 4.8 Focus people (NEW in v0.5; canonical in v0.8)
@@ -1026,7 +1039,7 @@ Per-account, per-family. Max **10**. Empty set allowed. All routes require famil
 |--------|------|-------|
 | GET | `/v1/families/{id}/focus` | `{ items: [{ person: { id, display_name, name }, photo_url, avatar_url, memory_count, position }] }`. `photo_url` and `avatar_url` are the same derived avatar signed URL (1 hour) when one exists, otherwise `null`. Transform `AVATAR_TRANSFORM` 300×300 cover only when `MEDIA_IMAGE_TRANSFORMS=true`. There is no `GET /v1/home`; member cards are this focus list (also nested under `GET /v1/families/{id}/home`). `memory_count` uses the same visibility as `GET /v1/people/{id}/events` |
 | PUT | `/v1/families/{id}/focus` | Body `{ person_ids: [] }` replaces the set. Array order becomes `position` (0-based). Duplicates or people not in the family → **400 INVALID_INPUT** `field: "person_ids"`. More than 10 → **422 TOO_MANY_FOCUS** |
-| GET | `/v1/families/{id}/home` | `{ focus, quick_question, recent_memories }`. `recent_memories` is the latest 5 non-archived events in the family (includes `paused` and `cover_url`). Home `cover_url` uses `COVER_CARD_TRANSFORM` 128×128 when transforms are on; event detail uses `COVER_DETAIL_TRANSFORM` 684×400 |
+| GET | `/v1/families/{id}/home` | `{ focus, quick_question, recent_memories }`. `recent_memories` is the latest 5 **active** events in the family (archived excluded for everyone, including the creator). `focus[].memory_count` uses the same visibility as `GET /v1/people/{id}/events` (archived counts only for `creator_account_id`). Home `cover_url` uses `COVER_CARD_TRANSFORM` 128×128 when transforms are on; event detail uses `COVER_DETAIL_TRANSFORM` 684×400 |
 
 `quick_question` is `{ question_id, key, person: { id, display_name, name }, text }` or `null`. Picked among the caller's focus people, active questions, not already answered by the caller for that person, and not skipped by the caller in the last 30 days. `text` substitutes `{name}` / `{ชื่อ}` with the person's `display_name`. Null when there is no focus person or no eligible question.
 
@@ -1103,28 +1116,30 @@ Canonical paths (no `/quick-question`, no `/persons/{id}/answers`):
 - ✅ Rate limiting per account and IP, especially for uploads and deletes
 - ✅ Audit log for archive, delete, purge, consent changes (no content stored)
 - ✅ Input validation with zod schemas
-- ✅ RLS enabled on all tables, no policies for anon/authenticated
-- ✅ API uses privileged service role only
+- ✅ RLS enabled on all tables; SELECT policies for creator-only archived visibility (file-only `20261027160000_archived_event_visibility.sql`); `anon`/`authenticated` still revoked
+- ✅ API uses privileged service role only (bypasses RLS; application code enforces archived visibility)
 - ✅ Private storage bucket, no direct frontend access
 - ✅ CORS allowlist (`WEB_ORIGIN` comma-separated origins, no `*`)
 - ✅ Encrypted backups, 30-day retention after purge
 
-## 7. Permission Matrix (v0.8)
+## 7. Permission Matrix (v0.9)
 
 All requests must be from an active FamilyMember, except `GET /v1/invites/{token}` (public; the token is the secret; rate-limited per IP).
 
-`canManageEvent` = event creator **OR** family steward (`family_members.role = 'admin'`). Used for editing core fields, archive, restore, and permanent delete (AC-23, AC-26).
+`canManageEvent` = event creator **OR** family steward (`family_members.role = 'admin'`). Used for editing core fields of an **active** event, archiving an **active** event, and permanent delete **after** the event is visible to the caller (AC-23, AC-26). Restore of an archived event is **creator only**.
 
-| Action | Creator | Steward (admin) | Owner | Other member |
+| Action | Creator | Steward (admin) | Owner | Other member / contributor |
 |--------|---------|-----------------|-------|--------------|
 | Create event | ✅ | ✅ | ✅ | ✅ |
 | View active event | ✅ | ✅ | ✅ | ✅ |
-| View archived event | ✅ | ✅ | ❌ | ❌ |
-| Edit event fields | ✅ `canManageEvent` | ✅ `canManageEvent` | ❌ | ❌ |
-| Archive / restore event | ✅ | ✅ | ❌ | ❌ |
-| Delete event permanently | ✅ after 7 days + `ลบเรื่องนี้`; else 403 `NOT_YET_DELETABLE` | ✅ same | ❌ | ❌ 403 `FORBIDDEN` (no dates) |
-| Add contribution | ✅ (if active, story required) | ✅ | ✅ | ✅ |
-| Edit/trash/purge contribution | own only | **cannot edit/delete others'** (AC-24) | own only | ❌ |
+| View archived event | ✅ | ❌ **404** | ❌ **404** | ❌ **404** (including the contributor's own stories) |
+| Edit event fields | ✅ `canManageEvent` | ✅ `canManageEvent` on **active** | ❌ | ❌ |
+| Archive active event | ✅ | ✅ | ❌ | ❌ |
+| Restore archived event | ✅ | ❌ **404** | ❌ **404** | ❌ **404** |
+| Delete event permanently | ✅ after 7 days + `ลบเรื่องนี้`; else 403 `NOT_YET_DELETABLE` | ✅ same **only if they created it**; someone else's archived event → **404** | ❌ | ❌ 403 `FORBIDDEN` on active; **404** if archived |
+| Add contribution | ✅ (if active, story required) | ✅ if active | ✅ if active | ✅ if active; archived → **404** |
+| View / edit/trash/purge contribution on archived event | ✅ view all; edit own | ❌ **404** | ❌ **404** | ❌ **404** even for own story |
+| Edit/trash/purge contribution on active event | own only | **cannot edit/delete others'** (AC-24) | own only | own only |
 | **Invite / change role / remove** | if steward | ✅; last-admin → 409 | N/A | 403 |
 | Create person | ✅ | ✅ | ✅ | ✅ |
 | Edit person | creator, steward, or linked self | ✅ steward | linked self | ❌ |
@@ -1132,7 +1147,7 @@ All requests must be from an active FamilyMember, except `GET /v1/invites/{token
 | Create relationship | ✅ | ✅ | ✅ | ✅ |
 | Delete relationship | creator of the edge, or steward | ✅ | if creator of the edge | ❌ |
 | Invite onto a person | if steward | ✅ `POST /v1/people/{id}/invites` | N/A | 403 |
-| List a person's events | family member; archived only if event creator or steward | ✅ same | ✅ if member | ✅ if member |
+| List a person's events | family member; archived only if event creator | active only | active only | active only |
 | Set own focus people | ✅ | ✅ | ✅ | ✅ (own set only) |
 | Answer / skip / edit own fact | ✅ | ✅ | own only | own only |
 | Delete someone else's fact | ❌ | ✅ steward | own only | ❌ |
@@ -1181,9 +1196,14 @@ JWKS_URI=${SUPABASE_URL}/auth/v1/.well-known/jwks.json
 ### Added
 - Optional `version` on `PATCH /v1/events/{id}`. When present, atomic `UPDATE … WHERE id AND version`; mismatch → **409 `EVENT_EDIT_CONFLICT`** with `details.current_version` only (no editor name)
 - Migration `20261027140000_events_version.sql` (`events.version integer not null default 1`; existing rows get 1). File-only until applied. RLS on; anon/authenticated revoked
+- Creator-only archived visibility: `GET /v1/events/{id}`, unarchive, contributions (including the contributor's own), `memory_count`, `GET /v1/people/{id}/events`, family event list. Non-creators (steward included) → **404 NOT_FOUND**
+- Notification present-time `payload.event_title: null` (item kept; no other event content) when the linked event is archived and the caller is not the creator. `event_title` is nullable.
+- File-only RLS SELECT policies `20261027160000_archived_event_visibility.sql` (not applied; API still bypasses RLS)
 
 ### Changed
 - Successful event PATCH still increments `version` when the client omits it (backward compatible). **`version` will become required in a later PR.**
+- Steward can still edit/archive **active** events they did not create; they cannot see, restore, or permanently delete someone else's **archived** event
+- Home `recent_memories` remains active-only (archived excluded for everyone). `focus[].memory_count` no longer counts other people's archived events for stewards
 
 ### Unchanged
 - GET event (and create/archive/unarchive) already returned `version`
@@ -1203,8 +1223,8 @@ JWKS_URI=${SUPABASE_URL}/auth/v1/.well-known/jwks.json
 - `POST /v1/people/{id}/invites` (steward). Family invite body stays `{ email }` only. Create **201** includes `url = {first WEB_ORIGIN}/invites/{token}`; store only `token_hash`
 - `GET /v1/invites/{token}` public preview `{ family_name, inviter_display_name, person_display_name, expires_at }`, per-IP rate limit
 - `POST /v1/invites/{token}/accept` body `{}` → **200** `{ family_id, person_id }`
-- `GET /v1/people/{id}/events?cursor=` (family members; archived visibility matches family events)
-- `GET /v1/me/notifications?cursor=` (`{ notifications, next_cursor, unread_count }`) and `POST /v1/notifications/{id}/read` (owner; other account or non-uuid `{id}` **404**). Types: `contribution_added` `{ actor_display_name, event_title, event_id, family_id }`, `invite_accepted` `{ actor_display_name, family_name, family_id, person_id, person_display_name }`. Names snapshotted at insert. List/`unread_count` only families the caller still belongs to
+- `GET /v1/people/{id}/events?cursor=` (family members; archived only for `creator_account_id`)
+- `GET /v1/me/notifications?cursor=` (`{ notifications, next_cursor, unread_count }`) and `POST /v1/notifications/{id}/read` (owner; other account or non-uuid `{id}` **404**). Types: `contribution_added` `{ actor_display_name, event_title, event_id, family_id }` (`event_title` nullable), `invite_accepted` `{ actor_display_name, family_name, family_id, person_id, person_display_name }`. Names snapshotted at insert. List/`unread_count` only families the caller still belongs to. Archived `event_id` keeps the row and returns `event_title: null` unless the caller is the event creator
 - `GET /v1/families/{id}/people` returns `{ people, relationships }`
 - Media `purpose` `story` \| `avatar` (avatar limit 1 per person)
 - Person `memory_count` (same visibility as `GET /v1/people/{id}/events`, same-query count) and required `name`

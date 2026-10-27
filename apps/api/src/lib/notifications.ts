@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql as dsql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql as dsql } from 'drizzle-orm';
 import {
   db,
   notifications,
@@ -6,9 +6,11 @@ import {
   accounts,
   families,
   people,
+  events,
   sql as pgSql,
 } from './db/index.js';
 import { decodeEventCursor } from './cursor.js';
+import { eventIsVisibleTo } from './event-visibility.js';
 
 export const NotificationType = {
   CONTRIBUTION_ADDED: 'contribution_added',
@@ -160,14 +162,59 @@ type ListedRow = {
   read_at: Date | null;
 };
 
-function presentItem(row: ListedRow) {
+type EventVisibility = { status: string; creatorAccountId: string | null };
+
+function presentItem(
+  row: ListedRow,
+  accountId: string,
+  eventsById: Map<string, EventVisibility>
+) {
+  const payload = parsePayload(row.payload);
+  if (row.type === NotificationType.CONTRIBUTION_ADDED && typeof payload.event_id === 'string') {
+    const event = eventsById.get(payload.event_id);
+    if (event && (event.status === 'archived' || event.status === 'deleted') && !eventIsVisibleTo(event, accountId)) {
+      payload.event_title = '';
+    }
+  }
   return {
     id: row.id,
     type: row.type,
-    payload: parsePayload(row.payload),
+    payload,
     created_at: new Date(row.created_at).toISOString(),
     read_at: row.read_at ? new Date(row.read_at).toISOString() : null,
   };
+}
+
+async function loadEventVisibility(eventIds: string[]): Promise<Map<string, EventVisibility>> {
+  const unique = [...new Set(eventIds)];
+  const map = new Map<string, EventVisibility>();
+  if (unique.length === 0) return map;
+  const rows = await db
+    .select({
+      id: events.id,
+      status: events.status,
+      creatorAccountId: events.creatorAccountId,
+    })
+    .from(events)
+    .where(inArray(events.id, unique));
+  for (const row of rows) {
+    map.set(row.id, row);
+  }
+  return map;
+}
+
+function eventIdsFromRows(rows: ListedRow[]): string[] {
+  return rows.flatMap((row) => {
+    const payload = parsePayload(row.payload);
+    return row.type === NotificationType.CONTRIBUTION_ADDED && typeof payload.event_id === 'string'
+      ? [payload.event_id]
+      : [];
+  });
+}
+
+async function presentItems(rows: ListedRow[], accountId: string) {
+  const eventsById = await loadEventVisibility(eventIdsFromRows(rows));
+  return rows.map((row) => presentItem(row, accountId, eventsById));
 }
 
 function payloadFamilyId() {
@@ -222,7 +269,7 @@ export async function listPresentedNotifications(
         limit ${query.limit + 1}
       `;
 
-  return rows.map(presentItem);
+  return presentItems(rows, accountId);
 }
 
 export async function getPresentedNotification(id: string, accountId: string) {
@@ -234,7 +281,9 @@ export async function getPresentedNotification(id: string, accountId: string) {
       and notifications.account_id = ${accountId}::uuid
     limit 1
   `;
-  return rows[0] ? presentItem(rows[0]) : null;
+  if (!rows[0]) return null;
+  const [presented] = await presentItems(rows, accountId);
+  return presented;
 }
 
 export async function unreadCountFor(accountId: string): Promise<number> {

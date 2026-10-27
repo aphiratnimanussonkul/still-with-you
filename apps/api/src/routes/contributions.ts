@@ -3,6 +3,7 @@ import { AppError, ErrorCode, createContributionSchema, updateContributionSchema
 import { and, desc, eq } from 'drizzle-orm';
 import { db, events, contributions, accounts, auditLog } from '../lib/db/index.js';
 import { findActiveMember, getActiveMember, assertContributionOwner } from '../lib/authz.js';
+import { assertOriginEventVisible, requireVisibleEvent } from '../lib/event-visibility.js';
 import { attachMediaToStory, hardDeleteStoryMedia } from '../lib/media/attach.js';
 import { presentStoryMedia } from '../lib/media/present.js';
 import { insertNotification, NotificationType } from '../lib/notifications.js';
@@ -60,19 +61,12 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
     if (!member) {
       throw new AppError(ErrorCode.NOT_FOUND, 'Contribution not found', 404);
     }
+    await assertOriginEventVisible(contrib.originEventId, request.user!.id, 'Contribution not found');
     return reply.send(await toContributionResponse(contrib, request.user!.id));
   });
 
   fastify.get<{ Params: { id: string } }>('/events/:id/contributions', async (request, reply) => {
-    const [event] = await db.select().from(events).where(eq(events.id, request.params.id)).limit(1);
-    if (!event || event.status === 'deleted') {
-      throw new AppError(ErrorCode.NOT_FOUND, 'Event not found', 404);
-    }
-
-    const member = await findActiveMember(event.familyId, request.user!.id);
-    if (!member) {
-      throw new AppError(ErrorCode.NOT_FOUND, 'Event not found', 404);
-    }
+    const event = await requireVisibleEvent(request.params.id, request.user!.id);
 
     const rows = await db
       .select({
@@ -99,6 +93,10 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     await getActiveMember(event.familyId, request.user!.id);
+
+    if (event.status === 'archived' && event.creatorAccountId !== request.user!.id) {
+      throw new AppError(ErrorCode.NOT_FOUND, 'Event not found', 404);
+    }
 
     if (event.status !== 'active') {
       throw new AppError(ErrorCode.EVENT_NOT_ACTIVE, 'Event must be active to add a contribution', 409);
@@ -158,6 +156,7 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
       throw new AppError(ErrorCode.NOT_FOUND, 'Contribution not found', 404);
     }
 
+    await assertOriginEventVisible(contrib.originEventId, request.user!.id, 'Contribution not found');
     assertContributionOwner(contrib.ownerAccountId, request.user!.id);
 
     const body = updateContributionSchema.parse(request.body);
@@ -203,6 +202,7 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
       throw new AppError(ErrorCode.NOT_FOUND, 'Contribution not found', 404);
     }
 
+    await assertOriginEventVisible(contrib.originEventId, request.user!.id, 'Contribution not found');
     assertContributionOwner(contrib.ownerAccountId, request.user!.id);
 
     const [updated] = await db
@@ -226,6 +226,7 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
       throw new AppError(ErrorCode.NOT_FOUND, 'Contribution not found', 404);
     }
 
+    await assertOriginEventVisible(contrib.originEventId, request.user!.id, 'Contribution not found');
     assertContributionOwner(contrib.ownerAccountId, request.user!.id);
 
     const [origin] = await db.select().from(events).where(eq(events.id, contrib.originEventId)).limit(1);
@@ -255,6 +256,7 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
       throw new AppError(ErrorCode.NOT_FOUND, 'Contribution not found', 404);
     }
 
+    await assertOriginEventVisible(contrib.originEventId, request.user!.id, 'Contribution not found');
     assertContributionOwner(contrib.ownerAccountId, request.user!.id);
 
     await db.transaction(async (tx) => {
