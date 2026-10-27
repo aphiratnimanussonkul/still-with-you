@@ -8,12 +8,6 @@ export type StoredObject = {
   size: number;
 };
 
-export type ImageTransform = {
-  width?: number;
-  height?: number;
-  resize?: 'cover' | 'contain' | 'fill';
-};
-
 export interface MediaStorage {
   createSignedUploadUrl(
     key: string,
@@ -21,8 +15,7 @@ export interface MediaStorage {
   ): Promise<{ signedUrl: string; expiresAt: Date }>;
   createSignedReadUrl(
     key: string,
-    expiresInSeconds?: number,
-    transform?: ImageTransform
+    expiresInSeconds?: number
   ): Promise<{ signedUrl: string; expiresAt: Date }>;
   download(key: string): Promise<StoredObject | null>;
   upload(key: string, body: Buffer, contentType: string): Promise<void>;
@@ -44,16 +37,9 @@ export class MemoryMediaStorage implements MediaStorage {
     };
   }
 
-  async createSignedReadUrl(
-    key: string,
-    expiresInSeconds = MEDIA_READ_TTL_SECONDS,
-    transform?: ImageTransform
-  ) {
+  async createSignedReadUrl(key: string, expiresInSeconds = MEDIA_READ_TTL_SECONDS) {
     const expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
     const params = new URLSearchParams({ exp: String(expiresAt.getTime()) });
-    if (transform?.width) params.set('width', String(transform.width));
-    if (transform?.height) params.set('height', String(transform.height));
-    if (transform?.resize) params.set('resize', transform.resize);
     return {
       signedUrl: `https://media.test/read/${encodeURIComponent(key)}?${params.toString()}`,
       expiresAt,
@@ -97,14 +83,10 @@ class SupabaseMediaStorage implements MediaStorage {
     };
   }
 
-  async createSignedReadUrl(
-    key: string,
-    expiresInSeconds = MEDIA_READ_TTL_SECONDS,
-    transform?: ImageTransform
-  ) {
+  async createSignedReadUrl(key: string, expiresInSeconds = MEDIA_READ_TTL_SECONDS) {
     const { data, error } = await this.client.storage
       .from(env.STORAGE_BUCKET)
-      .createSignedUrl(key, expiresInSeconds, transform ? { transform } : undefined);
+      .createSignedUrl(key, expiresInSeconds);
     if (error || !data?.signedUrl) {
       throw new Error(error?.message || 'Failed to create signed read URL');
     }

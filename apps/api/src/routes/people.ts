@@ -32,6 +32,7 @@ import {
   personMemoryCountExpr,
   visibleEventCondition,
 } from '../lib/event-visibility.js';
+import { loadVariantKeys } from '../lib/media/variants.js';
 import { inviteExpiresAt, mintInviteToken, publicInviteUrl } from '../lib/invites.js';
 import {
   attachAvatar,
@@ -123,6 +124,10 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
       .from(personRelationships)
       .where(eq(personRelationships.familyId, request.params.fid));
 
+    const variants = await loadVariantKeys(
+      rows.map((row) => row.avatar?.id).filter((id): id is string => Boolean(id))
+    );
+
     return reply.send({
       people: await Promise.all(
         rows.map((row) =>
@@ -130,7 +135,8 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
             row.person,
             inviteStatusFor(row.person, row.pendingInviteId),
             row.avatar,
-            Number(row.memoryCount ?? 0)
+            Number(row.memoryCount ?? 0),
+            row.avatar ? variants.get(row.avatar.id) : undefined
           )
         )
       ),

@@ -76,6 +76,8 @@ function focusListPayload(familyId: string) {
           person: { id: person.id, display_name: person.name, name: person.name },
           photo_url: person.avatar_url ?? null,
           avatar_url: person.avatar_url ?? null,
+          avatar_placeholder: person.avatar_placeholder ?? null,
+          full_url: person.full_url ?? null,
           memory_count: events.filter(
             (event) => event.family_id === familyId && event.status === 'active'
           ).length,
@@ -199,6 +201,7 @@ function toContributionResponse(item: (typeof contributions)[number]) {
         status: 'ready' as const,
         url: `${api}/v1/mock-uploads/${id}`,
         thumb_url: null,
+        full_url: `${api}/v1/mock-uploads/${id}`,
         width: null,
         height: null,
         expires_at: null,
@@ -339,6 +342,7 @@ export const handlers = [
         status: 'ready',
         url: `${api}/v1/mock-uploads/${params.id}`,
         thumb_url: null,
+        full_url: `${api}/v1/mock-uploads/${params.id}`,
         width: 1024,
         height: 768,
         expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
@@ -379,6 +383,8 @@ export const handlers = [
       version: 1,
       paused: false,
       cover_url: null,
+      cover_placeholder: null,
+      full_url: null,
     });
     events.push(created);
     contributions.push({
@@ -428,6 +434,8 @@ export const handlers = [
         person: { id: person.id, display_name: person.display_name, name: person.display_name },
         photo_url: person.avatar_url ?? null,
         avatar_url: person.avatar_url ?? null,
+        avatar_placeholder: person.avatar_placeholder ?? null,
+        full_url: person.full_url ?? null,
         memory_count: person.memory_count ?? 0,
         position,
       })),
@@ -575,6 +583,8 @@ export const handlers = [
       death_date_precision: deathDatePrecisionOrNull(deathDate, body.death_date_precision),
       avatar_media_id: body.avatar_media_id ?? null,
       avatar_url: null,
+      avatar_placeholder: null,
+      full_url: null,
       memory_count: 0,
       age:
         !isLiving && birthDate && deathDate

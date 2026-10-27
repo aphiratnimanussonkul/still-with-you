@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
-import { db, familyMembers, media, contributions, events } from '../lib/db/index.js';
-import { eq } from 'drizzle-orm';
+import { db, familyMembers, media, mediaVariants, contributions, events } from '../lib/db/index.js';
+import { and, eq } from 'drizzle-orm';
 import { EVENT_DELETE_CONFIRM_TEXT } from '@still-with-you/contracts';
+import { createTestJpeg } from '@still-with-you/image-variants';
 import { memoryMediaStorage } from '../lib/media/storage.js';
-import { cleanupOrphanMedia, processPendingMediaJobs } from '../lib/media/jobs.js';
+import { backfillMediaVariants, cleanupOrphanMedia, processPendingMediaJobs } from '../lib/media/jobs.js';
 
 const PNG_1X1 = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -90,17 +91,19 @@ describe('Media uploads (v0.5)', () => {
   }
 
   async function readyJpeg(token = authorToken) {
-    const started = await startUpload(token, familyId, 'image/jpeg', JPEG_1X1.length);
+    const jpeg = await createTestJpeg({ width: 120, height: 80 });
+    const started = await startUpload(token, familyId, 'image/jpeg', jpeg.length);
     expect(started.statusCode).toBe(201);
     const { media_id } = JSON.parse(started.body);
-    const completed = await putAndComplete(token, media_id, JPEG_1X1, 'image/jpeg');
+    const completed = await putAndComplete(token, media_id, jpeg, 'image/jpeg');
     expect(completed.statusCode).toBe(200);
     await processPendingMediaJobs();
     return media_id as string;
   }
 
   it('happy path: signed upload, complete, attach, signed read URLs', async () => {
-    const started = await startUpload(authorToken, familyId, 'image/jpeg', JPEG_1X1.length);
+    const jpeg = await createTestJpeg({ width: 120, height: 80 });
+    const started = await startUpload(authorToken, familyId, 'image/jpeg', jpeg.length);
     expect(started.statusCode).toBe(201);
     const body = JSON.parse(started.body);
     expect(body.media_id).toBeTruthy();
@@ -109,7 +112,7 @@ describe('Media uploads (v0.5)', () => {
     expect(body.max_per_story).toBe(20);
     expect(new Date(body.expires_at).getTime()).toBeGreaterThan(Date.now());
 
-    const completed = await putAndComplete(authorToken, body.media_id, JPEG_1X1, 'image/jpeg');
+    const completed = await putAndComplete(authorToken, body.media_id, jpeg, 'image/jpeg');
     expect(completed.statusCode).toBe(200);
     expect(JSON.parse(completed.body).status).toBe('uploaded');
     await processPendingMediaJobs();
@@ -126,6 +129,8 @@ describe('Media uploads (v0.5)', () => {
     expect(story.media[0].status).toBe('ready');
     expect(story.media[0].url).toContain('https://');
     expect(story.media[0].thumb_url).toContain('https://');
+    expect(story.media[0].full_url).toContain('https://');
+    expect(story.media[0].thumb_url).toContain(encodeURIComponent(`${familyId}/${body.media_id}/cover_card.webp`));
     expect(story.media[0].expires_at).toBeTruthy();
   });
 
@@ -256,6 +261,7 @@ describe('Media uploads (v0.5)', () => {
     const story = JSON.parse(got.body);
     expect(story.media[0].url).toBeNull();
     expect(story.media[0].thumb_url).toBeNull();
+    expect(story.media[0].full_url).toBeNull();
   });
 
   it('hides media URLs when the origin event is archived', async () => {
@@ -377,5 +383,31 @@ describe('Media uploads (v0.5)', () => {
     expect(stories.every((s) => s.status === 'trashed' || s.status === 'purged' || s.eventId === null)).toBe(
       true
     );
+  });
+
+  it('backfill generates missing variants and skips them on re-run', async () => {
+    const jpeg = await createTestJpeg({ width: 100, height: 80 });
+    const started = await startUpload(authorToken, familyId, 'image/jpeg', jpeg.length);
+    const { media_id } = JSON.parse(started.body);
+    const completed = await putAndComplete(authorToken, media_id, jpeg, 'image/jpeg');
+    expect(completed.statusCode).toBe(200);
+
+    const first = await backfillMediaVariants({ limit: 20 });
+    expect(first.processed).toBeGreaterThanOrEqual(1);
+    const [row] = await db.select().from(media).where(eq(media.id, media_id));
+    expect(row.placeholderWebp).toMatch(/^data:image\/webp;base64,/);
+    const variants = await db.select().from(mediaVariants).where(eq(mediaVariants.mediaId, media_id));
+    expect(variants).toHaveLength(4);
+
+    const second = await backfillMediaVariants({ limit: 20 });
+    expect(second.processed).toBe(0);
+    expect(await db.select().from(mediaVariants).where(eq(mediaVariants.mediaId, media_id))).toHaveLength(4);
+
+    await db
+      .delete(mediaVariants)
+      .where(and(eq(mediaVariants.mediaId, media_id), eq(mediaVariants.kind, 'avatar')));
+    const third = await backfillMediaVariants({ limit: 20 });
+    expect(third.processed).toBe(1);
+    expect(await db.select().from(mediaVariants).where(eq(mediaVariants.mediaId, media_id))).toHaveLength(4);
   });
 });

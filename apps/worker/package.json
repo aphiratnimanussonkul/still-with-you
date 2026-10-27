@@ -9,11 +9,13 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "backfill-media": "tsx src/backfill.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src"
   },
   "dependencies": {
     "@still-with-you/contracts": "workspace:*",
+    "@still-with-you/image-variants": "workspace:*",
     "@supabase/supabase-js": "2.118.0",
     "drizzle-orm": "^0.29.3",
     "postgres": "^3.4.3"

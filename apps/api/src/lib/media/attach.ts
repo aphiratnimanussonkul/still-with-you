@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { AppError, ErrorCode } from '@still-with-you/contracts';
-import { db, media } from '../db/index.js';
+import { db, media, mediaVariants } from '../db/index.js';
 import { env } from '../env.js';
 import { getMediaStorage } from './storage.js';
 
@@ -110,14 +110,32 @@ export async function attachMediaToStory(
   }
 }
 
+async function storageKeysForMedia(
+  client: DbClient,
+  rows: { id: string; storageKey: string; thumbKey: string | null }[]
+): Promise<string[]> {
+  const ids = rows.map((row) => row.id);
+  const variants =
+    ids.length === 0
+      ? []
+      : await client
+          .select({ storageKey: mediaVariants.storageKey })
+          .from(mediaVariants)
+          .where(inArray(mediaVariants.mediaId, ids));
+  return [
+    ...rows.flatMap((row) => [row.storageKey, row.thumbKey].filter((k): k is string => Boolean(k))),
+    ...variants.map((row) => row.storageKey),
+  ];
+}
+
 export async function hardDeleteStoryMedia(client: DbClient, storyIds: string[]): Promise<void> {
   if (storyIds.length === 0) return;
   const rows = await client
-    .select({ storageKey: media.storageKey, thumbKey: media.thumbKey })
+    .select({ id: media.id, storageKey: media.storageKey, thumbKey: media.thumbKey })
     .from(media)
     .where(inArray(media.storyId, storyIds));
 
-  const keys = rows.flatMap((row) => [row.storageKey, row.thumbKey].filter((k): k is string => Boolean(k)));
+  const keys = await storageKeysForMedia(client, rows);
   if (keys.length > 0) {
     await getMediaStorage().remove(keys);
   }
@@ -130,7 +148,7 @@ export async function hardDeleteMediaRows(
   rows: { id: string; storageKey: string; thumbKey: string | null }[]
 ): Promise<void> {
   if (rows.length === 0) return;
-  const keys = rows.flatMap((row) => [row.storageKey, row.thumbKey].filter((k): k is string => Boolean(k)));
+  const keys = await storageKeysForMedia(client, rows);
   await getMediaStorage().remove(keys);
   await client.delete(media).where(
     inArray(

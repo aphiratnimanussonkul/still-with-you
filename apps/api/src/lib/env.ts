@@ -90,10 +90,6 @@ export const env = {
     process.env.SWY_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   MEDIA_MAX_BYTES: parseInt(process.env.MEDIA_MAX_BYTES || '20971520', 10),
   MEDIA_MAX_PER_CONTRIBUTION: parseInt(process.env.MEDIA_MAX_PER_CONTRIBUTION || '20', 10),
-  /** Read each time so tests can toggle. Default false: no Storage image transform. */
-  get MEDIA_IMAGE_TRANSFORMS() {
-    return parseTrueFalseFlag(process.env.MEDIA_IMAGE_TRANSFORMS, 'MEDIA_IMAGE_TRANSFORMS', false);
-  },
 
   // Rate limiting
   RATE_LIMIT_MAX: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),

@@ -3,7 +3,7 @@
 **Updated:** Oct 27, 2026  
 **Status:** Canonical spec.  
 **Supersedes:** [v0.8](./backend-contract-v0.8.md). **[v0.6](./backend-contract-v0.6.md) is cancelled** (never deployed; do not use `/quick-question` or `/persons/{id}/answers`).  
-**Changes from v0.8:** archived events (`status = 'archived'`) are visible to and restorable by `events.creator_account_id` only. Stewards, other members, and contributors (including of their own stories) get **404 NOT_FOUND**. `memory_count`, home `recent_memories`, `GET /v1/people/{id}/events`, event detail, contributions, and media signed URLs follow that rule. Notifications that link to an archived event keep the row but return `payload.event_title: null` (nullable; no other event content) for anyone who cannot see the event. Matching RLS SELECT policies are in `20261027160000_archived_event_visibility.sql` (file-only; the API still uses a privileged role that bypasses RLS). Optional optimistic concurrency on `PATCH /v1/events/{id}` via `events.version`. GET already returned `version`. When the client sends `version`, the update is compare-and-swap; mismatch is **409 `EVENT_EDIT_CONFLICT`** with `details.current_version` (no editor name). Omitting `version` still increments it. `version` will become required in a later PR. Migration `20261027140000_events_version.sql` is file-only until applied.  
+**Changes from v0.8:** archived events (`status = 'archived'`) are visible to and restorable by `events.creator_account_id` only. Stewards, other members, and contributors (including of their own stories) get **404 NOT_FOUND**. `memory_count`, home `recent_memories`, `GET /v1/people/{id}/events`, event detail, contributions, and media signed URLs follow that rule. Notifications that link to an archived event keep the row but return `payload.event_title: null` (nullable; no other event content) for anyone who cannot see the event. Matching RLS SELECT policies are in `20261027160000_archived_event_visibility.sql` (file-only; the API still uses a privileged role that bypasses RLS). Optional optimistic concurrency on `PATCH /v1/events/{id}` via `events.version`. GET already returned `version`. When the client sends `version`, the update is compare-and-swap; mismatch is **409 `EVENT_EDIT_CONFLICT`** with `details.current_version` (no editor name). Omitting `version` still increments it. `version` will become required in a later PR. Migration `20261027140000_events_version.sql` is file-only until applied. Worker-generated image variants (sharp) replace Supabase Storage transforms. `MEDIA_IMAGE_TRANSFORMS` is removed. New `avatar_placeholder` / `cover_placeholder` / `full_url`, plus a sibling `*_expires_at` (ISO 8601) for every signed URL. Card cover is 256×256 (was 128). Migration `20261027120000_media_variants.sql` is file-only until applied.  
 **Changes from v0.7 (carried in v0.8):** family-tree people profile (gender, birth date + precision, computed age, bio, avatar); `person_relationships`; person PATCH/DELETE; steward person invites; GET people returns `{ people, relationships }`; public invite preview; invite create `url`; people events list; in-app notifications (`contribution_added`, `invite_accepted`)  
 **Requirements v1.2 (AC-19..AC-27):** family steward, `archived_at` / `deletable_at`, 7-day permanent delete, `canManageEvent`, owner-only stories  
 **References:** Domain Model v0.4 (Kret), Requirements v1.1 / v1.2, Kret media contract v0.5, Kret focus + quick questions spec, Kret family-tree decisions (locked 22 Oct 2026)
@@ -31,7 +31,7 @@ These override earlier drafts of this revision. Implementers must follow this ta
 - Use `story` field naming throughout DB and API (D5)
 - Authorization checked at backend for every request: must be active FamilyMember first, then check permission matrix and role. Exception: `GET /v1/invites/{token}` is unauthenticated (the token is the secret) and is rate-limited per IP
 - Row Level Security (RLS) enabled on all tables. `anon`/`authenticated` remain revoked. SELECT policies on `events`, `event_people`, `contributions`, and `media` match creator-only archived visibility (`20261027160000_archived_event_visibility.sql`, file-only until applied). The API connects with a privileged role that **bypasses RLS** and must enforce the same rule in application code.
-- Private storage bucket with signed URLs. Story `media[].url` expires in **5 min** (`MEDIA_READ_TTL_SECONDS`). `avatar_url` and `cover_url` expire in **1 hour** (`MEDIA_AVATAR_COVER_TTL_SECONDS` = 3600)
+- Private storage bucket with signed URLs. Each signed URL has a sibling `*_expires_at` (ISO 8601). Story `media[].url` / `thumb_url` / `full_url` expire in **5 min** (`MEDIA_READ_TTL_SECONDS`). `avatar_url`, `cover_url`, `photo_url`, and avatar/cover `full_url` expire in **1 hour** (`MEDIA_AVATAR_COVER_TTL_SECONDS` = 3600). Clients should refetch the parent resource on **403** or at `*_expires_at`. Thumbnails are **files in Storage** (not Storage image transforms). `MEDIA_IMAGE_TRANSFORMS` is gone.
 - 404 for cross-family access and for archived events the caller did not create (stewards included); 403 FORBIDDEN when resource exists but action not permitted
 
 ## 2. Schema Changes (v0.4)
@@ -543,7 +543,7 @@ Role-change errors: **403 FORBIDDEN** (caller is not an admin/steward), **404 NO
 | POST | `/events/{id}/unarchive` | Event creator | Restore: `status=active`, `archived_at=null`. Steward / member / contributor → **404** |
 | POST | `/events/{id}/delete` | `canManageEvent` after the event is visible | Permanent delete (AC-19). Confirm text exactly `ลบเรื่องนี้` after trim. Archived event the caller did not create → **404** |
 
-Event responses include integer `version` (starts at **1**, incremented on every successful update including PATCH without a client `version`). They also include `archived_at` and `deletable_at` (`archived_at + 7 days`, ISO 8601 UTC). Both archive timestamps are `null` when the event is not archived. Responses include `paused` (`true` iff `status = 'archived'`) and `cover_url` (signed read URL of the first completed photo of the earliest published story, or `null`). `cover_url` is derived on every response and is not stored. TTL is **1 hour** (`MEDIA_AVATAR_COVER_TTL_SECONDS`).
+Event responses include integer `version` (starts at **1**, incremented on every successful update including PATCH without a client `version`). They also include `archived_at` and `deletable_at` (`archived_at + 7 days`, ISO 8601 UTC). Both archive timestamps are `null` when the event is not archived. Responses include `paused` (`true` iff `status = 'archived'`), `cover_url`, `cover_url_expires_at`, `cover_placeholder`, `full_url`, and `full_url_expires_at`. Cover is the first completed photo of the earliest published story (or all of those image fields `null` when there is no image). URLs are derived on every response and are not stored. TTL is **1 hour** (`MEDIA_AVATAR_COVER_TTL_SECONDS`) for both `cover_url` and `full_url`.
 
 ```json
 // PATCH /v1/events/{id} — version optional until a later PR
@@ -562,7 +562,7 @@ Event responses include integer `version` (starts at **1**, incremented on every
 }
 ```
 
-When `MEDIA_IMAGE_TRANSFORMS=false` (default), `cover_url` is untransformed; the web crops with `object-fit: cover`. When `true`, the same field is sized per endpoint: home `recent_memories` uses `COVER_CARD_TRANSFORM` (`width=128&height=128&resize=cover`); event/memory detail (and other event responses) uses `COVER_DETAIL_TRANSFORM` (`width=684&height=400&resize=cover`).
+The worker (sharp, once after upload completes) writes Storage variants. `cover_url` is a signed URL of the matching variant: home `recent_memories` uses **cover_card 256×256 cover**; event/memory detail (and other event responses) uses **cover_detail 684×400 cover**. `full_url` is the long-edge-≤2048 WebP (JPEG fallback). `cover_placeholder` is a `data:image/webp;base64,…` LQIP (WebP payload ≤ 1KB). It is `null` when there is no image **or** when variants are not ready yet. `cover_url` and `full_url` are `null` only when there is no image at all. While variants are pending, they fall back to the original object's signed URL (same 1 hour TTL). Each signed URL has a sibling `*_expires_at` (ISO 8601); `null` when the URL is `null`. Clients should refetch on **403** or at expiry.
 
 ```json
 // POST /events/{id}/delete
@@ -639,6 +639,10 @@ Any **active family member** may create a person. The **creator** (`created_by_a
   "bio": "ชอบทำขนมไทย",
   "avatar_media_id": "…",
   "avatar_url": "https://…",
+  "avatar_url_expires_at": "2026-10-27T10:34:00.000Z",
+  "avatar_placeholder": "data:image/webp;base64,…",
+  "full_url": "https://…",
+  "full_url_expires_at": "2026-10-27T10:34:00.000Z",
   "memory_count": 2,
   "account_id": null,
   "invite_status": "none",
@@ -649,7 +653,7 @@ Any **active family member** may create a person. The **creator** (`created_by_a
 }
 ```
 
-`name` is always present and is the same string as `display_name` (v0.7 alias, kept so the current web client keeps working). `gender` is `"female"` \| `"male"` \| `"other"` or `null`. `avatar_url` is derived on every response from `avatar_media_id` (never stored): a signed read URL (**1 hour**, `MEDIA_AVATAR_COVER_TTL_SECONDS`) when the media exists, `purpose = 'avatar'`, and status is `uploaded` or `ready`; otherwise `null`. When `MEDIA_IMAGE_TRANSFORMS=true`, the URL includes `AVATAR_TRANSFORM` (`width=300&height=300&resize=cover`). When the flag is false (default), the URL has no transform and the web crops with `object-fit: cover`. `memory_count` is the number of non-deleted events linked to that person with the same visibility as `GET /v1/people/{id}/events` (computed in the list query; archived counts **only for the event creator**). Soft-deleted rows are never returned.
+`name` is always present and is the same string as `display_name` (v0.7 alias, kept so the current web client keeps working). `gender` is `"female"` \| `"male"` \| `"other"` or `null`. `avatar_url` is derived on every response from `avatar_media_id` (never stored): a signed read URL (**1 hour**, `MEDIA_AVATAR_COVER_TTL_SECONDS`) of the **300×300 cover WebP** when the media exists, `purpose = 'avatar'`, and status is `uploaded` or `ready`; otherwise `null`. `avatar_url` and `full_url` are `null` only when there is no image at all (no completed avatar media). While the avatar/full variants are pending, those URLs fall back to the original object's signed URL (same 1 hour TTL). `avatar_placeholder` is a `data:image/webp;base64,…` LQIP (WebP payload ≤ 1KB) when the avatar variant exists; it is `null` when there is no image **or** variants are not ready yet. `full_url` is the long-edge-≤2048 variant (same TTL and fallback). Each signed URL has a sibling `avatar_url_expires_at` / `full_url_expires_at` (ISO 8601); `null` when the URL is `null`. Clients should refetch the person (or home/focus) on **403** or at expiry. `memory_count` is the number of non-deleted events linked to that person with the same visibility as `GET /v1/people/{id}/events` (computed in the list query; archived counts **only for the event creator**). Soft-deleted rows are never returned.
 
 | Method | Path | Permission | Notes |
 |--------|------|------------|-------|
@@ -892,7 +896,7 @@ Story create/update `media_ids` (uuid[], default `[]`):
 - Not `uploaded`/`ready` → **409 MEDIA_NOT_READY** with `details.media_ids`
 - More than `MEDIA_MAX_PER_CONTRIBUTION` (default 20) → **422 TOO_MANY_PHOTOS**
 
-Reads: each story includes `media: [{ id, status, url, thumb_url, width, height, expires_at }]`. Signed read URLs (5 min) are issued only after confirming the requester is a current family member. `thumb_url` is null until status is `ready`. Trashed stories and archived events get no URLs (including for the event creator). Non-owners never receive the contribution payload when the origin is archived.
+Reads: each story includes `media: [{ id, status, url, url_expires_at, thumb_url, thumb_url_expires_at, full_url, full_url_expires_at, width, height, expires_at }]`. Signed read URLs (**5 min**, `MEDIA_READ_TTL_SECONDS`) are issued only after confirming the requester is a current family member. `url` is the original object. `thumb_url` is the **cover_card 256×256** variant (falls back to the original if that variant is not ready). `full_url` is the long-edge-≤2048 variant (same 5 min TTL and original-URL fallback). `expires_at` is the expiry of `url` (v0.8 name). `url_expires_at` is the same value, named to match the `*_expires_at` sibling convention. Each signed URL has a sibling `*_expires_at` (ISO 8601); `null` when that URL is `null`. Trashed stories and archived events get no URLs (`url` / `thumb_url` / `full_url` and their `*_expires_at` all `null`, including for the event creator). Non-owners never receive the contribution payload when the origin is archived. Clients should refetch the story on **403** or at expiry.
 
 ### 4.5 Uploads
 
@@ -925,9 +929,65 @@ Caller must be a family member. **415 UNSUPPORTED_TYPE**, **413 FILE_TOO_LARGE**
 POST /v1/media/{media_id}/complete
 ```
 
-Uploader only. Server reads the object, checks actual size `== size_bytes` and `<= MEDIA_MAX_BYTES`, and detects type via magic bytes (does not trust `Content-Type`). Mismatch → delete object, status `failed`, **422 UPLOAD_MISMATCH**. Success → status `uploaded` and enqueue a worker job to strip EXIF/GPS (re-encode) and write a thumbnail, then status `ready`.
+Uploader only. Server reads the object, checks actual size `== size_bytes` and `<= MEDIA_MAX_BYTES`, and detects type via magic bytes (does not trust `Content-Type`). Mismatch → delete object, status `failed`, **422 UPLOAD_MISMATCH**. Success → status `uploaded` and enqueue a worker job (`media_process`).
 
-Worker also deletes `pending`/`uploaded` rows with `story_id` null and `person_id` null older than 24 hours (storage objects included), including unattached avatars. Permanent story purge and event permanent delete delete media rows and storage objects.
+The worker runs **once** after complete, using **sharp**: `rotate()` (apply EXIF orientation), then re-encode **without** metadata (EXIF, GPS, ICC, XMP, IPTC stripped). It writes:
+
+| Kind | Where | Size | Served as |
+|------|--------|------|-----------|
+| placeholder | `media.placeholder_webp` (data URL) | ~20px long edge, WebP payload **≤ 1KB** | `avatar_placeholder` / `cover_placeholder` |
+| `avatar` | Storage `{family_id}/{media_id}/avatar.webp` | 300×300 cover | `avatar_url` |
+| `cover_card` | Storage `…/cover_card.webp` | 256×256 cover | home `cover_url`, story `thumb_url` |
+| `cover_detail` | Storage `…/cover_detail.webp` | 684×400 cover | event/memory-detail `cover_url` |
+| `full` | Storage `…/full.webp` (or `.jpg`) | long edge ≤ 2048, inside, no upscale | `full_url` |
+
+Original object is overwritten with the rotated, stripped re-encode on the **first** successful process. If a variant is not ready yet, `avatar_url` / `cover_url` / `full_url` / story `thumb_url` fall back to the original key and placeholders are `null`. Processing is idempotent: existing `media_variants` rows and a non-null placeholder are skipped. `pnpm --filter @still-with-you/worker backfill-media` walks existing `uploaded`/`ready` media the same way.
+
+Worker also deletes `pending`/`uploaded` rows with `story_id` null and `person_id` null older than 24 hours (storage objects included, including variant keys), including unattached avatars. Permanent story purge and event permanent delete delete media rows, variant rows (cascade), and storage objects.
+
+### 4.5b Image variants (NEW in v0.9)
+
+Migration (file-only until applied): `supabase/migrations/20261027120000_media_variants.sql`
+
+- `media.placeholder_webp text` — `data:image/webp;base64,…`. WebP bytes ≤ 1024. Null until generated.
+- `media_variants (media_id, kind, storage_key, content_type, width, height, size_bytes)` with `kind` `avatar` \| `cover_card` \| `cover_detail` \| `full`. RLS enabled; `revoke all` from `anon` and `authenticated`.
+
+There is **no** `MEDIA_IMAGE_TRANSFORMS` flag and **no** Storage `transform` query on signed URLs. `MEDIA_AVATAR_COVER_TTL_SECONDS` (3600) is unchanged.
+
+#### Signed URLs, placeholders, expiry
+
+Nullability:
+
+- `avatar_placeholder` / `cover_placeholder` is **`null`** when there is no image, **or** when variants are not ready yet.
+- `avatar_url`, `cover_url`, `photo_url`, and `full_url` are **`null` only when there is no image at all** (no completed `uploaded`/`ready` media, or the story/event hides URLs). While variants are pending they **fall back** to the original object's signed URL.
+
+TTL (`full_url` follows its context):
+
+| Signed URL | Sibling expiry (ISO 8601) | TTL |
+|------------|---------------------------|-----|
+| Person / focus `avatar_url` | `avatar_url_expires_at` | **1 hour** (`MEDIA_AVATAR_COVER_TTL_SECONDS`) |
+| Focus `photo_url` (same URL as `avatar_url`) | `photo_url_expires_at` | **1 hour** |
+| Event / home `cover_url` | `cover_url_expires_at` | **1 hour** |
+| Person / focus / event `full_url` | `full_url_expires_at` | **1 hour** (avatar/cover context) |
+| Story `media[].url` | `expires_at` and `url_expires_at` (same value) | **5 min** (`MEDIA_READ_TTL_SECONDS`) |
+| Story `media[].thumb_url` | `thumb_url_expires_at` | **5 min** |
+| Story `media[].full_url` | `full_url_expires_at` | **5 min** (story context) |
+
+When a URL is `null`, its sibling `*_expires_at` is `null`.
+
+**Client:** do not cache a signed URL past `*_expires_at`. If a signed GET returns **403** (expired or revoked) **or** the clock has reached `*_expires_at`, refetch the parent resource (person, event, story, home, or focus) to get new URLs.
+
+#### Docker / runtime (Jack)
+
+sharp is a **native** addon. Worker (and the API image, because `@still-with-you/image-variants` is a workspace dependency) must install it on **linuxmusl**.
+
+- Base: `node:22-alpine` with `apk add --no-cache libc6-compat` (already in both Dockerfiles).
+- `ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1` so install uses the prebuilt `@img/sharp-linuxmusl-x64` / `arm64` binary instead of compiling against system libvips.
+- Root `package.json` sets `pnpm.onlyBuiltDependencies: ["sharp"]` so pnpm 10 runs sharp's install script.
+- Production Docker stages copy `packages/image-variants/package.json` + `dist` and run `pnpm install --prod --frozen-lockfile` on alpine matching the target arch.
+- HEIC decode needs libvips+libheif. The prebuilt musl binary may **not** decode HEIC; those jobs fail → `media.status = failed`. If HEIC in production is required, switch the worker image to Debian (`node:22-bookworm-slim`) or add `vips`/`libheif` and rebuild sharp against it. JPEG/PNG/WebP are the supported decode path on alpine.
+- Do not run sharp on the API request path. Generation is worker-only (`media_process` outbox + `backfill-media`).
+- After applying the migration, run `pnpm --filter @still-with-you/worker backfill-media` once against the app database (not from this PR agent). Safe to re-run.
 
 ### 4.6 Trash
 
@@ -1037,9 +1097,9 @@ Per-account, per-family. Max **10**. Empty set allowed. All routes require famil
 
 | Method | Path | Notes |
 |--------|------|-------|
-| GET | `/v1/families/{id}/focus` | `{ items: [{ person: { id, display_name, name }, photo_url, avatar_url, memory_count, position }] }`. `photo_url` and `avatar_url` are the same derived avatar signed URL (1 hour) when one exists, otherwise `null`. Transform `AVATAR_TRANSFORM` 300×300 cover only when `MEDIA_IMAGE_TRANSFORMS=true`. There is no `GET /v1/home`; member cards are this focus list (also nested under `GET /v1/families/{id}/home`). `memory_count` uses the same visibility as `GET /v1/people/{id}/events` |
+| GET | `/v1/families/{id}/focus` | `{ items: [{ person: { id, display_name, name }, photo_url, photo_url_expires_at, avatar_url, avatar_url_expires_at, avatar_placeholder, full_url, full_url_expires_at, memory_count, position }] }`. `photo_url` and `avatar_url` are the same derived **300×300** avatar signed URL (1 hour) when one exists, otherwise `null`. `avatar_placeholder` / `full_url` match the person object (placeholder `null` until the variant is ready; URLs fall back to the original while pending). Each signed URL has a sibling `*_expires_at`. There is no `GET /v1/home`; member cards are this focus list (also nested under `GET /v1/families/{id}/home`). `memory_count` uses the same visibility as `GET /v1/people/{id}/events` |
 | PUT | `/v1/families/{id}/focus` | Body `{ person_ids: [] }` replaces the set. Array order becomes `position` (0-based). Duplicates or people not in the family → **400 INVALID_INPUT** `field: "person_ids"`. More than 10 → **422 TOO_MANY_FOCUS** |
-| GET | `/v1/families/{id}/home` | `{ focus, quick_question, recent_memories }`. `recent_memories` is the latest 5 **active** events in the family (archived excluded for everyone, including the creator). `focus[].memory_count` uses the same visibility as `GET /v1/people/{id}/events` (archived counts only for `creator_account_id`). Home `cover_url` uses `COVER_CARD_TRANSFORM` 128×128 when transforms are on; event detail uses `COVER_DETAIL_TRANSFORM` 684×400 |
+| GET | `/v1/families/{id}/home` | `{ focus, quick_question, recent_memories }`. `recent_memories` is the latest 5 **active** events in the family (archived excluded for everyone, including the creator; includes `paused`, `cover_url`, `cover_url_expires_at`, `cover_placeholder`, `full_url`, `full_url_expires_at`). `focus[].memory_count` uses the same visibility as `GET /v1/people/{id}/events` (archived counts only for `creator_account_id`). Home `cover_url` is **cover_card 256×256**; event detail is **cover_detail 684×400** |
 
 `quick_question` is `{ question_id, key, person: { id, display_name, name }, text }` or `null`. Picked among the caller's focus people, active questions, not already answered by the caller for that person, and not skipped by the caller in the last 30 days. `text` substitutes `{name}` / `{ชื่อ}` with the person's `display_name`. Null when there is no focus person or no eligible question.
 
@@ -1178,8 +1238,6 @@ STORAGE_BUCKET=private-media
 SWY_SUPABASE_SERVICE_ROLE_KEY=
 MEDIA_MAX_BYTES=20971520
 MEDIA_MAX_PER_CONTRIBUTION=20
-# true | false. Default false: avatar_url / cover_url have no Storage transform; web uses object-fit: cover.
-MEDIA_IMAGE_TRANSFORMS=false
 
 # Rate Limiting
 RATE_LIMIT_MAX=100
@@ -1199,16 +1257,37 @@ JWKS_URI=${SUPABASE_URL}/auth/v1/.well-known/jwks.json
 - Creator-only archived visibility: `GET /v1/events/{id}`, unarchive, contributions (including the contributor's own), `memory_count`, `GET /v1/people/{id}/events`, family event list. Non-creators (steward included) → **404 NOT_FOUND**
 - Notification present-time `payload.event_title: null` (item kept; no other event content) when the linked event is archived and the caller is not the creator. `event_title` is nullable.
 - File-only RLS SELECT policies `20261027160000_archived_event_visibility.sql` (not applied; API still bypasses RLS)
+- Worker-generated Storage variants via sharp (`packages/image-variants`). `rotate()` then strip all metadata.
+- `media.placeholder_webp` and `media_variants` (RLS on, anon/authenticated revoked). Migration `20261027120000_media_variants.sql` is file-only until applied.
+- Person / focus: `avatar_placeholder`, `full_url`, `avatar_url_expires_at`, `full_url_expires_at`; focus also `photo_url_expires_at`
+- Event / home `recent_memories`: `cover_placeholder`, `full_url`, `cover_url_expires_at`, `full_url_expires_at`
+- Story `media[].full_url`, `url_expires_at`, `thumb_url_expires_at`, `full_url_expires_at` (`expires_at` still the expiry of `url`)
+- Idempotent `pnpm --filter @still-with-you/worker backfill-media`
 
 ### Changed
 - Successful event PATCH still increments `version` when the client omits it (backward compatible). **`version` will become required in a later PR.**
 - Steward can still edit/archive **active** events they did not create; they cannot see, restore, or permanently delete someone else's **archived** event
 - Home `recent_memories` remains active-only (archived excluded for everyone). `focus[].memory_count` no longer counts other people's archived events for stewards
+- `avatar_url` is the 300×300 cover **file**, not a Storage transform
+- Home `cover_url` is **256×256** (replaces 128)
+- Event-detail `cover_url` is **684×400** as a file
+- `*_placeholder` is `null` when there is no image or variants are not ready yet
+- `avatar_url` / `cover_url` / `full_url` are `null` only when there is no image; pending variants fall back to the original signed URL
+- `full_url` TTL follows context: avatar/cover **1 hour**, story media **5 min**
+- Clients should refetch the parent resource on **403** or at `*_expires_at`
+- Card cover size constant is `COVER_CARD_VARIANT` (256), not `COVER_CARD_TRANSFORM` (128)
+
+### Removed
+- `MEDIA_IMAGE_TRANSFORMS`
+- Supabase Storage `transform` on `createSignedUrl` / test MemoryMediaStorage query params
+- `AVATAR_TRANSFORM`, `COVER_CARD_TRANSFORM`, `COVER_DETAIL_TRANSFORM`
 
 ### Unchanged
 - GET event (and create/archive/unarchive) already returned `version`
 - Contribution PATCH is not compare-and-swap in this revision
 - `VERSION_CONFLICT` (documented If-Match) remains unused
+- `MEDIA_AVATAR_COVER_TTL_SECONDS` = 3600
+- Story media read TTL 5 minutes
 
 ## 9a. Changes Summary (v0.7 → v0.8)
 
@@ -1228,8 +1307,8 @@ JWKS_URI=${SUPABASE_URL}/auth/v1/.well-known/jwks.json
 - `GET /v1/families/{id}/people` returns `{ people, relationships }`
 - Media `purpose` `story` \| `avatar` (avatar limit 1 per person)
 - Person `memory_count` (same visibility as `GET /v1/people/{id}/events`, same-query count) and required `name`
-- Person/focus `avatar_url` derived on every response from completed `purpose=avatar` media (URL is never stored). TTL 1 hour. Transform `AVATAR_TRANSFORM` 300×300 only when `MEDIA_IMAGE_TRANSFORMS=true`
-- Event `paused` and `cover_url` (first completed photo of the earliest published story). TTL 1 hour. Home `recent_memories` uses `COVER_CARD_TRANSFORM` 128×128; event detail uses `COVER_DETAIL_TRANSFORM` 684×400 — only when `MEDIA_IMAGE_TRANSFORMS=true`
+- Person/focus `avatar_url` derived on every response from completed `purpose=avatar` media (URL is never stored). TTL 1 hour. (v0.9: 300×300 file variant, not a Storage transform)
+- Event `paused` and `cover_url` (first completed photo of the earliest published story). TTL 1 hour. (v0.9: home 256×256 file, detail 684×400 file)
 - Contribution `author_id` and `is_mine`; stories listed newest first
 - Focus/home member cards include `avatar_url` and `person.name`
 - `person_relationships` composite FKs onto `people(id, family_id)` so both ends are the same family

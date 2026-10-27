@@ -42,6 +42,8 @@ const apiPerson = {
   bio: null,
   avatar_media_id: null,
   avatar_url: null,
+  avatar_placeholder: null,
+  full_url: null,
   memory_count: 0,
   account_id: null,
   invite_status: 'none' as const,

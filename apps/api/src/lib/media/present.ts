@@ -1,8 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm';
-import { MEDIA_READ_TTL_SECONDS } from '@still-with-you/contracts';
 import { db, events, media } from '../db/index.js';
 import { findActiveMember } from '../authz.js';
-import { getMediaStorage } from './storage.js';
+import { loadVariantKeys, signStoryImage } from './variants.js';
 
 type Story = {
   id: string;
@@ -16,6 +15,7 @@ export type StoryMediaItem = {
   status: 'pending' | 'uploaded' | 'ready' | 'failed';
   url: string | null;
   thumb_url: string | null;
+  full_url: string | null;
   width: number | null;
   height: number | null;
   expires_at: string | null;
@@ -39,23 +39,22 @@ export async function presentStoryMedia(story: Story, accountId: string): Promis
     origin?.status === 'archived' ||
     origin?.status === 'deleted';
 
-  const storage = getMediaStorage();
+  const variants = hideUrls ? new Map() : await loadVariantKeys(rows.map((row) => row.id));
   const items: StoryMediaItem[] = [];
 
   for (const row of rows) {
     let url: string | null = null;
     let thumbUrl: string | null = null;
+    let fullUrl: string | null = null;
     let expiresAt: string | null = null;
 
     const canSign = !hideUrls && (row.status === 'uploaded' || row.status === 'ready');
     if (canSign) {
-      const signed = await storage.createSignedReadUrl(row.storageKey, MEDIA_READ_TTL_SECONDS);
-      url = signed.signedUrl;
-      expiresAt = signed.expiresAt.toISOString();
-      if (row.status === 'ready' && row.thumbKey) {
-        const thumb = await storage.createSignedReadUrl(row.thumbKey, MEDIA_READ_TTL_SECONDS);
-        thumbUrl = thumb.signedUrl;
-      }
+      const signed = await signStoryImage(row, variants.get(row.id));
+      url = signed.url;
+      thumbUrl = signed.thumb_url;
+      fullUrl = signed.full_url;
+      expiresAt = signed.expires_at;
     }
 
     items.push({
@@ -63,6 +62,7 @@ export async function presentStoryMedia(story: Story, accountId: string): Promis
       status: row.status,
       url,
       thumb_url: thumbUrl,
+      full_url: fullUrl,
       width: row.width,
       height: row.height,
       expires_at: expiresAt,

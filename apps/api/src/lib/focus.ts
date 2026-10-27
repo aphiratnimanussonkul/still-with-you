@@ -1,12 +1,14 @@
 import { and, asc, eq } from 'drizzle-orm';
 import { db, focusPeople, media, people } from './db/index.js';
 import { personMemoryCountExpr } from './event-visibility.js';
-import { signAvatarUrl } from './people.js';
+import { loadVariantKeys, signAvatarImage } from './media/variants.js';
 
 export type FocusItem = {
   person: { id: string; display_name: string; name: string };
   photo_url: string | null;
   avatar_url: string | null;
+  avatar_placeholder: string | null;
+  full_url: string | null;
   memory_count: number;
   position: number;
 };
@@ -26,13 +28,22 @@ export async function listFocusItems(familyId: string, accountId: string): Promi
     .where(and(eq(focusPeople.accountId, accountId), eq(focusPeople.familyId, familyId)))
     .orderBy(asc(focusPeople.position));
 
+  const variants = await loadVariantKeys(
+    rows.map((row) => row.avatar?.id).filter((id): id is string => Boolean(id))
+  );
+
   return Promise.all(
     rows.map(async (row) => {
-      const avatarUrl = await signAvatarUrl(row.avatar);
+      const signed = await signAvatarImage(
+        row.avatar,
+        row.avatar ? variants.get(row.avatar.id) : undefined
+      );
       return {
         person: { id: row.personId, display_name: row.displayName, name: row.displayName },
-        photo_url: avatarUrl,
-        avatar_url: avatarUrl,
+        photo_url: signed.url,
+        avatar_url: signed.url,
+        avatar_placeholder: signed.placeholder,
+        full_url: signed.full_url,
         memory_count: Number(row.memoryCount ?? 0),
         position: row.position,
       };

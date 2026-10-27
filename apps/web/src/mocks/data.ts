@@ -46,6 +46,8 @@ export const mockEvents: EventResponse[] = [
     version: 1,
     paused: false,
     cover_url: null,
+    cover_placeholder: null,
+    full_url: null,
   },
   {
     id: '44444444-4444-4444-8444-444444444444',
@@ -66,6 +68,8 @@ export const mockEvents: EventResponse[] = [
     version: 2,
     paused: true,
     cover_url: null,
+    cover_placeholder: null,
+    full_url: null,
   },
 ];
 
@@ -86,6 +90,8 @@ export const mockPeople: FamilyPerson[] = [
     death_date_precision: 'year',
     age: 84,
     avatar_url: null,
+    avatar_placeholder: null,
+    full_url: null,
     memory_count: 2,
   },
   {
@@ -102,6 +108,8 @@ export const mockPeople: FamilyPerson[] = [
     death_date_precision: null,
     age: 91,
     avatar_url: null,
+    avatar_placeholder: null,
+    full_url: null,
     memory_count: 0,
   },
   {
@@ -117,6 +125,8 @@ export const mockPeople: FamilyPerson[] = [
     death_date_precision: null,
     age: 36,
     avatar_url: null,
+    avatar_placeholder: null,
+    full_url: null,
     memory_count: 1,
   },
 ];
