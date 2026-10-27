@@ -18,11 +18,19 @@ type CompletedMedia = {
 
 export type SignedImageSet = {
   url: string | null;
+  url_expires_at: string | null;
   placeholder: string | null;
   full_url: string | null;
+  full_url_expires_at: string | null;
 };
 
-const EMPTY_IMAGE: SignedImageSet = { url: null, placeholder: null, full_url: null };
+const EMPTY_IMAGE: SignedImageSet = {
+  url: null,
+  url_expires_at: null,
+  placeholder: null,
+  full_url: null,
+  full_url_expires_at: null,
+};
 
 export async function loadVariantKeys(mediaIds: string[]): Promise<Map<string, VariantKeyMap>> {
   const unique = [...new Set(mediaIds.filter(Boolean))];
@@ -75,8 +83,10 @@ export async function signCompletedImage(
 
   return {
     url: display.signedUrl,
+    url_expires_at: display.expiresAt.toISOString(),
     placeholder: displayReady ? row.placeholderWebp : null,
     full_url: full.signedUrl,
+    full_url_expires_at: full.expiresAt.toISOString(),
   };
 }
 
@@ -107,7 +117,15 @@ export async function signCoverImage(
 export async function signStoryImage(
   row: CompletedMedia,
   variants: VariantKeyMap | undefined
-): Promise<{ url: string; thumb_url: string; full_url: string; expires_at: string }> {
+): Promise<{
+  url: string;
+  thumb_url: string;
+  full_url: string;
+  expires_at: string;
+  url_expires_at: string;
+  thumb_url_expires_at: string;
+  full_url_expires_at: string;
+}> {
   const storage = getMediaStorage();
   const thumbKey = variants?.get('cover_card') ?? row.storageKey;
   const fullKey = variants?.get('full') ?? row.storageKey;
@@ -116,10 +134,14 @@ export async function signStoryImage(
     storage.createSignedReadUrl(thumbKey, MEDIA_READ_TTL_SECONDS),
     storage.createSignedReadUrl(fullKey, MEDIA_READ_TTL_SECONDS),
   ]);
+  const urlExpiresAt = original.expiresAt.toISOString();
   return {
     url: original.signedUrl,
     thumb_url: thumb.signedUrl,
     full_url: full.signedUrl,
-    expires_at: original.expiresAt.toISOString(),
+    expires_at: urlExpiresAt,
+    url_expires_at: urlExpiresAt,
+    thumb_url_expires_at: thumb.expiresAt.toISOString(),
+    full_url_expires_at: full.expiresAt.toISOString(),
   };
 }

@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { MEDIA_AVATAR_COVER_TTL_SECONDS, eventResponseSchema, personResponseSchema } from '@still-with-you/contracts';
+import {
+  MEDIA_AVATAR_COVER_TTL_SECONDS,
+  eventResponseSchema,
+  personResponseSchema,
+} from '@still-with-you/contracts';
 import { createTestJpeg } from '@still-with-you/image-variants';
 import { eq } from 'drizzle-orm';
 import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
@@ -55,6 +59,13 @@ describe('Member cards + Memory page contract', () => {
     const remainingMs = exp - Date.now();
     expect(remainingMs).toBeGreaterThan((MEDIA_AVATAR_COVER_TTL_SECONDS - 30) * 1000);
     expect(remainingMs).toBeLessThan((MEDIA_AVATAR_COVER_TTL_SECONDS + 30) * 1000);
+  }
+
+  function expectExpiresAround(iso: string | null | undefined, ttlSeconds: number) {
+    expect(iso).toBeTruthy();
+    const remainingMs = new Date(iso!).getTime() - Date.now();
+    expect(remainingMs).toBeGreaterThan((ttlSeconds - 30) * 1000);
+    expect(remainingMs).toBeLessThan((ttlSeconds + 30) * 1000);
   }
 
   function keyFromUrl(url: string) {
@@ -216,6 +227,8 @@ describe('Member cards + Memory page contract', () => {
     expect(keyFromUrl(patched.full_url!)).toMatch(new RegExp(`${avatarId}/full\\.(webp|jpg)$`));
     expectHourTtl(patched.avatar_url!);
     expectHourTtl(patched.full_url!);
+    expectExpiresAround(patched.avatar_url_expires_at, MEDIA_AVATAR_COVER_TTL_SECONDS);
+    expectExpiresAround(patched.full_url_expires_at, MEDIA_AVATAR_COVER_TTL_SECONDS);
 
     const listed = await server.inject({
       method: 'GET',
@@ -241,11 +254,18 @@ describe('Member cards + Memory page contract', () => {
     const card = JSON.parse(home.body).focus[0];
     expect(signedPath(card.avatar_url)).toBe(signedPath(patched.avatar_url));
     expect(signedPath(card.photo_url)).toBe(signedPath(patched.avatar_url));
+    expectExpiresAround(card.avatar_url_expires_at, MEDIA_AVATAR_COVER_TTL_SECONDS);
+    expectExpiresAround(card.photo_url_expires_at, MEDIA_AVATAR_COVER_TTL_SECONDS);
+    expectExpiresAround(card.full_url_expires_at, MEDIA_AVATAR_COVER_TTL_SECONDS);
 
     const grandpa = personResponseSchema.parse(
       JSON.parse(listed.body).people.find((row: { id: string }) => row.id === grandpaId)
     );
     expect(grandpa.avatar_url).toBeNull();
+    expect(grandpa.avatar_url_expires_at).toBeNull();
+    expect(grandpa.full_url).toBeNull();
+    expect(grandpa.full_url_expires_at).toBeNull();
+    expect(grandpa.avatar_placeholder).toBeNull();
 
     const wrongPurpose = await server.inject({
       method: 'PATCH',
@@ -261,7 +281,12 @@ describe('Member cards + Memory page contract', () => {
       url: `/v1/people/${grandmaId}`,
       headers: await auth(memberToken),
     });
-    expect(personResponseSchema.parse(JSON.parse(pending.body)).avatar_url).toBeNull();
+    const pendingPerson = personResponseSchema.parse(JSON.parse(pending.body));
+    expect(pendingPerson.avatar_url).toBeNull();
+    expect(pendingPerson.avatar_url_expires_at).toBeNull();
+    expect(pendingPerson.full_url).toBeNull();
+    expect(pendingPerson.full_url_expires_at).toBeNull();
+    expect(pendingPerson.avatar_placeholder).toBeNull();
   });
 
   it('returns paused and a stable cover_url from the first photo of the earliest published story', async () => {
@@ -276,6 +301,9 @@ describe('Member cards + Memory page contract', () => {
     expect(event.cover_placeholder).toMatch(/^data:image\/webp;base64,/);
     expect(keyFromUrl(event.full_url!)).toMatch(new RegExp(`${firstPhoto}/full\\.(webp|jpg)$`));
     expectHourTtl(event.cover_url!);
+    expectHourTtl(event.full_url!);
+    expectExpiresAround(event.cover_url_expires_at, MEDIA_AVATAR_COVER_TTL_SECONDS);
+    expectExpiresAround(event.full_url_expires_at, MEDIA_AVATAR_COVER_TTL_SECONDS);
     const firstCover = event.cover_url;
 
     const second = await server.inject({
@@ -337,6 +365,8 @@ describe('Member cards + Memory page contract', () => {
     expect(keyFromUrl(card.cover_url)).toBe(`${familyId}/${photo}/cover_card.webp`);
     expect(card.cover_placeholder).toMatch(/^data:image\/webp;base64,/);
     expectHourTtl(card.cover_url);
+    expectExpiresAround(card.cover_url_expires_at, MEDIA_AVATAR_COVER_TTL_SECONDS);
+    expectExpiresAround(card.full_url_expires_at, MEDIA_AVATAR_COVER_TTL_SECONDS);
   });
 
   it('falls back to the original signed URL and null placeholder when variants are not ready', async () => {
@@ -351,6 +381,10 @@ describe('Member cards + Memory page contract', () => {
     expect(keyFromUrl(patched.avatar_url!)).toBe(`${familyId}/${avatarId}`);
     expect(patched.avatar_placeholder).toBeNull();
     expect(keyFromUrl(patched.full_url!)).toBe(`${familyId}/${avatarId}`);
+    expectHourTtl(patched.avatar_url!);
+    expectHourTtl(patched.full_url!);
+    expectExpiresAround(patched.avatar_url_expires_at, MEDIA_AVATAR_COVER_TTL_SECONDS);
+    expectExpiresAround(patched.full_url_expires_at, MEDIA_AVATAR_COVER_TTL_SECONDS);
 
     const photo = await readyMedia(stewardToken, 'story', false);
     const created = await createEvent(stewardToken, 'ยังไม่แปร', [grandmaId], [photo]);
@@ -358,5 +392,9 @@ describe('Member cards + Memory page contract', () => {
     expect(keyFromUrl(event.cover_url!)).toBe(`${familyId}/${photo}`);
     expect(event.cover_placeholder).toBeNull();
     expect(keyFromUrl(event.full_url!)).toBe(`${familyId}/${photo}`);
+    expectHourTtl(event.cover_url!);
+    expectHourTtl(event.full_url!);
+    expectExpiresAround(event.cover_url_expires_at, MEDIA_AVATAR_COVER_TTL_SECONDS);
+    expectExpiresAround(event.full_url_expires_at, MEDIA_AVATAR_COVER_TTL_SECONDS);
   });
 });

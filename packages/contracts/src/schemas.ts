@@ -99,10 +99,14 @@ export const mediaItemSchema = z.object({
   id: uuidSchema,
   status: z.enum(['reserved', 'uploaded', 'processing', 'ready', 'failed']),
   url: z.string().url().nullable().optional(),
+  url_expires_at: z.string().datetime().nullable().optional(),
   thumb_url: z.string().url().nullable().optional(),
+  thumb_url_expires_at: z.string().datetime().nullable().optional(),
   width: z.number().int().nullable().optional(),
   height: z.number().int().nullable().optional(),
   expires_at: z.string().datetime().nullable().optional(),
+  full_url: z.string().url().nullable().optional(),
+  full_url_expires_at: z.string().datetime().nullable().optional(),
 });
 
 // Event schemas
@@ -157,8 +161,10 @@ export const eventResponseSchema = z.object({
   version: z.number().int(),
   paused: z.boolean(),
   cover_url: z.string().url().nullable(),
+  cover_url_expires_at: z.string().datetime().nullable(),
   cover_placeholder: z.string().nullable(),
   full_url: z.string().url().nullable(),
+  full_url_expires_at: z.string().datetime().nullable(),
   media: z.array(mediaItemSchema).optional(),
 });
 
@@ -171,11 +177,11 @@ export const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'im
 export const MEDIA_MAX_BYTES_DEFAULT = 20 * 1024 * 1024;
 export const MEDIA_MAX_PER_CONTRIBUTION_DEFAULT = 20;
 export const MEDIA_UPLOAD_TTL_SECONDS = 10 * 60;
-/** Signed read TTL for story `media[].url` / `thumb_url`. */
+/** Signed read TTL for story `media[].url` / `thumb_url` / `full_url`. */
 export const MEDIA_READ_TTL_SECONDS = 5 * 60;
 /**
- * Signed read TTL for `avatar_url` and `cover_url` (~1 hour).
- * Story media stays on `MEDIA_READ_TTL_SECONDS`.
+ * Signed read TTL for `avatar_url`, `cover_url`, and avatar/cover `full_url` (~1 hour).
+ * Story media (including story `full_url`) stays on `MEDIA_READ_TTL_SECONDS`.
  */
 export const MEDIA_AVATAR_COVER_TTL_SECONDS = 60 * 60;
 export const MEDIA_ORPHAN_TTL_HOURS = 24;
@@ -202,8 +208,11 @@ export const storyMediaItemSchema = z.object({
   id: uuidSchema,
   status: mediaStatusSchema,
   url: z.string().url().nullable(),
+  url_expires_at: z.string().datetime().nullable(),
   thumb_url: z.string().url().nullable(),
+  thumb_url_expires_at: z.string().datetime().nullable(),
   full_url: z.string().url().nullable(),
+  full_url_expires_at: z.string().datetime().nullable(),
   width: z.number().int().nullable(),
   height: z.number().int().nullable(),
   expires_at: z.string().datetime().nullable(),
@@ -430,8 +439,10 @@ export const personResponseSchema = z.object({
   bio: z.string().nullable().optional(),
   avatar_media_id: uuidSchema.nullable().optional(),
   avatar_url: z.string().url().nullable(),
+  avatar_url_expires_at: z.string().datetime().nullable(),
   avatar_placeholder: z.string().nullable(),
   full_url: z.string().url().nullable(),
+  full_url_expires_at: z.string().datetime().nullable(),
   memory_count: z.number().int(),
   account_id: uuidSchema.nullable().optional(),
   invite_status: personInviteStatusSchema.optional(),
@@ -483,9 +494,12 @@ export const focusPersonSchema = z.object({
 export const focusItemSchema = z.object({
   person: focusPersonSchema,
   photo_url: z.string().url().nullable(),
+  photo_url_expires_at: z.string().datetime().nullable(),
   avatar_url: z.string().url().nullable(),
+  avatar_url_expires_at: z.string().datetime().nullable(),
   avatar_placeholder: z.string().nullable(),
   full_url: z.string().url().nullable(),
+  full_url_expires_at: z.string().datetime().nullable(),
   memory_count: z.number().int(),
   position: z.number().int(),
 });

@@ -43,7 +43,13 @@ type EventRow = {
   version: number;
 };
 
-const EMPTY_COVER: SignedImageSet = { url: null, placeholder: null, full_url: null };
+const EMPTY_COVER: SignedImageSet = {
+  url: null,
+  url_expires_at: null,
+  placeholder: null,
+  full_url: null,
+  full_url_expires_at: null,
+};
 
 export function toEventResponse(event: EventRow, cover: SignedImageSet | null = null) {
   const schedule = archiveSchedule(event.archivedAt);
@@ -67,8 +73,10 @@ export function toEventResponse(event: EventRow, cover: SignedImageSet | null = 
     version: event.version,
     paused: event.status === 'archived',
     cover_url: image.url,
+    cover_url_expires_at: image.url_expires_at,
     cover_placeholder: image.placeholder,
     full_url: image.full_url,
+    full_url_expires_at: image.full_url_expires_at,
   };
 }
 

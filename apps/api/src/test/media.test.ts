@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
 import { db, familyMembers, media, mediaVariants, contributions, events } from '../lib/db/index.js';
 import { and, eq } from 'drizzle-orm';
-import { EVENT_DELETE_CONFIRM_TEXT } from '@still-with-you/contracts';
+import { EVENT_DELETE_CONFIRM_TEXT, MEDIA_READ_TTL_SECONDS } from '@still-with-you/contracts';
 import { createTestJpeg } from '@still-with-you/image-variants';
 import { memoryMediaStorage } from '../lib/media/storage.js';
 import { backfillMediaVariants, cleanupOrphanMedia, processPendingMediaJobs } from '../lib/media/jobs.js';
@@ -132,6 +132,12 @@ describe('Media uploads (v0.5)', () => {
     expect(story.media[0].full_url).toContain('https://');
     expect(story.media[0].thumb_url).toContain(encodeURIComponent(`${familyId}/${body.media_id}/cover_card.webp`));
     expect(story.media[0].expires_at).toBeTruthy();
+    expect(story.media[0].url_expires_at).toBe(story.media[0].expires_at);
+    expect(story.media[0].thumb_url_expires_at).toBeTruthy();
+    expect(story.media[0].full_url_expires_at).toBeTruthy();
+    const remainingMs = new Date(story.media[0].full_url_expires_at).getTime() - Date.now();
+    expect(remainingMs).toBeGreaterThan((MEDIA_READ_TTL_SECONDS - 30) * 1000);
+    expect(remainingMs).toBeLessThan((MEDIA_READ_TTL_SECONDS + 30) * 1000);
   });
 
   it('returns 415 UNSUPPORTED_TYPE for disallowed content_type', async () => {
@@ -262,6 +268,10 @@ describe('Media uploads (v0.5)', () => {
     expect(story.media[0].url).toBeNull();
     expect(story.media[0].thumb_url).toBeNull();
     expect(story.media[0].full_url).toBeNull();
+    expect(story.media[0].expires_at).toBeNull();
+    expect(story.media[0].url_expires_at).toBeNull();
+    expect(story.media[0].thumb_url_expires_at).toBeNull();
+    expect(story.media[0].full_url_expires_at).toBeNull();
   });
 
   it('hides media URLs when the origin event is archived', async () => {
@@ -284,7 +294,14 @@ describe('Media uploads (v0.5)', () => {
       headers: { authorization: `Bearer ${authorToken}` },
     });
     expect(got.statusCode).toBe(200);
-    expect(JSON.parse(got.body).media[0].url).toBeNull();
+    const hidden = JSON.parse(got.body).media[0];
+    expect(hidden.url).toBeNull();
+    expect(hidden.thumb_url).toBeNull();
+    expect(hidden.full_url).toBeNull();
+    expect(hidden.expires_at).toBeNull();
+    expect(hidden.url_expires_at).toBeNull();
+    expect(hidden.thumb_url_expires_at).toBeNull();
+    expect(hidden.full_url_expires_at).toBeNull();
 
     const asOther = await server.inject({
       method: 'GET',

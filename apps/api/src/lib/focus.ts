@@ -6,9 +6,12 @@ import { loadVariantKeys, signAvatarImage } from './media/variants.js';
 export type FocusItem = {
   person: { id: string; display_name: string; name: string };
   photo_url: string | null;
+  photo_url_expires_at: string | null;
   avatar_url: string | null;
+  avatar_url_expires_at: string | null;
   avatar_placeholder: string | null;
   full_url: string | null;
+  full_url_expires_at: string | null;
   memory_count: number;
   position: number;
 };
@@ -41,9 +44,12 @@ export async function listFocusItems(familyId: string, accountId: string): Promi
       return {
         person: { id: row.personId, display_name: row.displayName, name: row.displayName },
         photo_url: signed.url,
+        photo_url_expires_at: signed.url_expires_at,
         avatar_url: signed.url,
+        avatar_url_expires_at: signed.url_expires_at,
         avatar_placeholder: signed.placeholder,
         full_url: signed.full_url,
+        full_url_expires_at: signed.full_url_expires_at,
         memory_count: Number(row.memoryCount ?? 0),
         position: row.position,
       };

@@ -14,8 +14,11 @@ export type StoryMediaItem = {
   id: string;
   status: 'pending' | 'uploaded' | 'ready' | 'failed';
   url: string | null;
+  url_expires_at: string | null;
   thumb_url: string | null;
+  thumb_url_expires_at: string | null;
   full_url: string | null;
+  full_url_expires_at: string | null;
   width: number | null;
   height: number | null;
   expires_at: string | null;
@@ -44,16 +47,22 @@ export async function presentStoryMedia(story: Story, accountId: string): Promis
 
   for (const row of rows) {
     let url: string | null = null;
+    let urlExpiresAt: string | null = null;
     let thumbUrl: string | null = null;
+    let thumbUrlExpiresAt: string | null = null;
     let fullUrl: string | null = null;
+    let fullUrlExpiresAt: string | null = null;
     let expiresAt: string | null = null;
 
     const canSign = !hideUrls && (row.status === 'uploaded' || row.status === 'ready');
     if (canSign) {
       const signed = await signStoryImage(row, variants.get(row.id));
       url = signed.url;
+      urlExpiresAt = signed.url_expires_at;
       thumbUrl = signed.thumb_url;
+      thumbUrlExpiresAt = signed.thumb_url_expires_at;
       fullUrl = signed.full_url;
+      fullUrlExpiresAt = signed.full_url_expires_at;
       expiresAt = signed.expires_at;
     }
 
@@ -61,8 +70,11 @@ export async function presentStoryMedia(story: Story, accountId: string): Promis
       id: row.id,
       status: row.status,
       url,
+      url_expires_at: urlExpiresAt,
       thumb_url: thumbUrl,
+      thumb_url_expires_at: thumbUrlExpiresAt,
       full_url: fullUrl,
+      full_url_expires_at: fullUrlExpiresAt,
       width: row.width,
       height: row.height,
       expires_at: expiresAt,
