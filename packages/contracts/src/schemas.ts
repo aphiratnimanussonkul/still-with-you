@@ -130,6 +130,8 @@ export const updateEventSchema = z.object({
   date_precision: z.string().optional(),
   location: z.string().optional(),
   person_ids: z.array(uuidSchema).optional(),
+  /** Optional for now. Required in a later PR. When sent, PATCH is compare-and-swap on events.version. */
+  version: z.number().int().optional(),
 });
 
 export const deleteEventSchema = z.object({

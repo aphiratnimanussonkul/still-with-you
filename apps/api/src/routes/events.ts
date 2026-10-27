@@ -6,6 +6,7 @@ import {
   createEventSchema,
   updateEventSchema,
   deleteEventSchema,
+  errorMessages,
 } from '@still-with-you/contracts';
 import { and, eq, ne, sql } from 'drizzle-orm';
 import { db, events, contributions, eventPeople, auditLog } from '../lib/db/index.js';
@@ -149,6 +150,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     const body = updateEventSchema.parse(request.body);
 
     const updated = await db.transaction(async (tx) => {
+      const match =
+        body.version === undefined
+          ? eq(events.id, event.id)
+          : and(eq(events.id, event.id), eq(events.version, body.version));
+
       const [row] = await tx
         .update(events)
         .set({
@@ -161,8 +167,23 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           updatedAt: new Date(),
           version: sql`${events.version} + 1`,
         })
-        .where(eq(events.id, event.id))
+        .where(match)
         .returning();
+
+      if (!row) {
+        const [current] = await tx
+          .select({ version: events.version })
+          .from(events)
+          .where(eq(events.id, event.id))
+          .limit(1);
+        throw new AppError(
+          ErrorCode.EVENT_EDIT_CONFLICT,
+          errorMessages[ErrorCode.EVENT_EDIT_CONFLICT],
+          409,
+          undefined,
+          { current_version: current?.version ?? event.version }
+        );
+      }
 
       if (body.person_ids !== undefined) {
         await assertPeopleInFamily(tx, event.familyId, body.person_ids);

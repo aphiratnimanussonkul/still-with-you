@@ -53,6 +53,9 @@ describe('messageForError', () => {
       copy['error.LAST_ADMIN']
     );
     expect(messageForError(apiError(ErrorCode.STORY_REQUIRED))).toBe(copy['error.STORY_REQUIRED']);
+    expect(messageForError(apiError(ErrorCode.EVENT_EDIT_CONFLICT, { current_version: 2 }))).toBe(
+      copy['error.EVENT_EDIT_CONFLICT']
+    );
   });
 
   it('maps INVALID_INPUT generically without leaking field names', () => {
