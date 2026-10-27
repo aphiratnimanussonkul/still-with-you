@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
 import { db, familyMembers, notifications } from '../lib/db/index.js';
 import { NotificationType } from '../lib/notifications.js';
+import { contributionAddedPayloadSchema } from '@still-with-you/contracts';
 
 describe('archived event visibility (creator only)', () => {
   let server: Awaited<ReturnType<typeof createTestServer>>;
@@ -192,13 +193,26 @@ describe('archived event visibility (creator only)', () => {
     ]);
 
     const asOwner = await get('/v1/me/notifications', ownerToken);
-    expect(JSON.parse(asOwner.body).notifications[0].payload.event_title).toBe('วันเกิดยาย');
+    const ownerItems = JSON.parse(asOwner.body).notifications as Array<{
+      payload: { event_title: string | null; event_id: string };
+    }>;
+    expect(ownerItems.some((row) => row.payload.event_id === eventId && row.payload.event_title === 'วันเกิดยาย')).toBe(
+      true
+    );
 
     for (const token of [stewardToken, memberToken, contributorToken]) {
       const listed = await get('/v1/me/notifications', token);
       expect(listed.statusCode).toBe(200);
-      expect(JSON.parse(listed.body).notifications[0].payload.event_title).toBe('');
-      expect(JSON.parse(listed.body).notifications[0].payload.event_id).toBe(eventId);
+      expect(JSON.parse(listed.body).notifications).toHaveLength(1);
+      const payload = contributionAddedPayloadSchema.parse(JSON.parse(listed.body).notifications[0].payload);
+      expect(payload.event_title).toBeNull();
+      expect(payload.event_id).toBe(eventId);
+      expect(payload).toEqual({
+        actor_display_name: 'Contributor',
+        event_title: null,
+        event_id: eventId,
+        family_id: familyId,
+      });
     }
   });
 });

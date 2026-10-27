@@ -169,11 +169,16 @@ function presentItem(
   accountId: string,
   eventsById: Map<string, EventVisibility>
 ) {
-  const payload = parsePayload(row.payload);
+  let payload = parsePayload(row.payload);
   if (row.type === NotificationType.CONTRIBUTION_ADDED && typeof payload.event_id === 'string') {
     const event = eventsById.get(payload.event_id);
     if (event && (event.status === 'archived' || event.status === 'deleted') && !eventIsVisibleTo(event, accountId)) {
-      payload.event_title = '';
+      payload = {
+        actor_display_name: typeof payload.actor_display_name === 'string' ? payload.actor_display_name : '',
+        event_title: null,
+        event_id: payload.event_id,
+        family_id: payload.family_id,
+      };
     }
   }
   return {
