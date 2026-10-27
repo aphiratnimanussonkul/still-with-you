@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { copy, familyItemMeta, interpolate, interpolateHeading, personRelationLabel, truncateName } from '@/copy';
 
 describe('copy v0.4', () => {
-<<<<<<< HEAD
   it('has no remaining TODO placeholders except draft people-CRUD keys', () => {
     const leftovers = Object.entries(copy)
       .filter(([, value]) => value.startsWith('TODO:'))
