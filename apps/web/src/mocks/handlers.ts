@@ -1,5 +1,6 @@
 import {
   accountResponseSchema,
+  contributionListResponseSchema,
   contributionResponseSchema,
   createContributionSchema,
   createEventSchema,
@@ -141,7 +142,7 @@ const contributions: Array<{
   origin_event_id: item.event_id,
   origin_event_title_snapshot: mockEvents.find((event) => event.id === item.event_id)?.title ?? null,
   story: item.story ?? '',
-  media_ids: [],
+  media_ids: item.media?.map((photo) => photo.id) ?? [],
   created_at: item.created_at,
   updated_at: item.created_at,
   version: 1,
@@ -831,7 +832,7 @@ export const handlers = [
   http.get(`${api}/v1/events/:id/contributions`, ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
-    return HttpResponse.json({
+    return jsonContract(contributionListResponseSchema, {
       contributions: contributions
         .filter((item) => item.event_id === params.id)
         .slice()
@@ -867,7 +868,7 @@ export const handlers = [
       version: 1,
     };
     contributions.push(created);
-    return HttpResponse.json(toContributionResponse(created), { status: 201 });
+    return jsonContract(contributionResponseSchema, toContributionResponse(created), { status: 201 });
   }),
 
   http.patch(`${api}/v1/contributions/:id`, async ({ request, params }) => {
@@ -886,7 +887,7 @@ export const handlers = [
     if (body.story) item.story = body.story;
     item.updated_at = new Date().toISOString();
     item.version += 1;
-    return HttpResponse.json(toContributionResponse(item));
+    return jsonContract(contributionResponseSchema, toContributionResponse(item));
   }),
 
   http.post(`${api}/v1/people/:id/facts`, async ({ request, params }) => {

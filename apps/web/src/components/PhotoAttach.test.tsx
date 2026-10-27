@@ -67,6 +67,18 @@ describe('PhotoAttach', () => {
     expect(input.hasAttribute('multiple')).toBe(true);
   });
 
+  it('can override the field label', () => {
+    render(
+      <PhotoAttach
+        familyId={familyId}
+        onStateChange={vi.fn()}
+        label={copy['contribution.photos.label']}
+      />
+    );
+    expect(screen.getByText(copy['contribution.photos.label'])).toBeTruthy();
+    expect(screen.queryByText(copy['photo.label'])).toBeNull();
+  });
+
   it('uploads a photo then reports the ready media id', async () => {
     const onStateChange = vi.fn();
     render(<PhotoAttach familyId={familyId} onStateChange={onStateChange} />);

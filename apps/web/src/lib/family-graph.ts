@@ -64,6 +64,14 @@ export const personInviteSchema = z.object({
   created_at: z.string().datetime().optional(),
 });
 
+export const contributionMediaSchema = z.object({
+  id: z.string(),
+  url: z.string().nullable().optional(),
+  thumb_url: z.string().nullable().optional(),
+  status: z.string().optional(),
+  expires_at: z.string().nullable().optional(),
+});
+
 export const contributionItemSchema = z.object({
   id: z.string().uuid(),
   event_id: z.string().uuid(),
@@ -73,6 +81,7 @@ export const contributionItemSchema = z.object({
   owner_display_name: z.string().optional(),
   story: z.string().nullable(),
   created_at: z.string().datetime(),
+  media: z.array(contributionMediaSchema).optional(),
 });
 
 export const contributionListSchema = z.object({
@@ -204,10 +213,12 @@ export const familyGraph = {
     return request(`/v1/events/${eventId}/contributions`, contributionListSchema);
   },
 
-  createContribution(eventId: string, story: string) {
+  createContribution(eventId: string, body: { story: string; media_ids?: string[] }) {
+    const payload: { story: string; media_ids?: string[] } = { story: body.story };
+    if (body.media_ids?.length) payload.media_ids = body.media_ids;
     return request(`/v1/events/${eventId}/contributions`, contributionItemSchema, {
       method: 'POST',
-      body: { story },
+      body: payload,
     });
   },
 

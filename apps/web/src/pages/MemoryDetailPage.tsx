@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
+import { ContributionPhotos } from '@/components/ContributionPhotos';
+import { PhotoAttach, type PhotoAttachState } from '@/components/PhotoAttach';
 import { QueryLoading } from '@/components/QueryLoading';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +19,8 @@ export function MemoryDetailPage() {
   const { eventId = '' } = useParams();
   const queryClient = useQueryClient();
   const [story, setStory] = useState('');
+  const [photos, setPhotos] = useState<PhotoAttachState>({ mediaIds: [], isBusy: false });
+  const [photoKey, setPhotoKey] = useState(0);
 
   const event = useQuery({
     queryKey: queryKeys.event(eventId),
@@ -31,9 +35,15 @@ export function MemoryDetailPage() {
   });
 
   const add = useMutation({
-    mutationFn: () => familyGraph.createContribution(eventId, story.trim()),
+    mutationFn: () =>
+      familyGraph.createContribution(eventId, {
+        story: story.trim(),
+        media_ids: photos.mediaIds.length ? photos.mediaIds : undefined,
+      }),
     onSuccess: async () => {
       setStory('');
+      setPhotos({ mediaIds: [], isBusy: false });
+      setPhotoKey((value) => value + 1);
       await queryClient.invalidateQueries({ queryKey: queryKeys.contributions(eventId) });
     },
   });
@@ -91,9 +101,13 @@ export function MemoryDetailPage() {
                     </CardTitle>
                     <CardDescription>{formatThaiDate(item.created_at)}</CardDescription>
                   </CardHeader>
-                  {item.story ? (
-                    <CardContent>
-                      <p className="text-body">{item.story}</p>
+                  {item.story || item.media?.length ? (
+                    <CardContent className="flex flex-col gap-3">
+                      {item.story ? <p className="text-body">{item.story}</p> : null}
+                      <ContributionPhotos
+                        media={item.media}
+                        ownerName={item.owner_display_name ?? copy['glossary.event_creator_fallback']}
+                      />
                     </CardContent>
                   ) : null}
                 </Card>
@@ -129,10 +143,19 @@ export function MemoryDetailPage() {
                 placeholder={copy['story.placeholder']}
               />
             </div>
+            <PhotoAttach
+              key={photoKey}
+              familyId={event.data.family_id}
+              onStateChange={setPhotos}
+              label={copy['contribution.photos.label']}
+            />
+            {photos.isBusy ? (
+              <p className="text-caption text-muted-foreground">{copy['photo.upload.wait']}</p>
+            ) : null}
             {add.isError ? (
               <p className="text-caption text-destructive">{messageForError(add.error)}</p>
             ) : null}
-            <Button type="submit" disabled={add.isPending || !story.trim()}>
+            <Button type="submit" disabled={add.isPending || photos.isBusy || !story.trim()}>
               {copy['story.save']}
             </Button>
           </form>

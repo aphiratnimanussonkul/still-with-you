@@ -178,6 +178,14 @@ export const mockContributions: ContributionItem[] = [
     owner_display_name: mockAccount.display_name,
     story: 'จำได้ว่าทะเลเงียบ',
     created_at: '2026-10-03T00:00:00.000Z',
+    media: [
+      {
+        id: '55555555-5555-4555-8555-555555555555',
+        url: 'https://cdn.example.com/sea.jpg',
+        thumb_url: null,
+        status: 'ready',
+      },
+    ],
   },
 ];
 
