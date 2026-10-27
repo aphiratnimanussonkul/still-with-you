@@ -28,9 +28,14 @@ export const notificationsApi = {
 
 export function notificationBody(item: NotificationResponse): string {
   if (item.type === 'contribution_added' && 'event_title' in item.payload) {
+    if (item.payload.event_title == null) {
+      return interpolate(copy['notification.contribution_added.hidden'], {
+        actor_display_name: item.payload.actor_display_name,
+      });
+    }
     return interpolate(copy['notification.contribution_added'], {
       actor_display_name: item.payload.actor_display_name,
-      event_title: item.payload.event_title ?? copy['notification.event_title.hidden'],
+      event_title: item.payload.event_title,
     });
   }
   if (item.type === 'invite_accepted' && 'family_name' in item.payload) {

@@ -55,7 +55,7 @@ describe('notifications contract', () => {
     expect(notificationHref(mockNotifications[1])).toBe('/family');
   });
 
-  it('accepts a null event_title and renders the hidden placeholder without crashing', () => {
+  it('uses the full hidden sentence when event_title is null', () => {
     const hidden = notificationResponseSchema.parse({
       ...mockNotifications[0],
       payload: {
@@ -65,11 +65,10 @@ describe('notifications contract', () => {
     });
     expect(hidden.payload).toMatchObject({ event_title: null });
     expect(notificationBody(hidden)).toBe(
-      interpolate(copy['notification.contribution_added'], {
+      interpolate(copy['notification.contribution_added.hidden'], {
         actor_display_name: 'Mint',
-        event_title: copy['notification.event_title.hidden'],
       })
     );
-    expect(() => notificationBody(hidden)).not.toThrow();
+    expect(notificationBody(hidden)).toBe('Mint เล่าเรื่องในความทรงจำที่ตอนนี้พักไว้อยู่');
   });
 });

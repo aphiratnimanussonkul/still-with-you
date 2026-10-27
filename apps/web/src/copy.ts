@@ -466,14 +466,15 @@ export const copy = {
   'a11y.member_more': 'ตัวเลือกของ {ชื่อ}',
   'a11y.memory_more': 'ตัวเลือกของความทรงจำ {ชื่อความทรงจำ}',
 
-  // --- Notifications (Eddy bodies only; other keys are placeholders) ---
+  // --- Notifications ---
   'notification.contribution_added': '{actor_display_name} เล่าเรื่องใน {event_title}',
+  'notification.contribution_added.hidden':
+    '{actor_display_name} เล่าเรื่องในความทรงจำที่ตอนนี้พักไว้อยู่',
   'notification.invite_accepted': '{actor_display_name} รับคำเชิญและเข้าร่วม {family_name} แล้ว',
   'notification.list.title': 'การแจ้งเตือน',
   'notification.empty.title': 'ยังไม่มีอะไรใหม่',
   'notification.empty.body': 'ถ้ามีใครมาเล่าเรื่องในความทรงจำของคุณ จะบอกที่นี่',
   'notification.load_more': 'ดูเพิ่ม',
-  'notification.event_title.hidden': 'TODO: Eddy — notification.event_title.hidden',
   'a11y.notification.unread': 'ยังไม่ได้อ่าน',
   'notifications.list.title': 'การแจ้งเตือน',
   'notifications.empty.title': 'ยังไม่มีอะไรใหม่',

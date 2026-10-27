@@ -19,7 +19,6 @@ describe('copy v0.4', () => {
       'person.edit.action',
       'person.delete.action',
       'person.delete.confirm.primary',
-      'notification.event_title.hidden',
     ]);
   });
 
@@ -123,6 +122,9 @@ describe('copy v0.4', () => {
 
   it('uses Eddy notification bodies exactly', () => {
     expect(copy['notification.contribution_added']).toBe('{actor_display_name} เล่าเรื่องใน {event_title}');
+    expect(copy['notification.contribution_added.hidden']).toBe(
+      '{actor_display_name} เล่าเรื่องในความทรงจำที่ตอนนี้พักไว้อยู่'
+    );
     expect(copy['notification.invite_accepted']).toBe(
       '{actor_display_name} รับคำเชิญและเข้าร่วม {family_name} แล้ว'
     );
