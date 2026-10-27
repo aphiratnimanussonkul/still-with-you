@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Link, RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { copy, interpolate } from '@/copy';
+import { copy, interpolate, personRelationLabel } from '@/copy';
 import { ApiClientError } from '@/lib/api-errors';
 import { mockAccount, mockFamilies, mockMembers, mockPeople } from '@/mocks/data';
 
@@ -114,7 +114,7 @@ describe('PersonFormPage', () => {
     expect(screen.getByLabelText(copy['person.family_name.label'])).toBeTruthy();
     expect(screen.getByText(copy['person.gender.label'])).toBeTruthy();
     expect(screen.getByText(copy['person.birth.hint'])).toBeTruthy();
-    expect(screen.getByTestId('photo-attach').textContent).toBe(copy['person.avatar.label']);
+    expect(screen.getByTestId('photo-attach').textContent).toBe(copy['person.add.photo.label']);
     expect(screen.getByLabelText(copy['person.gender.female'])).toBeTruthy();
     expect(screen.getByLabelText(copy['person.gender.male'])).toBeTruthy();
     expect(screen.getByLabelText(copy['person.gender.other'])).toBeTruthy();
@@ -135,7 +135,7 @@ describe('PersonFormPage', () => {
     fireEvent.change(screen.getByLabelText(copy['person.birth.label']), {
       target: { value: '2018-04-12' },
     });
-    fireEvent.change(screen.getByLabelText(copy['person.relationship.label']), {
+    fireEvent.change(screen.getByLabelText(personRelationLabel(null)), {
       target: { value: mockPeople[0].id },
     });
     fireEvent.click(screen.getByLabelText(copy['person.relationship.parent']));
@@ -180,7 +180,7 @@ describe('PersonFormPage', () => {
     fireEvent.change(await screen.findByLabelText(copy['person.display_name.label']), {
       target: { value: 'น้องใหม่' },
     });
-    fireEvent.change(screen.getByLabelText(copy['person.relationship.label']), {
+    fireEvent.change(screen.getByLabelText(personRelationLabel(null)), {
       target: { value: mockPeople[0].id },
     });
     fireEvent.click(screen.getByLabelText(copy['relation.type.child']));
@@ -218,7 +218,7 @@ describe('PersonFormPage', () => {
 
   it('prefills the related person from a tree-node query', async () => {
     renderAt(`/family/people/new?related=${mockPeople[0].id}`);
-    const related = await screen.findByLabelText(copy['person.relationship.label']);
+    const related = await screen.findByLabelText(personRelationLabel(mockPeople[0].display_name));
     expect((related as HTMLSelectElement).value).toBe(mockPeople[0].id);
     expect(screen.getByLabelText(copy['person.relationship.parent'])).toBeTruthy();
   });
@@ -226,7 +226,7 @@ describe('PersonFormPage', () => {
   it('shows NAME_REQUIRED inline and does not submit', async () => {
     renderAt('/family/people/new');
     fireEvent.click(await screen.findByRole('button', { name: copy['person.save'] }));
-    expect(await screen.findByText(copy['error.NAME_REQUIRED'])).toBeTruthy();
+    expect(await screen.findByText(copy['person.name.required'])).toBeTruthy();
     expect(familyGraph.createPerson).not.toHaveBeenCalled();
   });
 
@@ -262,11 +262,11 @@ describe('PersonFormPage', () => {
       target: { value: 'น้องใหม่' },
     });
     fireEvent.click(screen.getByRole('link', { name: 'leave-form' }));
-    expect(await screen.findByText(copy['person.unsaved.title'])).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: copy['person.unsaved.stay'] }));
+    expect(await screen.findByText(copy['person.add.discard.title'])).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: copy['person.add.discard.keep'] }));
     expect(screen.queryByText('family-page')).toBeNull();
     fireEvent.click(screen.getByRole('link', { name: 'leave-form' }));
-    fireEvent.click(await screen.findByRole('button', { name: copy['person.unsaved.leave'] }));
+    fireEvent.click(await screen.findByRole('button', { name: copy['person.add.discard.leave'] }));
     expect(await screen.findByText('family-page')).toBeTruthy();
   });
 
@@ -302,7 +302,7 @@ describe('PersonFormPage', () => {
     fireEvent.change(await screen.findByLabelText(copy['person.display_name.label']), {
       target: { value: 'น้องใหม่' },
     });
-    fireEvent.change(screen.getByLabelText(copy['person.relationship.label']), {
+    fireEvent.change(screen.getByLabelText(personRelationLabel(null)), {
       target: { value: mockPeople[0].id },
     });
     fireEvent.click(screen.getByLabelText(copy['relation.type.child']));

@@ -97,6 +97,14 @@ export function apiPersonAge(person: { age?: number | null }): number | null {
     : null;
 }
 
+export function personAgeCopyKey(person: {
+  age?: number | null;
+  birth_date_precision?: BirthDatePrecision | null;
+}): 'person.age.exact' | 'person.age.approx' | null {
+  if (apiPersonAge(person) == null) return null;
+  return person.birth_date_precision === 'year' ? 'person.age.approx' : 'person.age.exact';
+}
+
 export function isFutureBirthDate(
   birthDate: string,
   precision?: BirthDatePrecision | null,

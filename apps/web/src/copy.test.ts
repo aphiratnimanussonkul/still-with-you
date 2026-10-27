@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { copy, familyItemMeta, interpolate, interpolateHeading, truncateName } from '@/copy';
+import { copy, familyItemMeta, interpolate, interpolateHeading, personRelationLabel, truncateName } from '@/copy';
 
 describe('copy v0.4', () => {
   it('has no remaining TODO placeholders except draft people-CRUD keys', () => {
@@ -26,6 +26,7 @@ describe('copy v0.4', () => {
     expect(copy['person.display_name.label']).toBe('ชื่อ');
     expect(copy['person.birth.hint']).toBe('ใส่วันเกิดแล้วจะแสดงอายุให้เอง');
     expect(copy['person.age']).toBe('อายุ {age} ปี');
+    expect(copy['person.age.exact']).toBe('อายุ {n} ปี');
     expect(copy['person.invite.action']).toBe('ชวน {name} เข้าครอบครัว');
     expect(copy['person.delete.confirm.title']).toBe('ลบ {name} ออกจากผังไหม');
     expect(copy['person.delete.confirm.body']).toBe(
@@ -43,9 +44,10 @@ describe('copy v0.4', () => {
     expect(copy['person.relationship.spouse']).toBe('เป็นคู่ของ');
     expect(copy['relation.type.child']).toBe('เป็นลูกของ');
     expect(copy['person.status.uninvited']).toBe('ยังไม่ได้เชิญ');
+    expect(copy['person.invite.status.none']).toBe('ยังไม่ได้ชวน');
     expect(copy['person.status.pending']).toBe('รอตอบรับคำเชิญ');
     expect(copy['person.status.linked']).toBe('เป็นสมาชิกแล้ว');
-    expect(copy['person.age.approx']).toBe('อายุประมาณ {age} ปี');
+    expect(copy['person.age.approx']).toBe('อายุประมาณ {n} ปี');
     expect(copy['person.birth.mode.year']).toBe('รู้แค่ปีเกิด');
     expect(copy['error.INVALID_RELATIONSHIP']).toBe(
       'ความสัมพันธ์นี้ใช้ไม่ได้ในผัง ลองเลือกคนหรือความสัมพันธ์ใหม่'
@@ -55,6 +57,25 @@ describe('copy v0.4', () => {
     expect(copy['person.unsaved.body']).toBe('ถ้าออกตอนนี้ ข้อมูลที่กรอกไว้จะหายไป');
     expect(copy['person.unsaved.leave']).toBe('ทิ้งข้อมูล');
     expect(copy['person.unsaved.stay']).toBe('กรอกต่อ');
+    expect(copy['person.add.discard.title']).toBe('ข้อมูลที่กรอกไว้ยังไม่ได้บันทึกเลย');
+    expect(copy['person.add.discard.body']).toBe('ถ้าออกไปก่อน ข้อมูลที่กรอกไว้จะหายไป');
+    expect(copy['person.add.discard.keep']).toBe('กรอกต่อ');
+    expect(copy['person.add.discard.leave']).toBe('ออกโดยไม่บันทึก');
+    expect(copy['person.add.photo.label']).toBe('รูปโปรไฟล์ (ไม่บังคับ)');
+    expect(copy['person.add.photo.cta']).toBe('เพิ่มรูป');
+    expect(copy['person.name.label']).toBe('ชื่อ');
+    expect(copy['person.name.placeholder']).toBe('เช่น สมศรี');
+    expect(copy['person.name.required']).toBe('ใส่ชื่อก่อนนะ ชื่อที่ทุกคนเรียกก็ได้');
+    expect(copy['person.relation.label']).toBe('เป็นอะไรกับ {name} (ไม่บังคับ)');
+    expect(personRelationLabel(null)).toBe('เป็นอะไรกับคุณ (ไม่บังคับ)');
+    expect(personRelationLabel('ยายสมศรี')).toBe('เป็นอะไรกับ ยายสมศรี (ไม่บังคับ)');
+    expect(copy['person.relation.is']).toBe('เป็น');
+    expect(copy['person.relation.of']).toBe('ของ');
+    expect(copy['person.relation.type.placeholder']).toBe('เลือกความสัมพันธ์');
+    expect(copy['person.living.label']).toBe('ยังมีชีวิตอยู่');
+    expect(copy['person.add.saved_toast']).toBe('เพิ่ม {name} ในผังแล้ว');
+    expect(copy['person.events.empty']).toBe('ยังไม่มีใครเล่าเรื่องที่มี {name}');
+    expect(copy['common.retry']).toBe('ลองอีกครั้ง');
     expect(copy['error.NAME_REQUIRED']).toBe('ใส่ชื่อก่อนบันทึก');
     expect(copy['person.relation_label.label']).toBe('ชื่อที่ครอบครัวเรียก (ไม่บังคับ)');
     expect(copy['person.relation_label.placeholder']).toBe('เช่น ยาย ลุงหนึ่ง');
@@ -87,6 +108,7 @@ describe('copy v0.4', () => {
     );
     expect(copy['person.memories.with_name']).toBe('ความทรงจำที่มี {name}');
     expect(copy['person.memories.empty']).toBe('ยังไม่มีความทรงจำที่มี {name}');
+    expect(copy['person.events.empty']).toBe('ยังไม่มีใครเล่าเรื่องที่มี {name}');
     expect(copy['error.RATE_LIMITED.invite']).toBe('ลองหลายครั้งเกินไป รอสักครู่แล้วลองอีกครั้ง');
   });
 

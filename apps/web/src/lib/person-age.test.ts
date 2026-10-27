@@ -7,6 +7,7 @@ import {
   formatBirthInput,
   isFutureBirthDate,
   parseBirthInput,
+  personAgeCopyKey,
 } from '@/lib/person-age';
 
 describe('person age', () => {
@@ -30,6 +31,9 @@ describe('person age', () => {
   it('displays API age only and still computes age in the mock API', () => {
     expect(apiPersonAge({ age: 78 })).toBe(78);
     expect(apiPersonAge({ age: null })).toBeNull();
+    expect(personAgeCopyKey({ age: null })).toBeNull();
+    expect(personAgeCopyKey({ age: 36, birth_date_precision: 'day' })).toBe('person.age.exact');
+    expect(personAgeCopyKey({ age: 91, birth_date_precision: 'year' })).toBe('person.age.approx');
     expect(
       computePersonAge(
         { birth_date: '2018-04-12', birth_date_precision: 'day' },

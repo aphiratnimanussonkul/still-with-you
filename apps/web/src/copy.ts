@@ -312,6 +312,13 @@ export const copy = {
   // --- บุคคล / แผนผัง ---
   'person.add.action': 'เพิ่มคน',
   'person.add.submit': 'เพิ่มในผัง',
+  'person.add.photo.label': 'รูปโปรไฟล์ (ไม่บังคับ)',
+  'person.add.photo.cta': 'เพิ่มรูป',
+  'person.add.saved_toast': 'เพิ่ม {name} ในผังแล้ว',
+  'person.add.discard.title': 'ข้อมูลที่กรอกไว้ยังไม่ได้บันทึกเลย',
+  'person.add.discard.body': 'ถ้าออกไปก่อน ข้อมูลที่กรอกไว้จะหายไป',
+  'person.add.discard.keep': 'กรอกต่อ',
+  'person.add.discard.leave': 'ออกโดยไม่บันทึก',
   'tree.empty.title': 'แผนผังครอบครัวยังว่างอยู่',
   'tree.empty.body':
     'เพิ่มคนในครอบครัวได้ แม้คนนั้นจะไม่ได้ใช้แอป เช่น คุณยายหรือคนที่จากไปแล้ว',
@@ -328,16 +335,24 @@ export const copy = {
   'person.add.title': 'เพิ่มคนในครอบครัว',
   'person.name_label': 'ชื่อที่ใช้เรียก',
   'person.name_placeholder': 'เช่น ยายสมศรี',
+  'person.name.label': 'ชื่อ',
+  'person.name.placeholder': 'เช่น สมศรี',
+  'person.name.required': 'ใส่ชื่อก่อนนะ ชื่อที่ทุกคนเรียกก็ได้',
   'person.nickname.label': 'ชื่อเรียก (ไม่บังคับ)',
   'person.nickname.placeholder': 'เช่น ยาย ลุงหนึ่ง',
   'person.relation_label': 'เกี่ยวข้องกับใคร อย่างไร',
   'person.relation_placeholder': 'เลือกความสัมพันธ์',
+  'person.relation.label': 'เป็นอะไรกับ {name} (ไม่บังคับ)',
+  'person.relation.is': 'เป็น',
+  'person.relation.of': 'ของ',
+  'person.relation.type.placeholder': 'เลือกความสัมพันธ์',
   'person.relationship.of_you': 'เป็นอะไรกับคุณ',
   'person.relationship.of_name': 'เป็นอะไรกับ {ชื่อ}',
   'person.relationship.parent': 'เป็นพ่อแม่ของ',
   'person.relationship.child': 'เป็นลูกของ',
   'person.relationship.spouse': 'เป็นคู่ของ',
   'person.living': 'ยังมีชีวิตอยู่',
+  'person.living.label': 'ยังมีชีวิตอยู่',
   'person.death.label': 'วันที่จากไป (ไม่บังคับ)',
   'person.death.year_only': 'รู้แค่ปีที่จากไป',
   'person.death.age': 'จากไปเมื่ออายุ {อายุ} ปี',
@@ -350,6 +365,7 @@ export const copy = {
   'person.memories.title': 'ความทรงจำ ({จำนวน})',
   'person.memories.with_name': 'ความทรงจำที่มี {name}',
   'person.memories.empty': 'ยังไม่มีความทรงจำที่มี {name}',
+  'person.events.empty': 'ยังไม่มีใครเล่าเรื่องที่มี {name}',
   'person.saved.title': 'เพิ่ม {ชื่อ} ในครอบครัวแล้ว',
   'person.saved.next': 'เริ่มความทรงจำของเขา',
   'person.facts.title': 'เรื่องที่รู้เกี่ยวกับ{name}',
@@ -376,9 +392,11 @@ export const copy = {
   'person.relationship.label': 'TODO: Eddy — person.relationship.label (ไม่บังคับ)',
   'person.relationship.related': 'TODO: Eddy — person.relationship.related',
   'person.age': 'อายุ {age} ปี',
-  'person.age.approx': 'อายุประมาณ {age} ปี',
+  'person.age.exact': 'อายุ {n} ปี',
+  'person.age.approx': 'อายุประมาณ {n} ปี',
   'person.unjoined': 'ยังไม่ได้เข้าร่วม',
   'person.status.uninvited': 'ยังไม่ได้เชิญ',
+  'person.invite.status.none': 'ยังไม่ได้ชวน',
   'person.status.pending': 'รอตอบรับคำเชิญ',
   'person.status.linked': 'เป็นสมาชิกแล้ว',
   'person.invite.action': 'ชวน {name} เข้าครอบครัว',
@@ -419,6 +437,7 @@ export const copy = {
 
   // --- สถานะทั่วไป ---
   'common.cancel': 'ยกเลิก',
+  'common.retry': 'ลองอีกครั้ง',
   'loading': 'กำลังโหลด',
   'loading.slow': 'ใช้เวลานานกว่าปกติ รออีกสักครู่',
   'retry': 'ลองใหม่',
@@ -490,6 +509,12 @@ export function interpolate(
 /** Page headings show the full name; CSS line-clamp handles overflow. */
 export function interpolateHeading(template: string, vars: Record<string, string>): string {
   return interpolate(template, vars, { truncateNames: false });
+}
+
+/** Relation field: swap `{name}` for คุณ when no person is selected. */
+export function personRelationLabel(name?: string | null): string {
+  if (!name) return copy['person.relation.label'].replace(' {name}', 'คุณ');
+  return interpolate(copy['person.relation.label'], { name });
 }
 
 /** h1 page titles: wrap up to 2 lines, then clamp. List/meta/toasts stay single-line … */

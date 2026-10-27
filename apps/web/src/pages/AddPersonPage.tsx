@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { copy, interpolate } from '@/copy';
+import { toast } from 'sonner';
+import { copy, interpolate, personRelationLabel } from '@/copy';
 import { useMe } from '@/hooks/use-me';
 import { useSelectedFamily } from '@/hooks/use-selected-family';
 import { fieldForError, messageForError } from '@/lib/api-errors';
@@ -100,10 +101,10 @@ function AddPersonForm({
   const related = people.find((person) => person.id === relatedId);
   const relatedIsMe = Boolean(related && accountId && related.account_id === accountId);
   const relationshipLabel = relatedIsMe
-    ? copy['person.relationship.of_you']
+    ? personRelationLabel(null)
     : related
-      ? interpolate(copy['person.relationship.of_name'], { ชื่อ: personDisplayName(related) })
-      : copy['person.relationship.of_you'];
+      ? personRelationLabel(personDisplayName(related))
+      : personRelationLabel(null);
 
   const canSubmit = name.trim().length > 0 && !photoBusy && (!kind || Boolean(relatedId));
 
@@ -124,6 +125,7 @@ function AddPersonForm({
     },
     onSuccess: async (result) => {
       setSaved(result.person);
+      toast(interpolate(copy['person.add.saved_toast'], { name: personDisplayName(result.person) }));
       await queryClient.invalidateQueries({ queryKey: queryKeys.people(familyId) });
     },
   });
@@ -152,12 +154,12 @@ function AddPersonForm({
         />
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="person-name">{copy['person.name_label']}</Label>
+          <Label htmlFor="person-name">{copy['person.name.label']}</Label>
           <Input
             id="person-name"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder={copy['person.name_placeholder']}
+            placeholder={copy['person.name.placeholder']}
             disabled={Boolean(saved)}
           />
         </div>
@@ -182,7 +184,7 @@ function AddPersonForm({
             disabled={Boolean(saved)}
             onChange={(event) => setKind(isKind(event.target.value) ? event.target.value : '')}
           >
-            <option value="">{copy['person.relation_placeholder']}</option>
+            <option value="">{copy['person.relation.type.placeholder']}</option>
             {KIND_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {copy[option.labelKey]}
@@ -221,7 +223,7 @@ function AddPersonForm({
             onCheckedChange={(value) => setLiving(value === true)}
           />
           <Label htmlFor="person-living" className="text-body font-normal">
-            {copy['person.living']}
+            {copy['person.living.label']}
           </Label>
         </div>
 

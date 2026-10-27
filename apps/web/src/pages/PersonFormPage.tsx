@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { copy, interpolate } from '@/copy';
+import { copy, interpolate, personRelationLabel } from '@/copy';
 import { useMe } from '@/hooks/use-me';
 import { useSelectedFamily } from '@/hooks/use-selected-family';
 import { fieldForError, messageForError } from '@/lib/api-errors';
@@ -68,7 +68,7 @@ function personWriteBody(input: {
 }): CreatePerson | { field: 'display_name' | 'birth_date'; message: string } {
   const display_name = input.display_name.trim();
   if (!display_name) {
-    return { field: 'display_name', message: copy['error.NAME_REQUIRED'] };
+    return { field: 'display_name', message: copy['person.name.required'] };
   }
   const parsedBirth = parseBirthInput(input.birth, input.birthMode);
   if (parsedBirth === 'invalid') {
@@ -176,6 +176,7 @@ function PersonForm({
     ? relationships.filter((row) => row.person_id === person.id || row.related_person_id === person.id)
     : [];
   const otherPeople = people.filter((row) => row.id !== person?.id);
+  const relatedPerson = otherPeople.find((row) => row.id === relatedPersonId);
 
   const dirty = useMemo(() => {
     if (photos.mediaIds.length > 0 || photos.isBusy) return true;
@@ -288,12 +289,12 @@ function PersonForm({
       <form className="flex flex-col gap-6 pb-24" onSubmit={onSubmit}>
         <PhotoAttach
           familyId={familyId}
-          label={copy['person.avatar.label']}
+          label={copy['person.add.photo.label']}
           onStateChange={setPhotos}
         />
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="person-display-name">{copy['person.display_name.label']}</Label>
+          <Label htmlFor="person-display-name">{copy['person.name.label']}</Label>
           <Input
             id="person-display-name"
             value={displayName}
@@ -405,14 +406,16 @@ function PersonForm({
         ) : null}
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="person-related">{copy['person.relationship.label']}</Label>
+          <Label htmlFor="person-related">
+            {personRelationLabel(relatedPerson ? personDisplayName(relatedPerson) : null)}
+          </Label>
           <select
             id="person-related"
             className={selectClassName}
             value={relatedPersonId}
             onChange={(event) => setRelatedPersonId(event.target.value)}
           >
-            <option value="">{copy['person.relationship.related']}</option>
+            <option value="">{copy['person.relation.type.placeholder']}</option>
             {otherPeople.map((row) => (
               <option key={row.id} value={row.id}>
                 {personDisplayName(row)}
@@ -482,19 +485,22 @@ function PersonForm({
       <AlertDialog open={blocker.state === 'blocked'} onOpenChange={(open) => !open && blocker.reset?.()}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{copy['person.unsaved.title']}</AlertDialogTitle>
-            <AlertDialogDescription>{copy['person.unsaved.body']}</AlertDialogDescription>
+            <AlertDialogTitle>{copy['person.add.discard.title']}</AlertDialogTitle>
+            <AlertDialogDescription>{copy['person.add.discard.body']}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => blocker.reset?.()}>{copy['person.unsaved.stay']}</AlertDialogCancel>
+            <AlertDialogCancel variant="default" onClick={() => blocker.reset?.()}>
+              {copy['person.add.discard.keep']}
+            </AlertDialogCancel>
             <AlertDialogAction
-              variant="destructive"
+              variant="outline"
+              className="border-destructive text-destructive hover:bg-destructive/10"
               onClick={() => {
                 setAllowLeave(true);
                 blocker.proceed?.();
               }}
             >
-              {copy['person.unsaved.leave']}
+              {copy['person.add.discard.leave']}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
