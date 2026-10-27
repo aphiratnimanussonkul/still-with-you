@@ -43,6 +43,28 @@ export function parseWebOrigins(raw: string | undefined, nodeEnv: string): strin
   return result.data;
 }
 
+/**
+ * Parse a true|false env flag. Empty / unset uses `defaultValue`. Any other string throws.
+ */
+export function parseTrueFalseFlag(raw: string | undefined, name: string, defaultValue = false): boolean {
+  const schema = z
+    .string()
+    .optional()
+    .transform((value) => (value ?? '').trim().toLowerCase())
+    .transform((value) => {
+      if (value === '') return defaultValue ? 'true' : 'false';
+      return value;
+    })
+    .pipe(z.enum(['true', 'false'], { errorMap: () => ({ message: `${name} must be true or false` }) }))
+    .transform((value) => value === 'true');
+
+  const result = schema.safeParse(raw);
+  if (!result.success) {
+    throw new Error(result.error.errors[0]?.message ?? `${name} must be true or false`);
+  }
+  return result.data;
+}
+
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 export const env = {
@@ -68,6 +90,10 @@ export const env = {
     process.env.SWY_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   MEDIA_MAX_BYTES: parseInt(process.env.MEDIA_MAX_BYTES || '20971520', 10),
   MEDIA_MAX_PER_CONTRIBUTION: parseInt(process.env.MEDIA_MAX_PER_CONTRIBUTION || '20', 10),
+  /** Read each time so tests can toggle. Default false: no Storage image transform. */
+  get MEDIA_IMAGE_TRANSFORMS() {
+    return parseTrueFalseFlag(process.env.MEDIA_IMAGE_TRANSFORMS, 'MEDIA_IMAGE_TRANSFORMS', false);
+  },
 
   // Rate limiting
   RATE_LIMIT_MAX: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),

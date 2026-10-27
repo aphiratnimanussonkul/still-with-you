@@ -68,8 +68,9 @@ function focusListPayload(familyId: string) {
       if (!person) return [];
       return [
         {
-          person: { id: person.id, display_name: person.name },
-          photo_url: null,
+          person: { id: person.id, display_name: person.name, name: person.name },
+          photo_url: person.avatar_url ?? null,
+          avatar_url: person.avatar_url ?? null,
           memory_count: events.filter(
             (event) => event.family_id === familyId && event.status === 'active'
           ).length,
@@ -163,6 +164,8 @@ function toContributionResponse(item: (typeof contributions)[number]) {
       id: item.id,
       family_id: item.family_id,
       owner_account_id: item.owner_account_id,
+      author_id: item.owner_account_id,
+      is_mine: item.owner_account_id === account.id,
       narrator_person_id: null,
       event_id: item.event_id,
       origin_event_id: item.origin_event_id,
@@ -358,6 +361,8 @@ export const handlers = [
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       version: 1,
+      paused: false,
+      cover_url: null,
     });
     events.push(created);
     contributions.push({
@@ -404,9 +409,10 @@ export const handlers = [
     });
     return jsonContract(homeResponseSchema, {
       focus: focused.map((person, position) => ({
-        person: { id: person.id, display_name: person.display_name },
-        photo_url: null,
-        memory_count: events.filter((event) => event.family_id === fid && event.status === 'active').length,
+        person: { id: person.id, display_name: person.display_name, name: person.display_name },
+        photo_url: person.avatar_url ?? null,
+        avatar_url: person.avatar_url ?? null,
+        memory_count: person.memory_count ?? 0,
         position,
       })),
       quick_question:
@@ -414,7 +420,7 @@ export const handlers = [
           ? {
               question_id: homeQuestionId(questionIndex),
               key: `q-${questionIndex + 1}`,
-              person: { id: first.id, display_name: first.display_name },
+              person: { id: first.id, display_name: first.display_name, name: first.display_name },
               text: fillQuestionText(HOME_QUESTION_TEMPLATES[questionIndex], first.display_name),
             }
           : null,
@@ -553,6 +559,7 @@ export const handlers = [
       death_date_precision: deathDatePrecisionOrNull(deathDate, body.death_date_precision),
       avatar_media_id: body.avatar_media_id ?? null,
       avatar_url: null,
+      memory_count: 0,
       age:
         !isLiving && birthDate && deathDate
           ? Math.max(0, Number(deathDate.slice(0, 4)) - Number(birthDate.slice(0, 4)))
@@ -703,6 +710,8 @@ export const handlers = [
     return HttpResponse.json({
       contributions: contributions
         .filter((item) => item.event_id === params.id)
+        .slice()
+        .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id))
         .map(toContributionResponse),
     });
   }),

@@ -178,6 +178,7 @@ Optional (with defaults):
 - `SWY_SUPABASE_SERVICE_ROLE_KEY` - Storage service role for signed URLs (falls back to `SUPABASE_SERVICE_ROLE_KEY`; never commit a value)
 - `MEDIA_MAX_BYTES` - Max upload bytes (default 20971520)
 - `MEDIA_MAX_PER_CONTRIBUTION` - Max photos per story (default 20; response field is `max_per_story`)
+- `MEDIA_IMAGE_TRANSFORMS` - `true` \| `false` (default `false`). When true, sign `avatar_url` / `cover_url` with Storage image transforms; when false, untransformed URLs and the web crops with `object-fit: cover`
 - `API_PORT` - API port (default: 3000)
 - `API_HOST` - API host (default: 0.0.0.0)
 - `STORAGE_BUCKET` - Storage bucket name (default: private-media)

@@ -92,10 +92,13 @@ describe('Focus people + quick questions', () => {
     expect(items).toHaveLength(2);
     expect(items[0].person.id).toBe(grandpa.id);
     expect(items[0].person.display_name).toBe('ปู่');
+    expect(items[0].person.name).toBe('ปู่');
     expect(items[0].position).toBe(0);
     expect(items[0].photo_url).toBeNull();
+    expect(items[0].avatar_url).toBeNull();
     expect(items[0].memory_count).toBe(0);
     expect(items[1].person.id).toBe(grandma.id);
+    expect(items[1].person.name).toBe('ยาย');
     expect(items[1].position).toBe(1);
     expect(items[1].memory_count).toBe(1);
 

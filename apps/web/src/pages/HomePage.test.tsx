@@ -60,14 +60,24 @@ const homeQuestionId = 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001';
 const homePayload = {
   focus: [
     {
-      person: { id: mockPeople[0].id, display_name: mockPeople[0].display_name },
+      person: {
+        id: mockPeople[0].id,
+        display_name: mockPeople[0].display_name,
+        name: mockPeople[0].name,
+      },
       photo_url: 'https://cdn.example.com/yay.jpg',
+      avatar_url: 'https://cdn.example.com/yay.jpg',
       memory_count: 2,
       position: 0,
     },
     {
-      person: { id: mockPeople[1].id, display_name: mockPeople[1].display_name },
+      person: {
+        id: mockPeople[1].id,
+        display_name: mockPeople[1].display_name,
+        name: mockPeople[1].name,
+      },
       photo_url: null,
+      avatar_url: null,
       memory_count: 1,
       position: 1,
     },
@@ -75,7 +85,11 @@ const homePayload = {
   quick_question: {
     question_id: homeQuestionId,
     key: 'birthplace',
-    person: { id: mockPeople[0].id, display_name: mockPeople[0].display_name },
+    person: {
+      id: mockPeople[0].id,
+      display_name: mockPeople[0].display_name,
+      name: mockPeople[0].name,
+    },
     text: 'ยายสมศรี เกิดที่ไหน',
   },
   recent_memories: [mockEvents[0]],

@@ -66,7 +66,10 @@ describe('People v2 (living, death, inline relationship)', () => {
     expect(createPersonResponseSchema.parse(body).person.id).toBe(body.person.id);
     expect(personResponseSchema.parse(body.person)).toMatchObject({
       display_name: 'ยายสมศรี',
+      name: 'ยายสมศรี',
       relation_label: 'ยาย',
+      avatar_url: null,
+      memory_count: 0,
       is_living: true,
       death_date: null,
       death_date_precision: null,

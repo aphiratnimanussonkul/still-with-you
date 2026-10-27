@@ -3,7 +3,8 @@ import {
   AppError,
   ErrorCode,
   errorMessages,
-  MEDIA_READ_TTL_SECONDS,
+  AVATAR_TRANSFORM,
+  MEDIA_AVATAR_COVER_TTL_SECONDS,
   type CreatePerson,
   type PersonRelationshipKind,
   type UpdatePerson,
@@ -17,6 +18,7 @@ import {
   normalizeBirthDate,
   type BirthDatePrecision,
 } from './age.js';
+import { env } from './env.js';
 import { getMediaStorage } from './media/storage.js';
 
 type QueryClient = Pick<typeof db, 'select' | 'update' | 'insert'>;
@@ -401,12 +403,24 @@ export async function insertPersonRelationship(
   return created;
 }
 
+export async function signAvatarUrl(row: typeof media.$inferSelect | null | undefined): Promise<string | null> {
+  if (!row || row.deletedAt) return null;
+  if (row.purpose !== 'avatar') return null;
+  if (row.status !== 'uploaded' && row.status !== 'ready') return null;
+  const signed = await getMediaStorage().createSignedReadUrl(
+    row.storageKey,
+    MEDIA_AVATAR_COVER_TTL_SECONDS,
+    env.MEDIA_IMAGE_TRANSFORMS ? AVATAR_TRANSFORM : undefined
+  );
+  return signed.signedUrl;
+}
+
 export async function toPersonResponse(
   person: PersonRow,
   inviteStatus: 'none' | 'pending' | 'linked',
-  avatarRow?: typeof media.$inferSelect | null
+  avatarRow?: typeof media.$inferSelect | null,
+  memoryCount = 0
 ) {
-  let avatarUrl: string | null = null;
   let row = avatarRow;
   if (row === undefined && person.avatarMediaId) {
     const [found] = await db
@@ -416,10 +430,7 @@ export async function toPersonResponse(
       .limit(1);
     row = found ?? null;
   }
-  if (row?.id && (row.status === 'uploaded' || row.status === 'ready')) {
-    const signed = await getMediaStorage().createSignedReadUrl(row.storageKey, MEDIA_READ_TTL_SECONDS);
-    avatarUrl = signed.signedUrl;
-  }
+  const avatarUrl = await signAvatarUrl(row);
 
   return {
     id: person.id,
@@ -444,6 +455,7 @@ export async function toPersonResponse(
     bio: person.bio,
     avatar_media_id: person.avatarMediaId,
     avatar_url: avatarUrl,
+    memory_count: memoryCount,
     account_id: person.accountId,
     invite_status: inviteStatus,
     created_by_account_id: person.createdByAccountId,

@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { AppError, ErrorCode, createContributionSchema, updateContributionSchema } from '@still-with-you/contracts';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { db, events, contributions, accounts, auditLog } from '../lib/db/index.js';
 import { findActiveMember, getActiveMember, assertContributionOwner } from '../lib/authz.js';
 import { attachMediaToStory, hardDeleteStoryMedia } from '../lib/media/attach.js';
@@ -35,6 +35,8 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
       id: contrib.id,
       family_id: contrib.familyId,
       owner_account_id: contrib.ownerAccountId,
+      author_id: contrib.ownerAccountId,
+      is_mine: contrib.ownerAccountId === accountId,
       owner_display_name: ownerName,
       narrator_person_id: contrib.narratorPersonId,
       event_id: contrib.eventId,
@@ -80,7 +82,7 @@ const contributionRoutes: FastifyPluginAsync = async (fastify) => {
       .from(contributions)
       .innerJoin(accounts, eq(accounts.id, contributions.ownerAccountId))
       .where(and(eq(contributions.eventId, event.id), eq(contributions.status, 'published')))
-      .orderBy(asc(contributions.createdAt));
+      .orderBy(desc(contributions.createdAt), desc(contributions.id));
 
     return reply.send({
       contributions: await Promise.all(

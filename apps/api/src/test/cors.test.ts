@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestServer } from './helpers.js';
-import { parseWebOrigins } from '../lib/env.js';
+import { parseTrueFalseFlag, parseWebOrigins } from '../lib/env.js';
 
 const CUSTOM_ORIGIN = 'https://stillwithyou.nimanussonkul.work';
 const PAGES_ORIGIN = 'https://still-with-you-5b1.pages.dev';
@@ -29,6 +29,30 @@ describe('parseWebOrigins', () => {
     expect(() => parseWebOrigins('*', 'development')).toThrow('WEB_ORIGIN must not include "*"');
     expect(() => parseWebOrigins(`${CUSTOM_ORIGIN},*`, 'production')).toThrow(
       'WEB_ORIGIN must not include "*"'
+    );
+  });
+});
+
+describe('parseTrueFalseFlag', () => {
+  it('defaults when unset or blank', () => {
+    expect(parseTrueFalseFlag(undefined, 'MEDIA_IMAGE_TRANSFORMS', false)).toBe(false);
+    expect(parseTrueFalseFlag('  ', 'MEDIA_IMAGE_TRANSFORMS', false)).toBe(false);
+    expect(parseTrueFalseFlag('', 'MEDIA_IMAGE_TRANSFORMS', true)).toBe(true);
+  });
+
+  it('accepts true and false, any case', () => {
+    expect(parseTrueFalseFlag('true', 'MEDIA_IMAGE_TRANSFORMS')).toBe(true);
+    expect(parseTrueFalseFlag('TRUE', 'MEDIA_IMAGE_TRANSFORMS')).toBe(true);
+    expect(parseTrueFalseFlag('false', 'MEDIA_IMAGE_TRANSFORMS')).toBe(false);
+    expect(parseTrueFalseFlag(' False ', 'MEDIA_IMAGE_TRANSFORMS')).toBe(false);
+  });
+
+  it('rejects other values', () => {
+    expect(() => parseTrueFalseFlag('yes', 'MEDIA_IMAGE_TRANSFORMS')).toThrow(
+      'MEDIA_IMAGE_TRANSFORMS must be true or false'
+    );
+    expect(() => parseTrueFalseFlag('1', 'MEDIA_IMAGE_TRANSFORMS')).toThrow(
+      'MEDIA_IMAGE_TRANSFORMS must be true or false'
     );
   });
 });

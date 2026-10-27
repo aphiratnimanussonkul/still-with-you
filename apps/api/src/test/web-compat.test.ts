@@ -50,7 +50,7 @@ describe('Web-compat routes (contributions list, people, envelope, api-client)',
   });
 
   describe('GET /v1/events/:id/contributions', () => {
-    it('lists published contributions for a member, oldest first, excluding trash', async () => {
+    it('lists published contributions for a member, newest first, excluding trash', async () => {
       const created = await server.inject({
         method: 'POST',
         url: `/v1/families/${familyId}/events`,
@@ -89,14 +89,19 @@ describe('Web-compat routes (contributions list, people, envelope, api-client)',
       });
       expect(listed.statusCode).toBe(200);
       const body = JSON.parse(listed.body);
-      expect(body.contributions.map((row: { story: string }) => row.story)).toEqual(['เรื่องแรก', 'เรื่องสอง']);
+      expect(body.contributions.map((row: { story: string }) => row.story)).toEqual(['เรื่องสอง', 'เรื่องแรก']);
       expect(body.contributions.find((row: { id: string }) => row.id === trashedId)).toBeUndefined();
 
-      const first = contributionResponseSchema.parse(body.contributions[0]);
-      expect(first.owner_account_id).toBe(steward.id);
-      expect(first.owner_display_name).toBe('Steward');
-      expect(first.media).toEqual([]);
-      expect(body.contributions[1].id).toBe(secondId);
+      const newest = contributionResponseSchema.parse(body.contributions[0]);
+      expect(newest.id).toBe(secondId);
+      expect(newest.owner_account_id).toBe(member.id);
+      expect(newest.author_id).toBe(member.id);
+      expect(newest.is_mine).toBe(true);
+      expect(newest.media).toEqual([]);
+      expect(body.contributions[1].owner_account_id).toBe(steward.id);
+      expect(body.contributions[1].author_id).toBe(steward.id);
+      expect(body.contributions[1].is_mine).toBe(false);
+      expect(body.contributions[1].owner_display_name).toBe('Steward');
     });
 
     it('returns 404 NOT_FOUND for a non-member', async () => {

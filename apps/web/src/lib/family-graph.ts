@@ -65,6 +65,8 @@ export const contributionItemSchema = z.object({
   id: z.string().uuid(),
   event_id: z.string().uuid(),
   owner_account_id: z.string().uuid(),
+  author_id: z.string().uuid(),
+  is_mine: z.boolean(),
   owner_display_name: z.string().optional(),
   story: z.string().nullable(),
   created_at: z.string().datetime(),

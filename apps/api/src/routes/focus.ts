@@ -9,7 +9,7 @@ import {
 import { and, desc, eq, ne } from 'drizzle-orm';
 import { db, events, focusPeople } from '../lib/db/index.js';
 import { getActiveMember } from '../lib/authz.js';
-import { toEventResponse } from '../lib/event-response.js';
+import { presentEvents } from '../lib/event-response.js';
 import { listFocusItems } from '../lib/focus.js';
 import { assertPeopleInFamily } from '../lib/people.js';
 import { pickQuickQuestion } from '../lib/questions.js';
@@ -71,7 +71,7 @@ const focusRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({
       focus,
       quick_question: quickQuestion,
-      recent_memories: recent.map(toEventResponse),
+      recent_memories: await presentEvents(recent, 'card'),
     });
   });
 };
