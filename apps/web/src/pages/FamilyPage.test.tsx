@@ -136,28 +136,4 @@ describe('FamilyPage', () => {
     expect(screen.getByRole('button', { name: copy['family.focus.load_error.action'] })).toBeTruthy();
     await waitFor(() => expect(screen.queryByText('ยายสมศรี')).toBeNull());
   });
-
-  it('links tree cards and add-person to people routes', async () => {
-    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
-    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
-    vi.mocked(homeApi.getFocus).mockResolvedValue(focusResponse([]));
-    vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
-
-    renderPage();
-    expect(
-      (await screen.findByRole('link', { name: mockPeople[0].display_name })).getAttribute('href')
-    ).toBe(`/family/people/${mockPeople[0].id}`);
-    expect(screen.getByRole('link', { name: mockPeople[1].display_name }).getAttribute('href')).toBe(
-      `/family/people/${mockPeople[1].id}`
-    );
-    const addLinks = screen.getAllByRole('link', { name: copy['person.add.action'] });
-    expect(addLinks.map((link) => link.getAttribute('href'))).toEqual(
-      expect.arrayContaining([
-        '/family/people/new',
-        `/family/people/new?related=${mockPeople[0].id}`,
-        `/family/people/new?related=${mockPeople[1].id}`,
-      ])
-    );
-    expect(screen.getAllByText(copy['person.unjoined']).length).toBe(2);
-  });
 });

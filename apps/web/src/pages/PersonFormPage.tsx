@@ -234,21 +234,21 @@ function PersonForm({
       if ('field' in body) {
         throw Object.assign(new Error(body.message), { field: body.field, clientField: true, message: body.message });
       }
-      const saved = person
+      const savedPerson = person
         ? await familyGraph.updatePerson(person.id, body)
-        : await familyGraph.createPerson(familyId, body);
+        : (await familyGraph.createPerson(familyId, body)).person;
       if (relationshipType && relatedPersonId) {
         await familyGraph.createRelationship(
           familyId,
-          relationshipWriteBody(saved.id, relatedPersonId, relationshipType)
+          relationshipWriteBody(savedPerson.id, relatedPersonId, relationshipType)
         );
       }
-      return saved;
+      return savedPerson;
     },
-    onSuccess: async (saved) => {
+    onSuccess: async (savedPerson) => {
       setAllowLeave(true);
       await queryClient.invalidateQueries({ queryKey: queryKeys.people(familyId) });
-      navigate(`/family/people/${saved.id}`);
+      navigate(`/family/people/${savedPerson.id}`);
     },
     onError: (error) => {
       if (error && typeof error === 'object' && 'clientField' in error) {
@@ -288,10 +288,7 @@ function PersonForm({
       <form className="flex flex-col gap-6 pb-24" onSubmit={onSubmit}>
         <PhotoAttach
           familyId={familyId}
-          maxCount={1}
-          purpose="avatar"
           label={copy['person.avatar.label']}
-          existingUrl={person?.avatar_url}
           onStateChange={setPhotos}
         />
 

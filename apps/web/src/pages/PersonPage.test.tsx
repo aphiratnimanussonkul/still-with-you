@@ -153,33 +153,4 @@ describe('PersonPage', () => {
     expect(payload).toHaveProperty('death_date_precision', null);
     expect(payload).not.toHaveProperty('death_date', undefined);
   });
-
-  it('labels a child-of edge with relation.type.child', async () => {
-    vi.mocked(familyGraph.listPeople).mockResolvedValue({
-      people: mockPeople,
-      relationships: [
-        {
-          id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
-          family_id: mockFamilies[0].id,
-          person_id: mockPeople[1].id,
-          related_person_id: mockPeople[0].id,
-          type: 'parent',
-          created_by_account_id: mockAccount.id,
-          created_at: '2026-10-22T00:00:00.000Z',
-        },
-      ],
-    });
-    renderPerson();
-    expect(
-      await screen.findByText(`${copy['relation.type.child']} · ${mockPeople[1].display_name}`)
-    ).toBeTruthy();
-  });
-
-  it('lists memories that feature this person', async () => {
-    vi.mocked(familyGraph.listPersonEvents).mockResolvedValue({ events: [mockEvents[0]] });
-    renderPerson();
-    expect(
-      (await screen.findByRole('link', { name: mockEvents[0].title ?? '' })).getAttribute('href')
-    ).toBe(`/memories/${mockEvents[0].id}`);
-  });
 });

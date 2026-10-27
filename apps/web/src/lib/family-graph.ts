@@ -3,10 +3,13 @@
  */
 import {
   createPersonResponseSchema,
+  createRelationshipSchema,
   personListResponseSchema,
   personResponseSchema,
+  relationshipResponseSchema,
   type CreatePerson,
   type CreatePersonResponse,
+  type CreateRelationship,
   type PersonRelationshipKind,
   type PersonResponse,
   type RelationshipResponse,
@@ -36,7 +39,6 @@ export const familyInviteSchema = z.object({
   email: z.string(),
   role: z.enum(['member', 'admin']).optional(),
   invited_by: z.string().uuid().optional(),
-  person_id: z.string().uuid().nullable().optional(),
   url: z.string().url().optional(),
   status: z.enum(['pending', 'accepted', 'revoked', 'expired']).optional(),
   expires_at: z.string().datetime(),
@@ -60,80 +62,6 @@ export const personInviteSchema = z.object({
   url: z.string().url().optional(),
   expires_at: z.string().datetime(),
   created_at: z.string().datetime().optional(),
-});
-
-/** POST /v1/people/{id}/invites 201 — `url` is returned only here, not on later fetches. */
-export const personInviteSchema = z.object({
-  id: z.string().uuid(),
-  family_id: z.string().uuid(),
-  person_id: z.string().uuid(),
-  email: z.string(),
-  status: z.enum(['pending', 'accepted', 'revoked', 'expired']),
-  expires_at: z.string().datetime(),
-  created_at: z.string().datetime(),
-  url: z.string().url(),
-});
-
-/**
- * GET /v1/invites/{token} — public, no auth. 410 INVITE_INVALID if invalid/expired/used/revoked.
- * Kret field names win over Frank v0.8.1 (`inviter_name`, `person_name`, `status`).
- */
-export const personInvitePreviewSchema = z.object({
-  family_name: z.string(),
-  inviter_display_name: z.string(),
-  person_display_name: z.string().nullable(),
-  expires_at: z.string().datetime(),
-});
-
-/** POST /v1/invites/{token}/accept 200. Login required, body {}. */
-export const acceptPersonInviteResponseSchema = z.object({
-  family_id: z.string().uuid(),
-  person_id: z.string().uuid(),
-});
-
-export const createPersonInviteSchema = z.object({
-  email: z.string().email(),
-});
-
-export const personGenderSchema = z.enum(['female', 'male', 'other']).nullable();
-export const personInviteStatusSchema = z.enum(['none', 'pending', 'linked']);
-
-export const familyRelationshipSchema = z.object({
-  id: z.string().uuid(),
-  family_id: z.string().uuid(),
-  person_id: z.string().uuid(),
-  related_person_id: z.string().uuid(),
-  type: z.enum(['parent', 'spouse']),
-  created_by_account_id: z.string().uuid(),
-  created_at: z.string().datetime(),
-});
-
-const personWriteFields = {
-  display_name: z.string().trim().min(1).optional(),
-  name: z.string().trim().min(1).optional(),
-  family_name: z.string().trim().nullable().optional(),
-  gender: personGenderSchema.optional(),
-  birth_date: z.string().nullable().optional(),
-  birth_date_precision: z.enum(['day', 'year']).optional(),
-  bio: z.string().max(2000).nullable().optional(),
-  avatar_media_id: z.string().uuid().nullable().optional(),
-  relation_label: z.string().nullable().optional(),
-};
-
-export const createPersonSchema = z
-  .object(personWriteFields)
-  .superRefine((value, ctx) => {
-    if (!value.display_name && !value.name) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['display_name'], message: 'required' });
-    }
-  });
-
-export const updatePersonSchema = z.object(personWriteFields);
-
-export const createRelationshipSchema = z.object({
-  person_id: z.string().uuid(),
-  related_person_id: z.string().uuid(),
-  type: z.enum(['parent', 'spouse']),
 });
 
 export const contributionItemSchema = z.object({
@@ -164,12 +92,25 @@ export const trashListSchema = z.object({
   items: z.array(trashItemSchema),
 });
 
+export const personInvitePreviewSchema = z.object({
+  family_name: z.string(),
+  inviter_display_name: z.string(),
+  person_display_name: z.string().nullable(),
+  expires_at: z.string().datetime(),
+});
+
+export const acceptPersonInviteResponseSchema = z.object({
+  family_id: z.string().uuid(),
+  person_id: z.string().uuid(),
+});
+
 export type FamilyMember = z.infer<typeof familyMemberSchema>;
 export type FamilyPerson = PersonResponse;
 export type FamilyRelationship = RelationshipResponse;
 export type CreatePersonBody = CreatePerson;
 export type UpdatePersonBody = UpdatePerson;
 export type CreatePersonResult = CreatePersonResponse;
+export type { CreatePerson, UpdatePerson };
 export type RelationshipKind = PersonRelationshipKind;
 export type PersonInvite = z.infer<typeof personInviteSchema>;
 export type PersonInvitePreview = z.infer<typeof personInvitePreviewSchema>;
@@ -201,42 +142,11 @@ export const familyGraph = {
     return request(`/v1/families/${familyId}/invites`, familyInvitesSchema);
   },
 
-  createInvite(familyId: string, body: { email: string }) {
+  createInvite(familyId: string, email: string) {
     return request(`/v1/families/${familyId}/invites`, familyInviteSchema, {
       method: 'POST',
-      body: { email: body.email },
+      body: { email },
     });
-  },
-
-  createPersonInvite(personId: string, body: { email: string }) {
-    return request(`/v1/people/${personId}/invites`, personInviteSchema, {
-      method: 'POST',
-      body: createPersonInviteSchema.parse(body),
-    });
-  },
-
-  getPersonInvite(token: string) {
-    return request(`/v1/invites/${token}`, personInvitePreviewSchema);
-  },
-
-  acceptPersonInvite(token: string) {
-    return request(`/v1/invites/${token}/accept`, acceptPersonInviteResponseSchema, {
-      method: 'POST',
-      body: {},
-    });
-  },
-
-  revokePersonInvite(inviteId: string) {
-    return request(`/v1/invites/${inviteId}`, z.void(), { method: 'DELETE' });
-  },
-
-  getPerson(personId: string) {
-    return request(`/v1/people/${personId}`, familyPersonSchema);
-  },
-
-  listPersonEvents(personId: string, cursor?: string) {
-    const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
-    return request(`/v1/people/${personId}/events${query}`, eventListResponseSchema);
   },
 
   listPeople(familyId: string) {
@@ -250,7 +160,7 @@ export const familyGraph = {
   createPerson(familyId: string, body: CreatePersonBody) {
     return request(`/v1/families/${familyId}/people`, createPersonResultSchema, {
       method: 'POST',
-      body: createPersonSchema.parse(body),
+      body,
     });
   },
 
@@ -266,6 +176,28 @@ export const familyGraph = {
       method: 'POST',
       body: { email },
     });
+  },
+
+  getPersonInvite(token: string) {
+    return request(`/v1/invites/${token}`, personInvitePreviewSchema);
+  },
+
+  acceptPersonInvite(token: string) {
+    return request(`/v1/invites/${token}/accept`, acceptPersonInviteResponseSchema, {
+      method: 'POST',
+      body: {},
+    });
+  },
+
+  createRelationship(familyId: string, body: CreateRelationship) {
+    return request(`/v1/families/${familyId}/relationships`, relationshipResponseSchema, {
+      method: 'POST',
+      body: createRelationshipSchema.parse(body),
+    });
+  },
+
+  deleteRelationship(relationshipId: string) {
+    return request(`/v1/relationships/${relationshipId}`, z.void(), { method: 'DELETE' });
   },
 
   listContributions(eventId: string) {

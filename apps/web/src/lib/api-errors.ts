@@ -47,6 +47,7 @@ const CODE_COPY: Partial<Record<string, string>> = {
   [ErrorCode.SOURCE_NOT_DELETED]: copy['error.SOURCE_NOT_DELETED'],
   [ErrorCode.VERSION_CONFLICT]: copy['error.VERSION_CONFLICT'],
   [ErrorCode.RATE_LIMITED]: copy['error.RATE_LIMITED'],
+  [ErrorCode.NAME_REQUIRED]: copy['error.NAME_REQUIRED'],
 };
 
 /**
@@ -55,10 +56,6 @@ const CODE_COPY: Partial<Record<string, string>> = {
  * FILE_TOO_LARGE / TOO_MANY_PHOTOS limit fields. Field names are never
  * appended to user-facing copy.
  */
-export function fieldForError(error: unknown): string | undefined {
-  return error instanceof ApiClientError ? error.field : undefined;
-}
-
 export function messageForError(error: unknown, vars?: Record<string, string>): string {
   if (error instanceof NetworkError) {
     return copy['error.network'];
@@ -125,8 +122,20 @@ export function messageForError(error: unknown, vars?: Record<string, string>): 
       return copy['error.INVALID_DEATH_DATE'];
     }
 
-    if (error.code === ErrorCode.INVALID_RELATIONSHIP || error.code === ErrorCode.RELATIONSHIP_EXISTS) {
+    if (
+      error.code === ErrorCode.INVALID_RELATIONSHIP ||
+      error.code === ErrorCode.RELATIONSHIP_EXISTS ||
+      error.code === 'SELF_RELATIONSHIP'
+    ) {
       return copy['error.INVALID_INPUT'];
+    }
+
+    if (error.code === 'INVITE_INVALID') {
+      return copy['error.INVITE_INVALID'];
+    }
+
+    if (error.code === 'PERSON_ALREADY_LINKED') {
+      return interpolate(copy['error.PERSON_ALREADY_LINKED'], { name: vars?.name ?? '' });
     }
 
     if (error.code === ErrorCode.INTERNAL_ERROR || error.status >= 500) {

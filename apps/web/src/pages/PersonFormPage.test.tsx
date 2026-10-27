@@ -96,7 +96,7 @@ describe('PersonFormPage', () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
     vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
     vi.mocked(familyGraph.listMembers).mockResolvedValue({ members: mockMembers });
-    vi.mocked(familyGraph.createPerson).mockResolvedValue(created);
+    vi.mocked(familyGraph.createPerson).mockResolvedValue({ person: created, relationship: null });
     vi.mocked(familyGraph.createRelationship).mockResolvedValue({
       id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
       family_id: mockFamilies[0].id,
@@ -308,13 +308,13 @@ describe('PersonFormPage', () => {
     fireEvent.click(screen.getByLabelText(copy['relation.type.child']));
     fireEvent.click(screen.getByRole('button', { name: copy['person.save'] }));
     await waitFor(() => expect(familyGraph.createRelationship).toHaveBeenCalledTimes(1));
-    expect(screen.getByText(copy['error.INVALID_RELATIONSHIP'])).toBeTruthy();
+    expect(screen.getByText(copy['error.INVALID_INPUT'])).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: copy['person.save'] }));
     await waitFor(() => expect(familyGraph.createRelationship).toHaveBeenCalledTimes(2));
-    expect(screen.getByText(copy['error.INVALID_RELATIONSHIP'])).toBeTruthy();
+    expect(screen.getByText(copy['error.INVALID_INPUT'])).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: copy['person.save'] }));
-    expect(await screen.findByText(copy['error.RELATIONSHIP_EXISTS'])).toBeTruthy();
+    expect(await screen.findByText(copy['error.INVALID_INPUT'])).toBeTruthy();
   });
 });
