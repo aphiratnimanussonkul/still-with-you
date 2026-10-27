@@ -1,7 +1,13 @@
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
-import { EVENT_DELETE_COOLING_DAYS, MEDIA_READ_TTL_SECONDS } from '@still-with-you/contracts';
+import {
+  COVER_CARD_TRANSFORM,
+  COVER_DETAIL_TRANSFORM,
+  EVENT_DELETE_COOLING_DAYS,
+  MEDIA_AVATAR_COVER_TTL_SECONDS,
+} from '@still-with-you/contracts';
 import { db, contributions, media } from './db/index.js';
-import { getMediaStorage } from './media/storage.js';
+import { env } from './env.js';
+import { getMediaStorage, type ImageTransform } from './media/storage.js';
 
 export const EVENT_DELETE_COOLING_MS = EVENT_DELETE_COOLING_DAYS * 24 * 60 * 60 * 1000;
 
@@ -67,8 +73,18 @@ export function toEventResponse(event: EventRow, coverUrl: string | null = null)
   };
 }
 
+export type EventCoverKind = 'card' | 'detail';
+
+function coverTransform(kind: EventCoverKind): ImageTransform | undefined {
+  if (!env.MEDIA_IMAGE_TRANSFORMS) return undefined;
+  return kind === 'card' ? COVER_CARD_TRANSFORM : COVER_DETAIL_TRANSFORM;
+}
+
 /** First completed photo of the earliest published story, signed on every response. */
-export async function loadEventCoverUrls(eventIds: string[]): Promise<Map<string, string>> {
+export async function loadEventCoverUrls(
+  eventIds: string[],
+  kind: EventCoverKind = 'detail'
+): Promise<Map<string, string>> {
   const unique = [...new Set(eventIds)];
   const covers = new Map<string, string>();
   if (unique.length === 0) return covers;
@@ -92,20 +108,28 @@ export async function loadEventCoverUrls(eventIds: string[]): Promise<Map<string
     .orderBy(asc(contributions.createdAt), asc(media.createdAt));
 
   const storage = getMediaStorage();
+  const transform = coverTransform(kind);
   for (const row of rows) {
     if (!row.eventId || covers.has(row.eventId)) continue;
-    const signed = await storage.createSignedReadUrl(row.storageKey, MEDIA_READ_TTL_SECONDS);
+    const signed = await storage.createSignedReadUrl(
+      row.storageKey,
+      MEDIA_AVATAR_COVER_TTL_SECONDS,
+      transform
+    );
     covers.set(row.eventId, signed.signedUrl);
   }
   return covers;
 }
 
-export async function presentEvents(eventRows: EventRow[]) {
-  const covers = await loadEventCoverUrls(eventRows.map((event) => event.id));
+export async function presentEvents(eventRows: EventRow[], kind: EventCoverKind = 'detail') {
+  const covers = await loadEventCoverUrls(
+    eventRows.map((event) => event.id),
+    kind
+  );
   return eventRows.map((event) => toEventResponse(event, covers.get(event.id) ?? null));
 }
 
 export async function presentEvent(event: EventRow) {
-  const [presented] = await presentEvents([event]);
+  const [presented] = await presentEvents([event], 'detail');
   return presented;
 }

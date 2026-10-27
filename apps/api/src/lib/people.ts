@@ -4,7 +4,7 @@ import {
   ErrorCode,
   errorMessages,
   AVATAR_TRANSFORM,
-  MEDIA_READ_TTL_SECONDS,
+  MEDIA_AVATAR_COVER_TTL_SECONDS,
   type CreatePerson,
   type PersonRelationshipKind,
   type UpdatePerson,
@@ -18,6 +18,7 @@ import {
   normalizeBirthDate,
   type BirthDatePrecision,
 } from './age.js';
+import { env } from './env.js';
 import { getMediaStorage } from './media/storage.js';
 
 type QueryClient = Pick<typeof db, 'select' | 'update' | 'insert'>;
@@ -408,8 +409,8 @@ export async function signAvatarUrl(row: typeof media.$inferSelect | null | unde
   if (row.status !== 'uploaded' && row.status !== 'ready') return null;
   const signed = await getMediaStorage().createSignedReadUrl(
     row.storageKey,
-    MEDIA_READ_TTL_SECONDS,
-    AVATAR_TRANSFORM
+    MEDIA_AVATAR_COVER_TTL_SECONDS,
+    env.MEDIA_IMAGE_TRANSFORMS ? AVATAR_TRANSFORM : undefined
   );
   return signed.signedUrl;
 }

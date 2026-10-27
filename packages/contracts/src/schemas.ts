@@ -167,12 +167,37 @@ export const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'im
 export const MEDIA_MAX_BYTES_DEFAULT = 20 * 1024 * 1024;
 export const MEDIA_MAX_PER_CONTRIBUTION_DEFAULT = 20;
 export const MEDIA_UPLOAD_TTL_SECONDS = 10 * 60;
+/** Signed read TTL for story `media[].url` / `thumb_url`. */
 export const MEDIA_READ_TTL_SECONDS = 5 * 60;
+/**
+ * Signed read TTL for `avatar_url` and `cover_url` (~1 hour).
+ * Story media stays on `MEDIA_READ_TTL_SECONDS`.
+ */
+export const MEDIA_AVATAR_COVER_TTL_SECONDS = 60 * 60;
 export const MEDIA_ORPHAN_TTL_HOURS = 24;
-/** Signed-URL image transform for avatars: square ≥300px, cover-crop. Never stored. */
+/**
+ * Avatar signed-URL transform when `MEDIA_IMAGE_TRANSFORMS=true`: square ≥300px, cover-crop.
+ * When the flag is false, URLs are untransformed and the web crops with `object-fit: cover`.
+ */
 export const AVATAR_TRANSFORM = {
   width: 300,
   height: 300,
+  resize: 'cover' as const,
+};
+/**
+ * `cover_url` on home `recent_memories` cards when `MEDIA_IMAGE_TRANSFORMS=true` (Taylor 128×128).
+ */
+export const COVER_CARD_TRANSFORM = {
+  width: 128,
+  height: 128,
+  resize: 'cover' as const,
+};
+/**
+ * `cover_url` on event/memory detail (and other event responses) when `MEDIA_IMAGE_TRANSFORMS=true` (Taylor 684×400).
+ */
+export const COVER_DETAIL_TRANSFORM = {
+  width: 684,
+  height: 400,
   resize: 'cover' as const,
 };
 

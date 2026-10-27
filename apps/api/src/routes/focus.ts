@@ -71,7 +71,7 @@ const focusRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({
       focus,
       quick_question: quickQuestion,
-      recent_memories: await presentEvents(recent),
+      recent_memories: await presentEvents(recent, 'card'),
     });
   });
 };

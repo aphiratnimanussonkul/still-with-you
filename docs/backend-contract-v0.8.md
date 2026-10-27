@@ -30,7 +30,7 @@ These override earlier drafts of this revision. Implementers must follow this ta
 - Use `story` field naming throughout DB and API (D5)
 - Authorization checked at backend for every request: must be active FamilyMember first, then check permission matrix and role. Exception: `GET /v1/invites/{token}` is unauthenticated (the token is the secret) and is rate-limited per IP
 - Row Level Security (RLS) enabled on all tables with NO policies for anon/authenticated (deny all) - API uses privileged role
-- Private storage bucket with signed URLs (5 min expiry)
+- Private storage bucket with signed URLs. Story `media[].url` expires in **5 min** (`MEDIA_READ_TTL_SECONDS`). `avatar_url` and `cover_url` expire in **1 hour** (`MEDIA_AVATAR_COVER_TTL_SECONDS` = 3600)
 - 404 for cross-family or archived event access; 403 FORBIDDEN when resource exists but action not permitted
 
 ## 2. Schema Changes (v0.4)
@@ -540,7 +540,9 @@ Role-change errors: **403 FORBIDDEN** (caller is not an admin/steward), **404 NO
 | POST | `/events/{id}/unarchive` | `canManageEvent` | Restore: `status=active`, `archived_at=null` |
 | POST | `/events/{id}/delete` | `canManageEvent` | Permanent delete (AC-19). Confirm text exactly `ลบเรื่องนี้` after trim |
 
-Event responses include `archived_at` and `deletable_at` (`archived_at + 7 days`, ISO 8601 UTC). Both are `null` when the event is not archived. They also include `paused` (`true` iff `status = 'archived'`) and `cover_url` (signed read URL of the first completed photo of the earliest published story, or `null`). `cover_url` is derived on every response and is not stored.
+Event responses include `archived_at` and `deletable_at` (`archived_at + 7 days`, ISO 8601 UTC). Both are `null` when the event is not archived. They also include `paused` (`true` iff `status = 'archived'`) and `cover_url` (signed read URL of the first completed photo of the earliest published story, or `null`). `cover_url` is derived on every response and is not stored. TTL is **1 hour** (`MEDIA_AVATAR_COVER_TTL_SECONDS`).
+
+When `MEDIA_IMAGE_TRANSFORMS=false` (default), `cover_url` is untransformed; the web crops with `object-fit: cover`. When `true`, the same field is sized per endpoint: home `recent_memories` uses `COVER_CARD_TRANSFORM` (`width=128&height=128&resize=cover`); event/memory detail (and other event responses) uses `COVER_DETAIL_TRANSFORM` (`width=684&height=400&resize=cover`).
 
 ```json
 // POST /events/{id}/delete
@@ -627,7 +629,7 @@ Any **active family member** may create a person. The **creator** (`created_by_a
 }
 ```
 
-`name` is always present and is the same string as `display_name` (v0.7 alias, kept so the current web client keeps working). `gender` is `"female"` \| `"male"` \| `"other"` or `null`. `avatar_url` is derived on every response from `avatar_media_id` (never stored): a signed read URL (5 min) with transform `width=300&height=300&resize=cover` when the media exists, `purpose = 'avatar'`, and status is `uploaded` or `ready`; otherwise `null`. `memory_count` is the number of non-deleted events linked to that person with the same visibility as `GET /v1/people/{id}/events` (computed in the list query; archived counts for the steward or the event creator). Soft-deleted rows are never returned.
+`name` is always present and is the same string as `display_name` (v0.7 alias, kept so the current web client keeps working). `gender` is `"female"` \| `"male"` \| `"other"` or `null`. `avatar_url` is derived on every response from `avatar_media_id` (never stored): a signed read URL (**1 hour**, `MEDIA_AVATAR_COVER_TTL_SECONDS`) when the media exists, `purpose = 'avatar'`, and status is `uploaded` or `ready`; otherwise `null`. When `MEDIA_IMAGE_TRANSFORMS=true`, the URL includes `AVATAR_TRANSFORM` (`width=300&height=300&resize=cover`). When the flag is false (default), the URL has no transform and the web crops with `object-fit: cover`. `memory_count` is the number of non-deleted events linked to that person with the same visibility as `GET /v1/people/{id}/events` (computed in the list query; archived counts for the steward or the event creator). Soft-deleted rows are never returned.
 
 | Method | Path | Permission | Notes |
 |--------|------|------------|-------|
@@ -1005,9 +1007,9 @@ Per-account, per-family. Max **10**. Empty set allowed. All routes require famil
 
 | Method | Path | Notes |
 |--------|------|-------|
-| GET | `/v1/families/{id}/focus` | `{ items: [{ person: { id, display_name, name }, photo_url, avatar_url, memory_count, position }] }`. `photo_url` and `avatar_url` are the same derived avatar signed URL (300×300 cover) when one exists, otherwise `null`. There is no `GET /v1/home`; member cards are this focus list (also nested under `GET /v1/families/{id}/home`). `memory_count` uses the same visibility as `GET /v1/people/{id}/events` |
+| GET | `/v1/families/{id}/focus` | `{ items: [{ person: { id, display_name, name }, photo_url, avatar_url, memory_count, position }] }`. `photo_url` and `avatar_url` are the same derived avatar signed URL (1 hour) when one exists, otherwise `null`. Transform `AVATAR_TRANSFORM` 300×300 cover only when `MEDIA_IMAGE_TRANSFORMS=true`. There is no `GET /v1/home`; member cards are this focus list (also nested under `GET /v1/families/{id}/home`). `memory_count` uses the same visibility as `GET /v1/people/{id}/events` |
 | PUT | `/v1/families/{id}/focus` | Body `{ person_ids: [] }` replaces the set. Array order becomes `position` (0-based). Duplicates or people not in the family → **400 INVALID_INPUT** `field: "person_ids"`. More than 10 → **422 TOO_MANY_FOCUS** |
-| GET | `/v1/families/{id}/home` | `{ focus, quick_question, recent_memories }`. `recent_memories` is the latest 5 non-archived events in the family (includes `paused` and `cover_url`) |
+| GET | `/v1/families/{id}/home` | `{ focus, quick_question, recent_memories }`. `recent_memories` is the latest 5 non-archived events in the family (includes `paused` and `cover_url`). Home `cover_url` uses `COVER_CARD_TRANSFORM` 128×128 when transforms are on; event detail uses `COVER_DETAIL_TRANSFORM` 684×400 |
 
 `quick_question` is `{ question_id, key, person: { id, display_name, name }, text }` or `null`. Picked among the caller's focus people, active questions, not already answered by the caller for that person, and not skipped by the caller in the last 30 days. `text` substitutes `{name}` / `{ชื่อ}` with the person's `display_name`. Null when there is no focus person or no eligible question.
 
@@ -1143,6 +1145,8 @@ STORAGE_BUCKET=private-media
 SWY_SUPABASE_SERVICE_ROLE_KEY=
 MEDIA_MAX_BYTES=20971520
 MEDIA_MAX_PER_CONTRIBUTION=20
+# true | false. Default false: avatar_url / cover_url have no Storage transform; web uses object-fit: cover.
+MEDIA_IMAGE_TRANSFORMS=false
 
 # Rate Limiting
 RATE_LIMIT_MAX=100
@@ -1172,8 +1176,8 @@ JWKS_URI=${SUPABASE_URL}/auth/v1/.well-known/jwks.json
 - `GET /v1/families/{id}/people` returns `{ people, relationships }`
 - Media `purpose` `story` \| `avatar` (avatar limit 1 per person)
 - Person `memory_count` (same visibility as `GET /v1/people/{id}/events`, same-query count) and required `name`
-- Person/focus `avatar_url` derived on every response from completed `purpose=avatar` media, signed with 300×300 `cover` transform (URL is never stored)
-- Event `paused` and `cover_url` (first completed photo of the earliest published story)
+- Person/focus `avatar_url` derived on every response from completed `purpose=avatar` media (URL is never stored). TTL 1 hour. Transform `AVATAR_TRANSFORM` 300×300 only when `MEDIA_IMAGE_TRANSFORMS=true`
+- Event `paused` and `cover_url` (first completed photo of the earliest published story). TTL 1 hour. Home `recent_memories` uses `COVER_CARD_TRANSFORM` 128×128; event detail uses `COVER_DETAIL_TRANSFORM` 684×400 — only when `MEDIA_IMAGE_TRANSFORMS=true`
 - Contribution `author_id` and `is_mine`; stories listed newest first
 - Focus/home member cards include `avatar_url` and `person.name`
 - `person_relationships` composite FKs onto `people(id, family_id)` so both ends are the same family

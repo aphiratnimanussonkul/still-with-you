@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { AVATAR_TRANSFORM, eventResponseSchema, personResponseSchema } from '@still-with-you/contracts';
+import {
+  AVATAR_TRANSFORM,
+  COVER_CARD_TRANSFORM,
+  COVER_DETAIL_TRANSFORM,
+  MEDIA_AVATAR_COVER_TTL_SECONDS,
+  eventResponseSchema,
+  personResponseSchema,
+} from '@still-with-you/contracts';
 import { eq } from 'drizzle-orm';
 import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
 import { db, familyMembers, media } from '../lib/db/index.js';
@@ -53,6 +60,27 @@ describe('Member cards + Memory page contract', () => {
     const parsed = new URL(url);
     parsed.searchParams.delete('exp');
     return `${parsed.origin}${parsed.pathname}?${parsed.searchParams.toString()}`;
+  }
+
+  function expectHourTtl(url: string) {
+    const exp = Number(new URL(url).searchParams.get('exp'));
+    const remainingMs = exp - Date.now();
+    expect(remainingMs).toBeGreaterThan((MEDIA_AVATAR_COVER_TTL_SECONDS - 30) * 1000);
+    expect(remainingMs).toBeLessThan((MEDIA_AVATAR_COVER_TTL_SECONDS + 30) * 1000);
+  }
+
+  function expectNoTransform(url: string) {
+    const params = new URL(url).searchParams;
+    expect(params.has('width')).toBe(false);
+    expect(params.has('height')).toBe(false);
+    expect(params.has('resize')).toBe(false);
+  }
+
+  function expectTransform(url: string, transform: { width: number; height: number; resize: string }) {
+    const params = new URL(url).searchParams;
+    expect(params.get('width')).toBe(String(transform.width));
+    expect(params.get('height')).toBe(String(transform.height));
+    expect(params.get('resize')).toBe(transform.resize);
   }
 
   async function readyMedia(token: string, purpose: 'avatar' | 'story' = 'story') {
@@ -190,7 +218,7 @@ describe('Member cards + Memory page contract', () => {
     expect(cards[1].memory_count).toBe(memberGrandpaEvents);
   });
 
-  it('signs avatar_url only for completed purpose=avatar media, with 300x300 cover transform', async () => {
+  it('signs avatar_url only for completed purpose=avatar media, without transform when MEDIA_IMAGE_TRANSFORMS is false', async () => {
     const avatarId = await readyMedia(memberToken, 'avatar');
     const storyId = await readyMedia(memberToken, 'story');
 
@@ -203,9 +231,9 @@ describe('Member cards + Memory page contract', () => {
     expect(attached.statusCode).toBe(200);
     const patched = personResponseSchema.parse(JSON.parse(attached.body));
     expect(patched.avatar_media_id).toBe(avatarId);
-    expect(patched.avatar_url).toContain('width=300');
-    expect(patched.avatar_url).toContain('height=300');
-    expect(patched.avatar_url).toContain(`resize=${AVATAR_TRANSFORM.resize}`);
+    expect(patched.avatar_url).toBeTruthy();
+    expectNoTransform(patched.avatar_url!);
+    expectHourTtl(patched.avatar_url!);
 
     const listed = await server.inject({
       method: 'GET',
@@ -262,6 +290,8 @@ describe('Member cards + Memory page contract', () => {
     const event = eventResponseSchema.parse(created);
     expect(event.paused).toBe(false);
     expect(event.cover_url).toContain('https://media.test/read/');
+    expectNoTransform(event.cover_url!);
+    expectHourTtl(event.cover_url!);
     const firstCover = event.cover_url;
 
     const second = await server.inject({
@@ -287,5 +317,61 @@ describe('Member cards + Memory page contract', () => {
       headers: await auth(stewardToken),
     });
     expect(eventResponseSchema.parse(JSON.parse(archived.body)).paused).toBe(true);
+  });
+
+  describe('when MEDIA_IMAGE_TRANSFORMS=true', () => {
+    beforeEach(() => {
+      process.env.MEDIA_IMAGE_TRANSFORMS = 'true';
+    });
+
+    afterEach(() => {
+      delete process.env.MEDIA_IMAGE_TRANSFORMS;
+    });
+
+    it('signs avatar_url with 300x300 cover and per-endpoint cover_url sizes', async () => {
+      const avatarId = await readyMedia(memberToken, 'avatar');
+      const attached = await server.inject({
+        method: 'PATCH',
+        url: `/v1/people/${grandmaId}`,
+        headers: await auth(memberToken),
+        payload: { avatar_media_id: avatarId },
+      });
+      expect(attached.statusCode).toBe(200);
+      const patched = personResponseSchema.parse(JSON.parse(attached.body));
+      expectTransform(patched.avatar_url!, AVATAR_TRANSFORM);
+      expectHourTtl(patched.avatar_url!);
+
+      const photo = await readyMedia(stewardToken, 'story');
+      const created = await createEvent(stewardToken, 'ปก', [grandmaId], [photo]);
+      const detail = eventResponseSchema.parse(created);
+      expectTransform(detail.cover_url!, COVER_DETAIL_TRANSFORM);
+      expectHourTtl(detail.cover_url!);
+
+      const got = await server.inject({
+        method: 'GET',
+        url: `/v1/events/${detail.id}`,
+        headers: await auth(memberToken),
+      });
+      expectTransform(eventResponseSchema.parse(JSON.parse(got.body)).cover_url!, COVER_DETAIL_TRANSFORM);
+
+      await server.inject({
+        method: 'PUT',
+        url: `/v1/families/${familyId}/focus`,
+        headers: await auth(memberToken),
+        payload: { person_ids: [grandmaId] },
+      });
+      const home = await server.inject({
+        method: 'GET',
+        url: `/v1/families/${familyId}/home`,
+        headers: await auth(memberToken),
+      });
+      expect(home.statusCode).toBe(200);
+      const body = JSON.parse(home.body);
+      expectTransform(body.focus[0].avatar_url, AVATAR_TRANSFORM);
+      const cardCover = body.recent_memories.find((event: { id: string }) => event.id === detail.id)?.cover_url;
+      expect(cardCover).toBeTruthy();
+      expectTransform(cardCover, COVER_CARD_TRANSFORM);
+      expectHourTtl(cardCover);
+    });
   });
 });
