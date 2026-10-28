@@ -288,6 +288,9 @@ describe('copy v0.4', () => {
       'มีคนแก้ความทรงจำนี้ไปเมื่อกี้ ที่คุณแก้ไว้ยังอยู่ครบ ลองเปิดฉบับล่าสุดดูก่อน แล้วจึงแก้ต่อ'
     );
     expect(copy['memory.edit.conflict.action']).toBe('เปิดฉบับล่าสุด');
+    expect(copy['memory.edit.conflict.load_failed']).toBe(
+      'ขอโทษด้วย ตอนนี้ยังเปิดฉบับล่าสุดไม่ได้ ที่คุณแก้ไว้ยังอยู่ครบ ลองอีกครั้งได้เลย'
+    );
     expect(copy['memory.conflict.changed_fields']).toBe(
       'มีคนแก้{fields}ไปแล้ว ที่คุณแก้ไว้ด้านล่างยังอยู่ครบ'
     );

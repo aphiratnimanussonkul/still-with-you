@@ -22,4 +22,14 @@ describe('MemoryEditConflictBanner', () => {
     expect(screen.queryByText(/ด้านล่าง/)).toBeNull();
     expect(screen.getByRole('button', { name: copy['memory.edit.conflict.action'] })).toBeTruthy();
   });
+
+  it('shows load_failed and common.retry instead of the conflict action', () => {
+    render(
+      <MemoryEditConflictBanner changedFields={[]} onOpenLatest={vi.fn()} loadFailed />
+    );
+    expect(screen.getByRole('alert').textContent).toBe(copy['memory.edit.conflict.load_failed']);
+    expect(screen.getByRole('button', { name: copy['common.retry'] })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: copy['memory.edit.conflict.action'] })).toBeNull();
+    expect(screen.queryByText(copy['error.generic.body'])).toBeNull();
+  });
 });
