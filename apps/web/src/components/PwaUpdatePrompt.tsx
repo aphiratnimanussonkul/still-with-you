@@ -1,14 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowClockwiseIcon } from '@phosphor-icons/react/ArrowClockwise';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { copy } from '@/copy';
 import { env } from '@/lib/env';
-import { PWA_UPDATE_CHECK_MS, flushPwaDrafts } from '@/lib/form-draft';
+import { PWA_UPDATE_CHECK_MS, reloadForAppUpdate, setPwaUpdateHandler } from '@/lib/form-draft';
 
 export function PwaUpdatePrompt() {
   const [needRefresh, setNeedRefresh] = useState(false);
-  const update = useRef<((reloadPage?: boolean) => Promise<void>) | null>(null);
 
   useEffect(() => {
     if (env.useMsw) return;
@@ -22,25 +21,28 @@ export function PwaUpdatePrompt() {
     void import('virtual:pwa-register')
       .then(({ registerSW }) => {
         if (cancelled) return;
-        update.current = registerSW({
-          immediate: true,
-          onNeedRefresh() {
-            setNeedRefresh(true);
-          },
-          onRegisteredSW(_url, registration) {
-            if (!registration || cancelled) return;
-            intervalId = window.setInterval(() => {
-              void registration.update();
-            }, PWA_UPDATE_CHECK_MS);
-            visibilityHandler = () => onVisible(registration);
-            document.addEventListener('visibilitychange', visibilityHandler);
-          },
-        });
+        setPwaUpdateHandler(
+          registerSW({
+            immediate: true,
+            onNeedRefresh() {
+              setNeedRefresh(true);
+            },
+            onRegisteredSW(_url, registration) {
+              if (!registration || cancelled) return;
+              intervalId = window.setInterval(() => {
+                void registration.update();
+              }, PWA_UPDATE_CHECK_MS);
+              visibilityHandler = () => onVisible(registration);
+              document.addEventListener('visibilitychange', visibilityHandler);
+            },
+          })
+        );
       })
       .catch(() => undefined);
 
     return () => {
       cancelled = true;
+      setPwaUpdateHandler(null);
       if (intervalId !== undefined) window.clearInterval(intervalId);
       if (visibilityHandler) document.removeEventListener('visibilitychange', visibilityHandler);
     };
@@ -58,8 +60,7 @@ export function PwaUpdatePrompt() {
         type="button"
         size="sm"
         onClick={() => {
-          flushPwaDrafts();
-          void update.current?.(true);
+          reloadForAppUpdate();
         }}
       >
         <Icon as={ArrowClockwiseIcon} size={20} />

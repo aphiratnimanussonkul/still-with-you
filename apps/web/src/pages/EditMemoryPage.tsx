@@ -3,6 +3,7 @@ import { CircleNotchIcon } from '@phosphor-icons/react/CircleNotch';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { AppUpdateBanner } from '@/components/AppUpdateBanner';
 import { MemoryEditConflictBanner } from '@/components/MemoryEditConflictBanner';
 import { QueryLoading } from '@/components/QueryLoading';
 import { Alert } from '@/components/ui/alert';
@@ -16,6 +17,7 @@ import { ApiClientError, messageForError } from '@/lib/api-errors';
 import {
   EventEditConflictError,
   baselineFromEvent,
+  isEventVersionFieldError,
   openLatestForConflict,
   saveEventEdit,
   type MemoryConflictField,
@@ -26,6 +28,7 @@ import {
   clearDraft,
   memoryEditDraftKey,
   readDraft,
+  reloadForAppUpdate,
   writeDraft,
   type MemoryEditDraft,
 } from '@/lib/form-draft';
@@ -124,6 +127,7 @@ export function EditMemoryPage() {
   const titleMissing = !draftTitle.trim();
   const conflictError = save.error instanceof EventEditConflictError;
   const showConflict = conflict || conflictError;
+  const showAppUpdate = !showConflict && isEventVersionFieldError(save.error);
 
   return (
     <form
@@ -143,6 +147,8 @@ export function EditMemoryPage() {
             }}
             opening={opening}
           />
+        ) : showAppUpdate ? (
+          <AppUpdateBanner onReload={reloadForAppUpdate} />
         ) : save.isError ? (
           <Alert>{messageForError(save.error)}</Alert>
         ) : null}

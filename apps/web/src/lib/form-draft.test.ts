@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   MEMORY_CREATE_DRAFT_KEY,
   PWA_FLUSH_DRAFTS_EVENT,
@@ -6,6 +6,8 @@ import {
   flushPwaDrafts,
   memoryEditDraftKey,
   readDraft,
+  reloadForAppUpdate,
+  setPwaUpdateHandler,
   writeDraft,
   type MemoryCreateDraft,
   type MemoryEditDraft,
@@ -13,6 +15,7 @@ import {
 
 afterEach(() => {
   sessionStorage.clear();
+  setPwaUpdateHandler(null);
 });
 
 describe('form-draft', () => {
@@ -44,6 +47,22 @@ describe('form-draft', () => {
       flushPwaDrafts();
       expect(seen).toEqual(['flush']);
       expect(readDraft<MemoryCreateDraft>(MEMORY_CREATE_DRAFT_KEY)?.title).toBe('ก่อนรีโหลด');
+    } finally {
+      window.removeEventListener(PWA_FLUSH_DRAFTS_EVENT, onFlush);
+    }
+  });
+
+  it('reloadForAppUpdate flushes drafts then skipWaiting-reloads', () => {
+    const update = vi.fn(async () => undefined);
+    setPwaUpdateHandler(update);
+    const onFlush = () => {
+      writeDraft(MEMORY_CREATE_DRAFT_KEY, { title: 'ก่อนเปิดใหม่', story: '' });
+    };
+    window.addEventListener(PWA_FLUSH_DRAFTS_EVENT, onFlush);
+    try {
+      reloadForAppUpdate();
+      expect(readDraft<MemoryCreateDraft>(MEMORY_CREATE_DRAFT_KEY)?.title).toBe('ก่อนเปิดใหม่');
+      expect(update).toHaveBeenCalledWith(true);
     } finally {
       window.removeEventListener(PWA_FLUSH_DRAFTS_EVENT, onFlush);
     }
