@@ -15,12 +15,6 @@ vi.mock('@/lib/api-client', () => ({
   },
 }));
 
-vi.mock('sonner', () => {
-  const toast = Object.assign(vi.fn(), { success: vi.fn() });
-  return { toast };
-});
-
-import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import {
   EventEditConflictError,
@@ -45,12 +39,12 @@ const latest = {
 };
 
 describe('EVENT_EDIT_CONFLICT contract', () => {
-  it('parses details.current_version and rejects an editor name', () => {
+  it('parses details.current_version and strips unknown keys', () => {
     expect(eventEditConflictDetailsSchema.parse({ current_version: 2 })).toEqual({ current_version: 2 });
     expect(eventEditConflictDetailsSchema.safeParse({}).success).toBe(false);
-    expect(eventEditConflictDetailsSchema.safeParse({ current_version: 2, editor: 'Mint' }).success).toBe(
-      false
-    );
+    expect(eventEditConflictDetailsSchema.parse({ current_version: 2, editor: 'Mint' })).toEqual({
+      current_version: 2,
+    });
     expect(
       eventEditConflictErrorSchema.parse({
         error: {
@@ -61,35 +55,18 @@ describe('EVENT_EDIT_CONFLICT contract', () => {
       }).error.details
     ).toEqual({ current_version: 2 });
   });
-
-  it('uses Eddy memory.edit.conflict copy, not a TODO key', () => {
-    expect(copy['memory.edit.conflict.body']).toBe(
-      'มีคนแก้ความทรงจำนี้ไปเมื่อกี้ ที่คุณแก้ไว้ยังอยู่ครบ ลองเปิดฉบับล่าสุดดูก่อน แล้วจึงแก้ต่อ'
-    );
-    expect(copy['memory.edit.conflict.action']).toBe('เปิดฉบับล่าสุด');
-    expect(copy['memory.conflict.changed_fields']).toBe(
-      'มีคนแก้{fields}ไปแล้ว ที่คุณแก้ไว้ด้านล่างยังอยู่ครบ'
-    );
-    expect(copy['memory.title_label']).toBe('ชื่อความทรงจำ');
-    expect(copy['memory.conflict.field.date']).toBe('วันที่');
-    expect(copy['memory.conflict.field.people']).toBe('คนในความทรงจำ');
-    expect(copy['memory.conflict.field.cover']).toBe('รูปปก');
-    expect(copy['memory.edit.conflict.body'].startsWith('TODO:')).toBe(false);
-    expect(copy['memory.edit.conflict.action'].startsWith('TODO:')).toBe(false);
-    expect(copy['memory.conflict.changed_fields'].startsWith('TODO:')).toBe(false);
-  });
 });
 
 describe('changedMemoryFields', () => {
-  it('lists title / date / people / cover with existing field labels', () => {
+  it('joins field labels with Eddy/Figma และ rules', () => {
+    expect(formatConflictFields(['title'])).toBe('ชื่อความทรงจำ');
+    expect(formatConflictFields(['title', 'date'])).toBe('ชื่อความทรงจำและวันที่');
+    expect(formatConflictFields(['title', 'date', 'cover'])).toBe('ชื่อความทรงจำ วันที่ และรูปปก');
     expect(formatConflictFields(['title', 'date', 'people', 'cover'])).toBe(
-      'ชื่อความทรงจำ วันที่ คนในความทรงจำ รูปปก'
-    );
-    expect(changedFieldsMessage(['title'])).toBe(
-      interpolate(copy['memory.conflict.changed_fields'], { fields: 'ชื่อความทรงจำ' })
+      'ชื่อความทรงจำ วันที่ คนในความทรงจำ และรูปปก'
     );
     expect(changedFieldsMessage(['title', 'date'])).toBe(
-      'มีคนแก้ชื่อความทรงจำ วันที่ไปแล้ว ที่คุณแก้ไว้ด้านล่างยังอยู่ครบ'
+      interpolate(copy['memory.conflict.changed_fields'], { fields: 'ชื่อความทรงจำและวันที่' })
     );
     expect(changedFieldsMessage([])).toBeNull();
   });
@@ -135,7 +112,6 @@ describe('saveEventEdit', () => {
   afterEach(() => {
     vi.mocked(api.updateEvent).mockReset();
     vi.mocked(api.getEvent).mockReset();
-    vi.mocked(toast).mockReset();
   });
 
   it('sends the loaded event version on PATCH', async () => {
@@ -145,10 +121,9 @@ describe('saveEventEdit', () => {
     await expect(saveEventEdit(loaded, { title: 'หัวข้อใหม่' })).resolves.toEqual(saved);
     expect(api.updateEvent).toHaveBeenCalledWith(loaded.id, { title: 'หัวข้อใหม่', version: 1 });
     expect(api.getEvent).not.toHaveBeenCalled();
-    expect(toast).not.toHaveBeenCalled();
   });
 
-  it('keeps unsaved form values on 409 and does not auto-fetch', async () => {
+  it('does not fetch or overwrite a draft on 409', async () => {
     const conflict = new ApiClientError(
       ErrorCode.EVENT_EDIT_CONFLICT,
       'Event was modified by another edit',
@@ -158,68 +133,28 @@ describe('saveEventEdit', () => {
     );
     vi.mocked(api.updateEvent).mockRejectedValue(conflict);
     const draft = { title: 'ฉันพิมพ์ไว้แล้ว' };
-    const onOpenLatest = vi.fn();
 
-    const error = await saveEventEdit(loaded, { title: draft.title }, { onOpenLatest }).catch(
-      (caught: unknown) => caught
-    );
+    const error = await saveEventEdit(loaded, { title: draft.title }).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(EventEditConflictError);
     expect((error as EventEditConflictError).currentVersion).toBe(2);
-    expect((error as EventEditConflictError).message).toBe(copy['memory.edit.conflict.body']);
     expect(draft.title).toBe('ฉันพิมพ์ไว้แล้ว');
     expect(api.getEvent).not.toHaveBeenCalled();
-    expect(toast).toHaveBeenCalledWith(
-      copy['memory.edit.conflict.body'],
-      expect.objectContaining({
-        action: expect.objectContaining({ label: copy['memory.edit.conflict.action'] }),
-      })
-    );
-    expect(toast).not.toHaveBeenCalledWith(copy['error.EVENT_EDIT_CONFLICT'], expect.anything());
   });
 
-  it('fetches latest on เปิดฉบับล่าสุด, keeps the draft, then next save sends the new version', async () => {
-    const conflict = new ApiClientError(
-      ErrorCode.EVENT_EDIT_CONFLICT,
-      'Event was modified by another edit',
-      409,
-      undefined,
-      { current_version: 2 }
-    );
-    vi.mocked(api.updateEvent).mockRejectedValueOnce(conflict);
+  it('openLatestForConflict returns a new version without changing the draft', async () => {
     vi.mocked(api.getEvent).mockResolvedValue(latest);
-
     const draft = { title: 'ฉันพิมพ์ไว้แล้ว' };
-    let saveVersion = loaded.version;
-    const baseline = baselineFromEvent(loaded);
-
-    const error = await saveEventEdit(
-      { id: loaded.id, version: saveVersion },
-      { title: draft.title },
-      {
-        onOpenLatest: async () => {
-          const opened = await openLatestForConflict(loaded.id, baseline);
-          saveVersion = opened.saveVersion;
-        },
-      }
-    ).catch((caught: unknown) => caught);
-    expect(error).toBeInstanceOf(EventEditConflictError);
-
-    const action = vi.mocked(toast).mock.calls[0]?.[1] as { action?: { onClick?: () => void } };
-    await action.action?.onClick?.();
-
-    expect(api.getEvent).toHaveBeenCalledWith(loaded.id);
+    const opened = await openLatestForConflict(loaded.id, baselineFromEvent(loaded));
+    expect(opened.saveVersion).toBe(2);
+    expect(opened.changedFields).toEqual(['title', 'date', 'cover']);
     expect(draft.title).toBe('ฉันพิมพ์ไว้แล้ว');
-    expect(saveVersion).toBe(2);
-    expect(toast).toHaveBeenCalledWith(
-      'มีคนแก้ชื่อความทรงจำ วันที่ รูปปกไปแล้ว ที่คุณแก้ไว้ด้านล่างยังอยู่ครบ'
-    );
 
     const saved = { ...loaded, title: draft.title, version: 3 };
-    vi.mocked(api.updateEvent).mockResolvedValueOnce(saved);
+    vi.mocked(api.updateEvent).mockResolvedValue(saved);
     await expect(
-      saveEventEdit({ id: loaded.id, version: saveVersion }, { title: draft.title })
+      saveEventEdit({ id: loaded.id, version: opened.saveVersion }, { title: draft.title })
     ).resolves.toEqual(saved);
-    expect(api.updateEvent).toHaveBeenLastCalledWith(loaded.id, { title: 'ฉันพิมพ์ไว้แล้ว', version: 2 });
+    expect(api.updateEvent).toHaveBeenCalledWith(loaded.id, { title: 'ฉันพิมพ์ไว้แล้ว', version: 2 });
   });
 
   it('rethrows other errors without refetching', async () => {
@@ -227,7 +162,6 @@ describe('saveEventEdit', () => {
     vi.mocked(api.updateEvent).mockRejectedValue(boom);
     await expect(saveEventEdit(loaded, { title: 'x' })).rejects.toBe(boom);
     expect(api.getEvent).not.toHaveBeenCalled();
-    expect(toast).not.toHaveBeenCalled();
   });
 });
 

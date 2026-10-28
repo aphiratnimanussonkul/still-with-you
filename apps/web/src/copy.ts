@@ -311,6 +311,7 @@ export const copy = {
     'มีคนแก้ความทรงจำนี้ไปเมื่อกี้ ที่คุณแก้ไว้ยังอยู่ครบ ลองเปิดฉบับล่าสุดดูก่อน แล้วจึงแก้ต่อ',
   'memory.edit.conflict.action': 'เปิดฉบับล่าสุด',
   'memory.conflict.changed_fields': 'มีคนแก้{fields}ไปแล้ว ที่คุณแก้ไว้ด้านล่างยังอยู่ครบ',
+  'memory.conflict.field.title': 'ชื่อความทรงจำ',
   'memory.conflict.field.date': 'วันที่',
   'memory.conflict.field.people': 'คนในความทรงจำ',
   'memory.conflict.field.cover': 'รูปปก',

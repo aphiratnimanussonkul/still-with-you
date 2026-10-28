@@ -4,7 +4,6 @@ import {
   type EventResponse,
   type UpdateEvent,
 } from '@still-with-you/contracts';
-import { toast } from 'sonner';
 import { copy, interpolate } from '@/copy';
 import { api } from '@/lib/api-client';
 import { ApiClientError } from '@/lib/api-errors';
@@ -44,14 +43,19 @@ export type MemoryEditBaseline = {
 const CONFLICT_FIELD_ORDER: readonly MemoryConflictField[] = ['title', 'date', 'people', 'cover'];
 
 export function conflictFieldLabel(field: MemoryConflictField): string {
-  if (field === 'title') return copy['memory.title_label'];
+  if (field === 'title') return copy['memory.conflict.field.title'];
   if (field === 'date') return copy['memory.conflict.field.date'];
   if (field === 'people') return copy['memory.conflict.field.people'];
   return copy['memory.conflict.field.cover'];
 }
 
+/** 1 field as-is; 2 joined by และ with no spaces; 3+ spaces, " และ" before the last. */
 export function formatConflictFields(fields: readonly MemoryConflictField[]): string {
-  return fields.map(conflictFieldLabel).join(' ');
+  const labels = fields.map(conflictFieldLabel);
+  if (labels.length === 0) return '';
+  if (labels.length === 1) return labels[0]!;
+  if (labels.length === 2) return `${labels[0]}และ${labels[1]}`;
+  return `${labels.slice(0, -1).join(' ')} และ${labels[labels.length - 1]}`;
 }
 
 export function changedFieldsMessage(fields: readonly MemoryConflictField[]): string | null {
@@ -106,30 +110,19 @@ export function changedMemoryFields(
   return CONFLICT_FIELD_ORDER.filter((field) => changed.includes(field));
 }
 
-function notifyMemoryEditConflict(onOpenLatest?: () => void | Promise<void>): void {
-  toast(copy['memory.edit.conflict.body'], {
-    action: {
-      label: copy['memory.edit.conflict.action'],
-      onClick: () => onOpenLatest?.(),
-    },
-  });
-}
-
 /**
  * PATCH a memory using the loaded event's `version`.
- * On 409 EVENT_EDIT_CONFLICT: do not refetch, do not touch form values, notify with
- * memory.edit.conflict.* — the caller keeps the draft and opens latest only on tap.
+ * On 409 EVENT_EDIT_CONFLICT: do not refetch and do not touch form values.
+ * The edit screen shows MemoryEditConflictBanner; latest is fetched only on explicit tap.
  */
 export async function saveEventEdit(
   loaded: Pick<EventResponse, 'id' | 'version'>,
-  patch: Omit<UpdateEvent, 'version'>,
-  options?: { onOpenLatest?: () => void | Promise<void> }
+  patch: Omit<UpdateEvent, 'version'>
 ): Promise<EventResponse> {
   try {
     return await api.updateEvent(loaded.id, { ...patch, version: loaded.version });
   } catch (error) {
     if (!isEventEditConflict(error)) throw error;
-    notifyMemoryEditConflict(options?.onOpenLatest);
     throw new EventEditConflictError(currentVersionFromConflict(error));
   }
 }
@@ -144,8 +137,8 @@ export async function openLatestForConflict(
   baseline: MemoryEditBaseline
 ): Promise<{ saveVersion: number; changedFields: MemoryConflictField[] }> {
   const latest = await api.getEvent(eventId);
-  const changedFields = changedMemoryFields(baseline, baselineFromEvent(latest));
-  const message = changedFieldsMessage(changedFields);
-  if (message) toast(message);
-  return { saveVersion: latest.version, changedFields };
+  return {
+    saveVersion: latest.version,
+    changedFields: changedMemoryFields(baseline, baselineFromEvent(latest)),
+  };
 }

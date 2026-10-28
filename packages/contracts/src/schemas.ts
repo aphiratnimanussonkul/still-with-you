@@ -139,11 +139,9 @@ export const updateEventSchema = z.object({
 });
 
 /** 409 EVENT_EDIT_CONFLICT `error.details`. Integer on the row only; no editor name. */
-export const eventEditConflictDetailsSchema = z
-  .object({
-    current_version: z.number().int(),
-  })
-  .strict();
+export const eventEditConflictDetailsSchema = z.object({
+  current_version: z.number().int(),
+});
 
 export const eventEditConflictErrorSchema = z.object({
   error: z.object({

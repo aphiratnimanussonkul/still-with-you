@@ -292,6 +292,7 @@ describe('copy v0.4', () => {
       'มีคนแก้{fields}ไปแล้ว ที่คุณแก้ไว้ด้านล่างยังอยู่ครบ'
     );
     expect(copy['memory.title_label']).toBe('ชื่อความทรงจำ');
+    expect(copy['memory.conflict.field.title']).toBe('ชื่อความทรงจำ');
     expect(copy['memory.conflict.field.date']).toBe('วันที่');
     expect(copy['memory.conflict.field.people']).toBe('คนในความทรงจำ');
     expect(copy['memory.conflict.field.cover']).toBe('รูปปก');
