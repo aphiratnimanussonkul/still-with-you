@@ -314,6 +314,8 @@ export const copy = {
   'story.add.context': 'เล่าใน {ชื่อความทรงจำ} ไม่ทับเรื่องเล่าของใคร',
   'story.save': 'บันทึก',
   'story.action.edit': 'แก้ไข',
+  'story.told_at': 'TODO: Eddy — story.told_at',
+  'story.counter': 'TODO: Eddy — story.counter',
   'contribution.photos.label': 'รูปภาพ (ไม่บังคับ)',
   'contribution.photo.alt': 'รูปที่ {ชื่อผู้เล่า} แนบไว้ {i} จาก {n}',
   'contribution.photos.viewer.counter': '{i}/{n}',

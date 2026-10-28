@@ -31,6 +31,10 @@ describe('appBarForPath', () => {
       titleKey: 'memory.list.title',
       backTo: '/memories',
     });
+    expect(appBarForPath('/memories/abc', '?compose=1')).toEqual({
+      titleKey: 'story.add.title',
+      backTo: '/memories/abc',
+    });
     expect(appBarForPath('/family/people/new')).toEqual({
       titleKey: 'person.add.title',
       backTo: '/family',

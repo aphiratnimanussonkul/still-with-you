@@ -36,6 +36,18 @@ describe('ContributionPhotos', () => {
     expect(many.getAllByRole('button')[0]?.className).toContain('aspect-square');
   });
 
+  it('shows three 72px tiles and +n on the story-card variant', () => {
+    render(<ContributionPhotos ownerName="Atta" media={photos(5)} variant="story" />);
+    expect(screen.getAllByRole('button')).toHaveLength(3);
+    expect(screen.getByText('+2')).toBeTruthy();
+    expect(screen.getAllByRole('button')[0]?.className).toContain('size-[72px]');
+    expect(
+      screen.getByRole('button', {
+        name: interpolate(copy['contribution.photos.more'], { n: '2' }),
+      })
+    ).toBeTruthy();
+  });
+
   it('shows six tiles and a leftover overlay when there are more than six', () => {
     render(<ContributionPhotos ownerName="Atta" media={photos(8)} />);
     expect(screen.getAllByRole('button')).toHaveLength(6);

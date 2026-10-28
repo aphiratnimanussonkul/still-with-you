@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { CircleNotchIcon } from '@phosphor-icons/react/CircleNotch';
 import { ImageIcon } from '@phosphor-icons/react/Image';
 import { XIcon } from '@phosphor-icons/react/X';
+import { PhotoAddTile } from '@/components/PhotoAddTile';
 import { Icon } from '@/components/ui/icon';
 import { copy, interpolate } from '@/copy';
 import { MEDIA_DEFAULTS, type MediaLimits } from '@/lib/media-config';
@@ -29,6 +31,8 @@ type PhotoAttachProps = {
   familyId: string;
   label?: string;
   onStateChange: (state: PhotoAttachState) => void;
+  /** `tiles` = Figma Photo add tile 151:119 (72px row). */
+  variant?: 'default' | 'tiles';
 };
 
 function emit(photos: PhotoDraft[], onStateChange: (state: PhotoAttachState) => void) {
@@ -38,7 +42,7 @@ function emit(photos: PhotoDraft[], onStateChange: (state: PhotoAttachState) => 
   });
 }
 
-export function PhotoAttach({ familyId, label, onStateChange }: PhotoAttachProps) {
+export function PhotoAttach({ familyId, label, onStateChange, variant = 'default' }: PhotoAttachProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [photos, setPhotos] = useState<PhotoDraft[]>([]);
@@ -137,13 +141,24 @@ export function PhotoAttach({ familyId, label, onStateChange }: PhotoAttachProps
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className={variant === 'tiles' ? 'flex flex-wrap gap-2' : 'grid grid-cols-3 gap-2'}>
         {photos.map((photo) => (
-          <div key={photo.clientId} className="relative aspect-square overflow-hidden rounded-[10px] bg-muted">
+          <div
+            key={photo.clientId}
+            className={
+              variant === 'tiles'
+                ? 'relative size-[72px] overflow-hidden rounded-[10px] bg-muted'
+                : 'relative aspect-square overflow-hidden rounded-[10px] bg-muted'
+            }
+          >
             <img src={photo.previewUrl} alt="" className="size-full object-cover" />
             {photo.status === 'uploading' ? (
               <div className="absolute inset-0 flex items-center justify-center bg-overlay text-caption text-primary-foreground">
-                {photo.progress}%
+                {variant === 'tiles' ? (
+                  <Icon as={CircleNotchIcon} size={20} className="animate-spin motion-reduce:animate-none" />
+                ) : (
+                  `${photo.progress}%`
+                )}
               </div>
             ) : null}
             {photo.status === 'failed' ? (
@@ -169,12 +184,15 @@ export function PhotoAttach({ familyId, label, onStateChange }: PhotoAttachProps
         ))}
 
         {showAdd ? (
-          <label
-            htmlFor={inputId}
-            className="flex min-h-24 min-w-24 cursor-pointer aspect-square flex-col items-center justify-center gap-1 rounded-[10px] border border-dashed border-input text-muted-foreground"
-          >
-            <Icon as={ImageIcon} size={24} />
-            <span className="sr-only">{copy['a11y.add_photo']}</span>
+          <label htmlFor={inputId} className="cursor-pointer">
+            {variant === 'tiles' ? (
+              <PhotoAddTile />
+            ) : (
+              <span className="flex min-h-24 min-w-24 aspect-square flex-col items-center justify-center gap-1 rounded-[10px] border border-dashed border-input text-muted-foreground">
+                <Icon as={ImageIcon} size={24} />
+                <span className="sr-only">{copy['a11y.add_photo']}</span>
+              </span>
+            )}
           </label>
         ) : null}
       </div>

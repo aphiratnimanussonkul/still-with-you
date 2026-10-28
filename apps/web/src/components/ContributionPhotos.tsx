@@ -13,7 +13,8 @@ export type ContributionPhoto = {
   thumb_url?: string | null;
 };
 
-const PREVIEW_MAX = 6;
+const GRID_PREVIEW_MAX = 6;
+const STORY_PREVIEW_MAX = 3;
 
 function srcOf(photo: ContributionPhoto): string | null {
   return photo.thumb_url || photo.url || null;
@@ -26,22 +27,32 @@ export function visibleContributionPhotos(media: ContributionPhoto[] | undefined
 export function ContributionPhotos({
   media,
   ownerName,
+  variant = 'grid',
 }: {
   media?: ContributionPhoto[] | null;
   ownerName: string;
+  /** `story` = Figma Story card 151:94 (72px row, 3 + "+n"). */
+  variant?: 'grid' | 'story';
 }) {
   const photos = visibleContributionPhotos(media);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   if (photos.length === 0) return null;
 
-  const preview = photos.slice(0, PREVIEW_MAX);
-  const overflow = photos.length > PREVIEW_MAX ? photos.length - PREVIEW_MAX : 0;
+  const previewMax = variant === 'story' ? STORY_PREVIEW_MAX : GRID_PREVIEW_MAX;
+  const preview = photos.slice(0, previewMax);
+  const overflow = photos.length > previewMax ? photos.length - previewMax : 0;
   const columns = photos.length === 1 ? 1 : photos.length === 2 ? 2 : 3;
 
   return (
     <div className="flex flex-col gap-2">
-      <ul className={cn('grid gap-1', columns === 1 && 'grid-cols-1', columns === 2 && 'grid-cols-2', columns === 3 && 'grid-cols-3')}>
+      <ul
+        className={
+          variant === 'story'
+            ? 'flex gap-2 overflow-hidden'
+            : cn('grid gap-1', columns === 1 && 'grid-cols-1', columns === 2 && 'grid-cols-2', columns === 3 && 'grid-cols-3')
+        }
+      >
         {preview.map((photo, index) => {
           const isOverflowTile = overflow > 0 && index === preview.length - 1;
           return (
@@ -49,8 +60,10 @@ export function ContributionPhotos({
               <button
                 type="button"
                 className={cn(
-                  'relative block w-full overflow-hidden rounded-md',
-                  photos.length === 1 ? 'aspect-[4/3]' : 'aspect-square'
+                  'relative block overflow-hidden rounded-[10px]',
+                  variant === 'story'
+                    ? 'size-[72px] shrink-0 bg-muted'
+                    : cn('w-full', photos.length === 1 ? 'aspect-[4/3]' : 'aspect-square')
                 )}
                 aria-label={
                   isOverflowTile
@@ -65,7 +78,12 @@ export function ContributionPhotos({
                   className="size-full"
                 />
                 {isOverflowTile ? (
-                  <span className="absolute inset-0 flex items-center justify-center bg-overlay text-h3 font-semibold text-primary-foreground">
+                  <span
+                    className={cn(
+                      'absolute inset-0 flex items-center justify-center bg-muted text-body font-medium text-muted-foreground',
+                      variant !== 'story' && 'bg-overlay text-h3 font-semibold text-primary-foreground'
+                    )}
+                  >
                     +{overflow}
                   </span>
                 ) : null}
