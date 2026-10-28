@@ -283,6 +283,20 @@ describe('copy v0.4', () => {
     );
   });
 
+  it('uses Eddy memory edit-conflict copy and field labels', () => {
+    expect(copy['memory.edit.conflict.body']).toBe(
+      'มีคนแก้ความทรงจำนี้ไปเมื่อกี้ ที่คุณแก้ไว้ยังอยู่ครบ ลองเปิดฉบับล่าสุดดูก่อน แล้วจึงแก้ต่อ'
+    );
+    expect(copy['memory.edit.conflict.action']).toBe('เปิดฉบับล่าสุด');
+    expect(copy['memory.conflict.changed_fields']).toBe(
+      'มีคนแก้{fields}ไปแล้ว ที่คุณแก้ไว้ด้านล่างยังอยู่ครบ'
+    );
+    expect(copy['memory.title_label']).toBe('ชื่อความทรงจำ');
+    expect(copy['memory.conflict.field.date']).toBe('วันที่');
+    expect(copy['memory.conflict.field.people']).toBe('คนในความทรงจำ');
+    expect(copy['memory.conflict.field.cover']).toBe('รูปปก');
+  });
+
   it('uses dedicated memory unavailable title and body, not error.generic.body as the key', () => {
     expect(copy['memory.unavailable.title']).toBe('หาความทรงจำนี้ไม่เจอ');
     expect(copy['memory.unavailable.body']).toBe(
