@@ -5,6 +5,8 @@ import {
   homeFocusCardMeta,
   interpolate,
   interpolateHeading,
+  optionalBadgeText,
+  optionalFieldLabel,
   personRelationLabel,
   storyCounter,
   storyToldAt,
@@ -265,6 +267,24 @@ describe('copy v0.4', () => {
     expect(homeFocusCardMeta(12)).toBe('12 ความทรงจำ');
     expect(homeFocusCardMeta(0)).not.toContain('(');
     expect(homeFocusCardMeta(2)).not.toContain('(');
+  });
+
+  it('uses Eddy create-memory date, people, and optional copy', () => {
+    expect(copy['memory.date.year']).toBe('ปี พ.ศ.');
+    expect(copy['memory.date.month']).toBe('เดือน');
+    expect(copy['memory.date.day']).toBe('วัน');
+    expect(copy['memory.people.done']).toBe('เสร็จแล้ว');
+    expect(copy['memory.people.edit']).toBe('แก้รายชื่อ');
+    expect(copy['memory.people.search.empty']).toBe('ยังไม่มีชื่อนี้ในครอบครัว');
+    expect(copy['memory.people.search.add']).toBe('เพิ่ม "{name}" เป็นคนใหม่');
+    expect(copy['memory.people.search.add_empty']).toBe('เพิ่มคนใหม่');
+    expect(copy['common.optional']).toBe('(ไม่บังคับ)');
+    expect(optionalFieldLabel(copy['memory.date_label'])).toBe('เกิดขึ้นเมื่อไร (ไม่บังคับ)');
+    expect(optionalFieldLabel(copy['memory.people_label'])).toBe('ใครอยู่ในความทรงจำนี้ (ไม่บังคับ)');
+    expect(optionalBadgeText()).toBe('ไม่บังคับ');
+    expect(interpolate(copy['memory.people.search.add'], { name: 'ป้าแดง' })).toBe(
+      'เพิ่ม "ป้าแดง" เป็นคนใหม่'
+    );
   });
 
   it('uses Eddy story counter and told-at copy', () => {

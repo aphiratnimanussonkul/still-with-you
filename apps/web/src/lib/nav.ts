@@ -39,6 +39,7 @@ export function isNavItemActive(id: NavId, pathname: string): boolean {
 export function appBarForPath(pathname: string, search = ''): AppBarState {
   if (pathname === '/home') return { titleKey: 'nav.home', backTo: null };
   if (pathname === '/memories') return { titleKey: 'memory.list.title', backTo: null };
+  if (pathname === '/memories/new') return { titleKey: 'memory.create.title', backTo: '/memories' };
   if (/^\/memories\/[^/]+\/edit$/.test(pathname)) {
     const eventId = pathname.split('/')[2] ?? '';
     return { titleKey: 'memory.edit.title', backTo: `/memories/${eventId}` };

@@ -15,7 +15,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const bar = appBarForPath(pathname, search);
   const title = copy[bar.titleKey];
   const homeChrome = pathname === '/home';
-  const memoryDetailChrome = /^\/memories\/[^/]+/.test(pathname);
+  const memoryDetailChrome = pathname === '/memories/new' || /^\/memories\/[^/]+/.test(pathname);
 
   return (
     <div className="min-h-dvh bg-background lg:flex">

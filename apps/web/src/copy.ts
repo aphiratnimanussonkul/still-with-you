@@ -297,7 +297,15 @@ export const copy = {
   'memory.title_required': 'ตั้งชื่อความทรงจำก่อน แล้วค่อยบันทึก',
   'memory.date_label': 'เกิดขึ้นเมื่อไร',
   'memory.date_placeholder': 'ไม่แน่ใจ ใส่แค่ปีก็ได้',
+  'memory.date.year': 'ปี พ.ศ.',
+  'memory.date.month': 'เดือน',
+  'memory.date.day': 'วัน',
   'memory.people_label': 'ใครอยู่ในความทรงจำนี้',
+  'memory.people.done': 'เสร็จแล้ว',
+  'memory.people.edit': 'แก้รายชื่อ',
+  'memory.people.search.empty': 'ยังไม่มีชื่อนี้ในครอบครัว',
+  'memory.people.search.add': 'เพิ่ม "{name}" เป็นคนใหม่',
+  'memory.people.search.add_empty': 'เพิ่มคนใหม่',
   'memory.item.meta': '{จำนวน} เรื่องเล่า · เริ่มโดย {ชื่อ}',
   'memory.item.meta.one': '1 เรื่องเล่า · เริ่มโดย {ชื่อ}',
   'memory.stories.title': 'เรื่องเล่า ({จำนวน})',
@@ -468,6 +476,7 @@ export const copy = {
 
   // --- สถานะทั่วไป ---
   'common.cancel': 'ยกเลิก',
+  'common.optional': '(ไม่บังคับ)',
   'common.retry': 'ลองอีกครั้ง',
   'common.back_home': 'กลับหน้าแรก',
   'loading': 'กำลังโหลด',
@@ -552,6 +561,16 @@ export function interpolate(
     const value = vars[key];
     return truncateNames && NAME_VAR_KEYS.has(key) ? truncateName(value) : value;
   });
+}
+
+/** Append common.optional after a field label. */
+export function optionalFieldLabel(label: string): string {
+  return `${label} ${copy['common.optional']}`;
+}
+
+/** Strip surrounding parentheses when common.optional is a separate badge. */
+export function optionalBadgeText(value = copy['common.optional']): string {
+  return value.replace(/^\(|\)$/g, '');
 }
 
 /** Page headings show the full name; CSS line-clamp handles overflow. */
