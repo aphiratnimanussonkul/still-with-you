@@ -1,6 +1,6 @@
-import { BookOpenTextIcon } from '@phosphor-icons/react/BookOpenText';
 import { HouseIcon } from '@phosphor-icons/react/House';
-import { UserIcon } from '@phosphor-icons/react/User';
+import { ImagesIcon } from '@phosphor-icons/react/Images';
+import { UserCircleIcon } from '@phosphor-icons/react/UserCircle';
 import { UsersThreeIcon } from '@phosphor-icons/react/UsersThree';
 import { Link, useLocation } from 'react-router-dom';
 import { Icon, type PhIcon } from '@/components/ui/icon';
@@ -10,9 +10,9 @@ import { cn } from '@/lib/utils';
 
 const NAV_ICONS: Record<NavId, PhIcon> = {
   home: HouseIcon,
-  memories: BookOpenTextIcon,
+  memories: ImagesIcon,
   family: UsersThreeIcon,
-  me: UserIcon,
+  me: UserCircleIcon,
 };
 
 type AppNavProps = {

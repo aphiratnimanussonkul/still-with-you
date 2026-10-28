@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { copy, familyItemMeta, interpolate, interpolateHeading, personRelationLabel, truncateName } from '@/copy';
+import { copy, familyItemMeta, homeFocusCardMeta, interpolate, interpolateHeading, personRelationLabel, truncateName } from '@/copy';
 
 describe('copy v0.4', () => {
   it('has no remaining TODO placeholders except draft people-CRUD keys', () => {
@@ -214,6 +214,10 @@ describe('copy v0.4', () => {
     expect(copy['trash.item.active.meta.family']).toBe('ย้ายมาจาก {ชื่อความทรงจำ} · {ชื่อครอบครัว}');
     expect(copy['home.focus.title']).toBe('คนที่คุณอยากระลึกถึง');
     expect(copy['home.focus.see_all']).toBe('ดูทั้งหมด');
+    expect(copy['home.greeting']).toBe('สวัสดี {ชื่อ}');
+    expect(copy['home.recent.title']).toBe('ความทรงจำล่าสุด');
+    expect(copy['home.focus.card.meta']).toBe('{จำนวน} ความทรงจำ');
+    expect(copy['home.focus.card.meta.empty']).toBe('ยังไม่มีความทรงจำ');
     expect(copy['home.question.title']).toBe('คำถามเล็กๆ สำหรับคุณ');
     expect(copy['home.question.save']).toBe('บันทึกคำตอบ');
     expect(copy['home.question.skip']).toBe('ข้ามคำถามนี้');
@@ -245,10 +249,21 @@ describe('copy v0.4', () => {
     );
   });
 
+  it('uses empty focus-card meta when the memory count is 0', () => {
+    expect(homeFocusCardMeta(0)).toBe('ยังไม่มีความทรงจำ');
+    expect(homeFocusCardMeta(1)).toBe('1 ความทรงจำ');
+    expect(homeFocusCardMeta(12)).toBe('12 ความทรงจำ');
+    expect(homeFocusCardMeta(0)).not.toContain('(');
+    expect(homeFocusCardMeta(2)).not.toContain('(');
+  });
+
   it('keeps the full name in page headings', () => {
     expect(
       interpolateHeading(copy['welcome.title'], { ชื่อ: 'Aphirat Nimanussonkul' })
     ).toBe('ยินดีต้อนรับ Aphirat Nimanussonkul');
+    expect(
+      interpolateHeading(copy['home.greeting'], { ชื่อ: 'Aphirat Nimanussonkul' })
+    ).toBe('สวัสดี Aphirat Nimanussonkul');
     expect(
       interpolateHeading(copy['memory.delete.confirm.title'], {
         ชื่อความทรงจำ: 'ทริปหัวหินปี 2539 กับครอบครัวทั้งหมด',

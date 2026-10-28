@@ -3,8 +3,9 @@ import { CircleNotchIcon } from '@phosphor-icons/react/CircleNotch';
 import { useLocation } from 'react-router-dom';
 import { GoogleLogo } from '@/components/GoogleLogo';
 import { Illustration } from '@/components/Illustration';
-import { Icon } from '@/components/ui/icon';
+import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { copy } from '@/copy';
 import { useAuth } from '@/hooks/use-auth';
 import { messageForError } from '@/lib/api-errors';
@@ -42,20 +43,32 @@ export function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-6 px-6 text-center">
-      <Illustration name="welcome" />
-      <h1 className="text-h1 font-semibold">{copy['login.title']}</h1>
-      <p className="text-body text-muted-foreground">{copy['login.tagline']}</p>
-      <Button type="button" size="lg" disabled={pending} onClick={() => void handleLogin()}>
-        {pending ? (
-          <Icon as={CircleNotchIcon} size={20} className="animate-spin motion-reduce:animate-none" />
-        ) : (
-          <GoogleLogo />
-        )}
-        {pending ? copy['login.loading'] : copy['login.google']}
-      </Button>
-      <p className="text-caption text-muted-foreground">{copy['login.privacy_note']}</p>
-      {error ? <p className="text-caption text-destructive">{error}</p> : null}
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center gap-6 px-6 pb-10 pt-16">
+      <div className="flex w-full flex-col items-center gap-4 text-center">
+        <Illustration name="login-family-tree" float={false} className="h-[345px] w-[280px] max-w-full" />
+        <h1 className="text-display font-bold text-primary">{copy['login.title']}</h1>
+        <p className="text-body text-muted-foreground">{copy['login.tagline']}</p>
+      </div>
+      <div className="min-h-0 flex-1" />
+      <div className="flex w-full flex-col items-center gap-3">
+        {error ? <Alert>{error}</Alert> : null}
+        <Button
+          type="button"
+          size="lg"
+          className="w-full"
+          disabled={pending}
+          aria-busy={pending}
+          onClick={() => void handleLogin()}
+        >
+          {pending ? (
+            <Icon as={CircleNotchIcon} size={16} className="animate-spin motion-reduce:animate-none" />
+          ) : (
+            <GoogleLogo size={16} />
+          )}
+          {pending ? copy['login.loading'] : copy['login.google']}
+        </Button>
+        <p className="text-caption text-muted-foreground">{copy['login.privacy_note']}</p>
+      </div>
     </main>
   );
 }
