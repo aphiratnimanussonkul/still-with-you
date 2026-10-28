@@ -1,13 +1,7 @@
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
-import {
-  COVER_CARD_TRANSFORM,
-  COVER_DETAIL_TRANSFORM,
-  EVENT_DELETE_COOLING_DAYS,
-  MEDIA_AVATAR_COVER_TTL_SECONDS,
-} from '@still-with-you/contracts';
+import { EVENT_DELETE_COOLING_DAYS } from '@still-with-you/contracts';
 import { db, contributions, media } from './db/index.js';
-import { env } from './env.js';
-import { getMediaStorage, type ImageTransform } from './media/storage.js';
+import { loadVariantKeys, signCoverImage, type SignedImageSet } from './media/variants.js';
 
 export const EVENT_DELETE_COOLING_MS = EVENT_DELETE_COOLING_DAYS * 24 * 60 * 60 * 1000;
 
@@ -49,8 +43,17 @@ type EventRow = {
   version: number;
 };
 
-export function toEventResponse(event: EventRow, coverUrl: string | null = null) {
+const EMPTY_COVER: SignedImageSet = {
+  url: null,
+  url_expires_at: null,
+  placeholder: null,
+  full_url: null,
+  full_url_expires_at: null,
+};
+
+export function toEventResponse(event: EventRow, cover: SignedImageSet | null = null) {
   const schedule = archiveSchedule(event.archivedAt);
+  const image = cover ?? EMPTY_COVER;
   return {
     id: event.id,
     family_id: event.familyId,
@@ -69,30 +72,33 @@ export function toEventResponse(event: EventRow, coverUrl: string | null = null)
     updated_at: event.updatedAt.toISOString(),
     version: event.version,
     paused: event.status === 'archived',
-    cover_url: coverUrl,
+    cover_url: image.url,
+    cover_url_expires_at: image.url_expires_at,
+    cover_placeholder: image.placeholder,
+    full_url: image.full_url,
+    full_url_expires_at: image.full_url_expires_at,
   };
 }
 
 export type EventCoverKind = 'card' | 'detail';
 
-function coverTransform(kind: EventCoverKind): ImageTransform | undefined {
-  if (!env.MEDIA_IMAGE_TRANSFORMS) return undefined;
-  return kind === 'card' ? COVER_CARD_TRANSFORM : COVER_DETAIL_TRANSFORM;
-}
-
 /** First completed photo of the earliest published story, signed on every response. */
-export async function loadEventCoverUrls(
+export async function loadEventCovers(
   eventIds: string[],
   kind: EventCoverKind = 'detail'
-): Promise<Map<string, string>> {
+): Promise<Map<string, SignedImageSet>> {
   const unique = [...new Set(eventIds)];
-  const covers = new Map<string, string>();
+  const covers = new Map<string, SignedImageSet>();
   if (unique.length === 0) return covers;
 
   const rows = await db
     .select({
       eventId: contributions.eventId,
+      mediaId: media.id,
       storageKey: media.storageKey,
+      placeholderWebp: media.placeholderWebp,
+      status: media.status,
+      deletedAt: media.deletedAt,
     })
     .from(contributions)
     .innerJoin(
@@ -107,22 +113,46 @@ export async function loadEventCoverUrls(
     .where(and(eq(contributions.status, 'published'), inArray(contributions.eventId, unique)))
     .orderBy(asc(contributions.createdAt), asc(media.createdAt));
 
-  const storage = getMediaStorage();
-  const transform = coverTransform(kind);
+  const firstByEvent = new Map<string, (typeof rows)[number]>();
   for (const row of rows) {
-    if (!row.eventId || covers.has(row.eventId)) continue;
-    const signed = await storage.createSignedReadUrl(
-      row.storageKey,
-      MEDIA_AVATAR_COVER_TTL_SECONDS,
-      transform
+    if (!row.eventId || firstByEvent.has(row.eventId)) continue;
+    firstByEvent.set(row.eventId, row);
+  }
+
+  const variants = await loadVariantKeys([...firstByEvent.values()].map((row) => row.mediaId));
+  for (const [eventId, row] of firstByEvent) {
+    covers.set(
+      eventId,
+      await signCoverImage(
+        {
+          storageKey: row.storageKey,
+          placeholderWebp: row.placeholderWebp,
+          status: row.status,
+          deletedAt: row.deletedAt,
+        },
+        variants.get(row.mediaId),
+        kind
+      )
     );
-    covers.set(row.eventId, signed.signedUrl);
   }
   return covers;
 }
 
+/** @deprecated use loadEventCovers */
+export async function loadEventCoverUrls(
+  eventIds: string[],
+  kind: EventCoverKind = 'detail'
+): Promise<Map<string, string>> {
+  const covers = await loadEventCovers(eventIds, kind);
+  const urls = new Map<string, string>();
+  for (const [id, image] of covers) {
+    if (image.url) urls.set(id, image.url);
+  }
+  return urls;
+}
+
 export async function presentEvents(eventRows: EventRow[], kind: EventCoverKind = 'detail') {
-  const covers = await loadEventCoverUrls(
+  const covers = await loadEventCovers(
     eventRows.map((event) => event.id),
     kind
   );

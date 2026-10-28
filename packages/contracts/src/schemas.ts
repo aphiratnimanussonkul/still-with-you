@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * Shared Zod schemas for API contracts
- * Based on backend-contract-v0.7.md
+ * Based on backend-contract-v0.9.md
  */
 
 // Base types
@@ -99,10 +99,14 @@ export const mediaItemSchema = z.object({
   id: uuidSchema,
   status: z.enum(['reserved', 'uploaded', 'processing', 'ready', 'failed']),
   url: z.string().url().nullable().optional(),
+  url_expires_at: z.string().datetime().nullable().optional(),
   thumb_url: z.string().url().nullable().optional(),
+  thumb_url_expires_at: z.string().datetime().nullable().optional(),
   width: z.number().int().nullable().optional(),
   height: z.number().int().nullable().optional(),
   expires_at: z.string().datetime().nullable().optional(),
+  full_url: z.string().url().nullable().optional(),
+  full_url_expires_at: z.string().datetime().nullable().optional(),
 });
 
 // Event schemas
@@ -157,6 +161,10 @@ export const eventResponseSchema = z.object({
   version: z.number().int(),
   paused: z.boolean(),
   cover_url: z.string().url().nullable(),
+  cover_url_expires_at: z.string().datetime().nullable(),
+  cover_placeholder: z.string().nullable(),
+  full_url: z.string().url().nullable(),
+  full_url_expires_at: z.string().datetime().nullable(),
   media: z.array(mediaItemSchema).optional(),
 });
 
@@ -169,39 +177,30 @@ export const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'im
 export const MEDIA_MAX_BYTES_DEFAULT = 20 * 1024 * 1024;
 export const MEDIA_MAX_PER_CONTRIBUTION_DEFAULT = 20;
 export const MEDIA_UPLOAD_TTL_SECONDS = 10 * 60;
-/** Signed read TTL for story `media[].url` / `thumb_url`. */
+/** Signed read TTL for story `media[].url` / `thumb_url` / `full_url`. */
 export const MEDIA_READ_TTL_SECONDS = 5 * 60;
 /**
- * Signed read TTL for `avatar_url` and `cover_url` (~1 hour).
- * Story media stays on `MEDIA_READ_TTL_SECONDS`.
+ * Signed read TTL for `avatar_url`, `cover_url`, and avatar/cover `full_url` (~1 hour).
+ * Story media (including story `full_url`) stays on `MEDIA_READ_TTL_SECONDS`.
  */
 export const MEDIA_AVATAR_COVER_TTL_SECONDS = 60 * 60;
 export const MEDIA_ORPHAN_TTL_HOURS = 24;
-/**
- * Avatar signed-URL transform when `MEDIA_IMAGE_TRANSFORMS=true`: square ≥300px, cover-crop.
- * When the flag is false, URLs are untransformed and the web crops with `object-fit: cover`.
- */
-export const AVATAR_TRANSFORM = {
-  width: 300,
-  height: 300,
-  resize: 'cover' as const,
-};
-/**
- * `cover_url` on home `recent_memories` cards when `MEDIA_IMAGE_TRANSFORMS=true` (Taylor 128×128).
- */
-export const COVER_CARD_TRANSFORM = {
-  width: 128,
-  height: 128,
-  resize: 'cover' as const,
-};
-/**
- * `cover_url` on event/memory detail (and other event responses) when `MEDIA_IMAGE_TRANSFORMS=true` (Taylor 684×400).
- */
-export const COVER_DETAIL_TRANSFORM = {
-  width: 684,
-  height: 400,
-  resize: 'cover' as const,
-};
+
+/** Worker-generated avatar thumbnail (cover-crop). Served as `avatar_url`. */
+export const AVATAR_VARIANT = { width: 300, height: 300, fit: 'cover' as const };
+/** Home / member-card `cover_url` (256×256 cover; replaces the old 128 transform). */
+export const COVER_CARD_VARIANT = { width: 256, height: 256, fit: 'cover' as const };
+/** Event / memory-detail `cover_url`. */
+export const COVER_DETAIL_VARIANT = { width: 684, height: 400, fit: 'cover' as const };
+/** Long-edge cap for the `full` variant. */
+export const FULL_MAX_LONG_EDGE = 2048;
+/** Target long edge for the inlined WebP placeholder. */
+export const PLACEHOLDER_LONG_EDGE = 20;
+/** Max WebP payload size for `media.placeholder_webp` (before base64). */
+export const PLACEHOLDER_MAX_BYTES = 1024;
+
+export const MEDIA_VARIANT_KINDS = ['avatar', 'cover_card', 'cover_detail', 'full'] as const;
+export type MediaVariantKind = (typeof MEDIA_VARIANT_KINDS)[number];
 
 export const mediaStatusSchema = z.enum(['pending', 'uploaded', 'ready', 'failed']);
 
@@ -209,7 +208,11 @@ export const storyMediaItemSchema = z.object({
   id: uuidSchema,
   status: mediaStatusSchema,
   url: z.string().url().nullable(),
+  url_expires_at: z.string().datetime().nullable(),
   thumb_url: z.string().url().nullable(),
+  thumb_url_expires_at: z.string().datetime().nullable(),
+  full_url: z.string().url().nullable(),
+  full_url_expires_at: z.string().datetime().nullable(),
   width: z.number().int().nullable(),
   height: z.number().int().nullable(),
   expires_at: z.string().datetime().nullable(),
@@ -436,6 +439,10 @@ export const personResponseSchema = z.object({
   bio: z.string().nullable().optional(),
   avatar_media_id: uuidSchema.nullable().optional(),
   avatar_url: z.string().url().nullable(),
+  avatar_url_expires_at: z.string().datetime().nullable(),
+  avatar_placeholder: z.string().nullable(),
+  full_url: z.string().url().nullable(),
+  full_url_expires_at: z.string().datetime().nullable(),
   memory_count: z.number().int(),
   account_id: uuidSchema.nullable().optional(),
   invite_status: personInviteStatusSchema.optional(),
@@ -487,7 +494,12 @@ export const focusPersonSchema = z.object({
 export const focusItemSchema = z.object({
   person: focusPersonSchema,
   photo_url: z.string().url().nullable(),
+  photo_url_expires_at: z.string().datetime().nullable(),
   avatar_url: z.string().url().nullable(),
+  avatar_url_expires_at: z.string().datetime().nullable(),
+  avatar_placeholder: z.string().nullable(),
+  full_url: z.string().url().nullable(),
+  full_url_expires_at: z.string().datetime().nullable(),
   memory_count: z.number().int(),
   position: z.number().int(),
 });

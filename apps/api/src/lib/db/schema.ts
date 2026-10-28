@@ -20,7 +20,7 @@ import {
 
 /**
  * Drizzle schema matching Supabase migrations
- * Based on backend-contract-v0.8.md
+ * Based on backend-contract-v0.9.md
  */
 
 // Enums
@@ -35,6 +35,12 @@ export const personGenderEnum = pgEnum('person_gender', ['female', 'male', 'othe
 export const birthDatePrecisionEnum = pgEnum('birth_date_precision', ['day', 'year']);
 export const relationshipTypeEnum = pgEnum('relationship_type', ['parent', 'spouse']);
 export const mediaPurposeEnum = pgEnum('media_purpose', ['story', 'avatar']);
+export const mediaVariantKindEnum = pgEnum('media_variant_kind', [
+  'avatar',
+  'cover_card',
+  'cover_detail',
+  'full',
+]);
 
 // Accounts table
 export const accounts = pgTable('accounts', {
@@ -231,6 +237,7 @@ export const media = pgTable(
     width: integer('width'),
     height: integer('height'),
     thumbKey: text('thumb_key'),
+    placeholderWebp: text('placeholder_webp'),
     status: mediaStatusEnum('status').notNull().default('pending'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -242,6 +249,26 @@ export const media = pgTable(
     avatarLive: uniqueIndex('media_person_avatar_live')
       .on(table.personId)
       .where(sql`purpose = 'avatar' and deleted_at is null and person_id is not null`),
+  })
+);
+
+export const mediaVariants = pgTable(
+  'media_variants',
+  {
+    mediaId: uuid('media_id')
+      .notNull()
+      .references(() => media.id, { onDelete: 'cascade' }),
+    kind: mediaVariantKindEnum('kind').notNull(),
+    storageKey: text('storage_key').notNull().unique(),
+    contentType: text('content_type').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.mediaId, table.kind] }),
+    mediaIdx: index('idx_media_variants_media').on(table.mediaId),
   })
 );
 

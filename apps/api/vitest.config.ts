@@ -5,6 +5,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@still-with-you/contracts': path.resolve(__dirname, '../../packages/contracts/src/index.ts'),
+      '@still-with-you/image-variants': path.resolve(
+        __dirname,
+        '../../packages/image-variants/src/index.ts'
+      ),
     },
   },
   test: {

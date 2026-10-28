@@ -35,24 +35,24 @@ describe('parseWebOrigins', () => {
 
 describe('parseTrueFalseFlag', () => {
   it('defaults when unset or blank', () => {
-    expect(parseTrueFalseFlag(undefined, 'MEDIA_IMAGE_TRANSFORMS', false)).toBe(false);
-    expect(parseTrueFalseFlag('  ', 'MEDIA_IMAGE_TRANSFORMS', false)).toBe(false);
-    expect(parseTrueFalseFlag('', 'MEDIA_IMAGE_TRANSFORMS', true)).toBe(true);
+    expect(parseTrueFalseFlag(undefined, 'EXAMPLE_FLAG', false)).toBe(false);
+    expect(parseTrueFalseFlag('  ', 'EXAMPLE_FLAG', false)).toBe(false);
+    expect(parseTrueFalseFlag('', 'EXAMPLE_FLAG', true)).toBe(true);
   });
 
   it('accepts true and false, any case', () => {
-    expect(parseTrueFalseFlag('true', 'MEDIA_IMAGE_TRANSFORMS')).toBe(true);
-    expect(parseTrueFalseFlag('TRUE', 'MEDIA_IMAGE_TRANSFORMS')).toBe(true);
-    expect(parseTrueFalseFlag('false', 'MEDIA_IMAGE_TRANSFORMS')).toBe(false);
-    expect(parseTrueFalseFlag(' False ', 'MEDIA_IMAGE_TRANSFORMS')).toBe(false);
+    expect(parseTrueFalseFlag('true', 'EXAMPLE_FLAG')).toBe(true);
+    expect(parseTrueFalseFlag('TRUE', 'EXAMPLE_FLAG')).toBe(true);
+    expect(parseTrueFalseFlag('false', 'EXAMPLE_FLAG')).toBe(false);
+    expect(parseTrueFalseFlag(' False ', 'EXAMPLE_FLAG')).toBe(false);
   });
 
   it('rejects other values', () => {
-    expect(() => parseTrueFalseFlag('yes', 'MEDIA_IMAGE_TRANSFORMS')).toThrow(
-      'MEDIA_IMAGE_TRANSFORMS must be true or false'
+    expect(() => parseTrueFalseFlag('yes', 'EXAMPLE_FLAG')).toThrow(
+      'EXAMPLE_FLAG must be true or false'
     );
-    expect(() => parseTrueFalseFlag('1', 'MEDIA_IMAGE_TRANSFORMS')).toThrow(
-      'MEDIA_IMAGE_TRANSFORMS must be true or false'
+    expect(() => parseTrueFalseFlag('1', 'EXAMPLE_FLAG')).toThrow(
+      'EXAMPLE_FLAG must be true or false'
     );
   });
 });

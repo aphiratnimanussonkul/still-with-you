@@ -3,8 +3,6 @@ import {
   AppError,
   ErrorCode,
   errorMessages,
-  AVATAR_TRANSFORM,
-  MEDIA_AVATAR_COVER_TTL_SECONDS,
   type CreatePerson,
   type PersonRelationshipKind,
   type UpdatePerson,
@@ -18,8 +16,7 @@ import {
   normalizeBirthDate,
   type BirthDatePrecision,
 } from './age.js';
-import { env } from './env.js';
-import { getMediaStorage } from './media/storage.js';
+import { loadVariantKeys, signAvatarImage, type VariantKeyMap } from './media/variants.js';
 
 type QueryClient = Pick<typeof db, 'select' | 'update' | 'insert'>;
 
@@ -404,22 +401,16 @@ export async function insertPersonRelationship(
 }
 
 export async function signAvatarUrl(row: typeof media.$inferSelect | null | undefined): Promise<string | null> {
-  if (!row || row.deletedAt) return null;
-  if (row.purpose !== 'avatar') return null;
-  if (row.status !== 'uploaded' && row.status !== 'ready') return null;
-  const signed = await getMediaStorage().createSignedReadUrl(
-    row.storageKey,
-    MEDIA_AVATAR_COVER_TTL_SECONDS,
-    env.MEDIA_IMAGE_TRANSFORMS ? AVATAR_TRANSFORM : undefined
-  );
-  return signed.signedUrl;
+  const signed = await signAvatarImage(row);
+  return signed.url;
 }
 
 export async function toPersonResponse(
   person: PersonRow,
   inviteStatus: 'none' | 'pending' | 'linked',
   avatarRow?: typeof media.$inferSelect | null,
-  memoryCount = 0
+  memoryCount = 0,
+  variants?: VariantKeyMap
 ) {
   let row = avatarRow;
   if (row === undefined && person.avatarMediaId) {
@@ -430,7 +421,12 @@ export async function toPersonResponse(
       .limit(1);
     row = found ?? null;
   }
-  const avatarUrl = await signAvatarUrl(row);
+  let variantMap = variants;
+  if (row && !variantMap) {
+    const loaded = await loadVariantKeys([row.id]);
+    variantMap = loaded.get(row.id);
+  }
+  const signed = await signAvatarImage(row, variantMap);
 
   return {
     id: person.id,
@@ -454,7 +450,11 @@ export async function toPersonResponse(
     }),
     bio: person.bio,
     avatar_media_id: person.avatarMediaId,
-    avatar_url: avatarUrl,
+    avatar_url: signed.url,
+    avatar_url_expires_at: signed.url_expires_at,
+    avatar_placeholder: signed.placeholder,
+    full_url: signed.full_url,
+    full_url_expires_at: signed.full_url_expires_at,
     memory_count: memoryCount,
     account_id: person.accountId,
     invite_status: inviteStatus,

@@ -3,21 +3,24 @@
  *
  * Processes async jobs:
  * - Expires invites past their expiration date
- * - Processes uploaded media (strip EXIF/GPS, thumbnail, mark ready)
+ * - Processes uploaded media (sharp variants + placeholder, mark ready)
  * - Deletes pending/uploaded unattached media older than 24h
+ * - Optional interval backfill for media that missed variant generation
  */
 
 import postgres from 'postgres';
 import { createClient } from '@supabase/supabase-js';
+import { backfillMediaVariants, processOneMedia } from './process-media.js';
 
 const sql = postgres(process.env.DATABASE_URL || '');
 const bucket = process.env.STORAGE_BUCKET || 'private-media';
 const serviceKey =
   process.env.SWY_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabase = supabaseUrl && serviceKey
-  ? createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
-  : null;
+const supabase =
+  supabaseUrl && serviceKey
+    ? createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    : null;
 
 console.log('Worker started');
 
@@ -51,7 +54,7 @@ async function processMediaJobs() {
     for (const job of jobs) {
       const mediaId = (job.payload as { media_id?: string }).media_id;
       if (mediaId) {
-        await processOneMedia(mediaId);
+        await processOneMedia(sql, supabase, bucket, mediaId);
       }
       await sql`UPDATE outbox SET sent_at = NOW() WHERE id = ${job.id}`;
     }
@@ -60,38 +63,17 @@ async function processMediaJobs() {
   }
 }
 
-async function processOneMedia(mediaId: string) {
-  const rows = await sql`
-    SELECT id, family_id, storage_key, content_type, status, deleted_at
-    FROM media WHERE id = ${mediaId} LIMIT 1
-  `;
-  const row = rows[0];
-  if (!row || row.deleted_at || (row.status !== 'uploaded' && row.status !== 'ready')) {
-    return;
+async function backfillMissingVariants() {
+  try {
+    const result = await backfillMediaVariants(sql, supabase, bucket, 20);
+    if (result.processed > 0) {
+      console.log(
+        `Backfilled media variants processed=${result.processed} skipped=${result.skipped} failed=${result.failed}`
+      );
+    }
+  } catch (error) {
+    console.error('Error backfilling media variants:', error);
   }
-  if (!supabase) return;
-
-  const { data, error } = await supabase.storage.from(bucket).download(row.storage_key);
-  if (error || !data) {
-    await sql`UPDATE media SET status = 'failed' WHERE id = ${mediaId}`;
-    return;
-  }
-
-  const body = Buffer.from(await data.arrayBuffer());
-  const thumbKey = `${row.family_id}/${row.id}_thumb`;
-  await supabase.storage.from(bucket).upload(row.storage_key, body, {
-    contentType: row.content_type,
-    upsert: true,
-  });
-  await supabase.storage.from(bucket).upload(thumbKey, body, {
-    contentType: row.content_type,
-    upsert: true,
-  });
-  await sql`
-    UPDATE media
-    SET status = 'ready', thumb_key = ${thumbKey}
-    WHERE id = ${mediaId}
-  `;
 }
 
 async function cleanupOrphanMedia() {
@@ -106,11 +88,18 @@ async function cleanupOrphanMedia() {
     `;
     if (rows.length === 0) return;
 
-    const keys = rows.flatMap((row) => [row.storage_key, row.thumb_key].filter(Boolean));
+    const ids = rows.map((row) => row.id);
+    const variantRows =
+      ids.length > 0
+        ? await sql`SELECT storage_key FROM media_variants WHERE media_id = ANY(${ids})`
+        : [];
+    const keys = [
+      ...rows.flatMap((row) => [row.storage_key, row.thumb_key]),
+      ...variantRows.map((row) => row.storage_key),
+    ].filter(Boolean);
     if (supabase && keys.length > 0) {
       await supabase.storage.from(bucket).remove(keys as string[]);
     }
-    const ids = rows.map((row) => row.id);
     await sql`DELETE FROM media WHERE id = ANY(${ids})`;
     console.log(`Cleaned ${rows.length} orphan media rows`);
   } catch (error) {
@@ -121,10 +110,12 @@ async function cleanupOrphanMedia() {
 expireInvites();
 processMediaJobs();
 cleanupOrphanMedia();
+backfillMissingVariants();
 
 setInterval(expireInvites, 5 * 60 * 1000);
 setInterval(processMediaJobs, 30 * 1000);
 setInterval(cleanupOrphanMedia, 15 * 60 * 1000);
+setInterval(backfillMissingVariants, 5 * 60 * 1000);
 
 setInterval(() => {
   console.log('Worker heartbeat');

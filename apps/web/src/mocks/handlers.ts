@@ -75,7 +75,12 @@ function focusListPayload(familyId: string) {
         {
           person: { id: person.id, display_name: person.name, name: person.name },
           photo_url: person.avatar_url ?? null,
+          photo_url_expires_at: person.avatar_url_expires_at ?? null,
           avatar_url: person.avatar_url ?? null,
+          avatar_url_expires_at: person.avatar_url_expires_at ?? null,
+          avatar_placeholder: person.avatar_placeholder ?? null,
+          full_url: person.full_url ?? null,
+          full_url_expires_at: person.full_url_expires_at ?? null,
           memory_count: events.filter(
             (event) => event.family_id === familyId && event.status === 'active'
           ).length,
@@ -194,15 +199,22 @@ function toContributionResponse(item: (typeof contributions)[number]) {
       version: item.version,
       created_at: item.created_at,
       updated_at: item.updated_at,
-      media: item.media_ids.map((id) => ({
-        id,
-        status: 'ready' as const,
-        url: `${api}/v1/mock-uploads/${id}`,
-        thumb_url: null,
-        width: null,
-        height: null,
-        expires_at: null,
-      })),
+      media: item.media_ids.map((id) => {
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+        return {
+          id,
+          status: 'ready' as const,
+          url: `${api}/v1/mock-uploads/${id}`,
+          url_expires_at: expiresAt,
+          thumb_url: null,
+          thumb_url_expires_at: null,
+          full_url: `${api}/v1/mock-uploads/${id}`,
+          full_url_expires_at: expiresAt,
+          width: null,
+          height: null,
+          expires_at: expiresAt,
+        };
+      }),
     }),
     owner_display_name: item.owner_display_name,
   };
@@ -338,10 +350,14 @@ export const handlers = [
         id: String(params.id),
         status: 'ready',
         url: `${api}/v1/mock-uploads/${params.id}`,
+        url_expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
         thumb_url: null,
+        thumb_url_expires_at: null,
+        full_url: `${api}/v1/mock-uploads/${params.id}`,
+        full_url_expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
         width: 1024,
         height: 768,
-        expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
       })
     );
   }),
@@ -379,6 +395,10 @@ export const handlers = [
       version: 1,
       paused: false,
       cover_url: null,
+      cover_url_expires_at: null,
+      cover_placeholder: null,
+      full_url: null,
+      full_url_expires_at: null,
     });
     events.push(created);
     contributions.push({
@@ -427,7 +447,12 @@ export const handlers = [
       focus: focused.map((person, position) => ({
         person: { id: person.id, display_name: person.display_name, name: person.display_name },
         photo_url: person.avatar_url ?? null,
+        photo_url_expires_at: person.avatar_url_expires_at ?? null,
         avatar_url: person.avatar_url ?? null,
+        avatar_url_expires_at: person.avatar_url_expires_at ?? null,
+        avatar_placeholder: person.avatar_placeholder ?? null,
+        full_url: person.full_url ?? null,
+        full_url_expires_at: person.full_url_expires_at ?? null,
         memory_count: person.memory_count ?? 0,
         position,
       })),
@@ -575,6 +600,10 @@ export const handlers = [
       death_date_precision: deathDatePrecisionOrNull(deathDate, body.death_date_precision),
       avatar_media_id: body.avatar_media_id ?? null,
       avatar_url: null,
+      avatar_url_expires_at: null,
+      avatar_placeholder: null,
+      full_url: null,
+      full_url_expires_at: null,
       memory_count: 0,
       age:
         !isLiving && birthDate && deathDate
