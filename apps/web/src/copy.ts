@@ -122,6 +122,7 @@ export const copy = {
   'error.INVITE_INVALID': 'คำเชิญนี้ใช้ไม่ได้แล้ว ขอคำเชิญใหม่จากผู้ดูแลครอบครัว',
   'error.INTERNAL_ERROR': 'ระบบขัดข้องชั่วคราว ข้อมูลของคุณยังอยู่ครบ ลองใหม่อีกครั้ง',
   'error.generic': 'มีบางอย่างผิดพลาด ลองใหม่อีกครั้ง',
+  'error.generic.body': 'ขอโทษด้วย ตอนนี้ยังเปิดหน้านี้ไม่ได้ เรื่องเล่าทั้งหมดยังอยู่ครบ ลองอีกครั้งได้เลย',
   'error.network': 'ยังเชื่อมต่อไม่ได้ ลองตรวจอินเทอร์เน็ต แล้วลองใหม่',
   'error.unknown': 'มีบางอย่างผิดพลาด ลองใหม่อีกครั้ง',
   'error.NOT_YET_DELETABLE.has_date':
@@ -444,6 +445,7 @@ export const copy = {
   // --- สถานะทั่วไป ---
   'common.cancel': 'ยกเลิก',
   'common.retry': 'ลองอีกครั้ง',
+  'common.back_home': 'กลับหน้าแรก',
   'loading': 'กำลังโหลด',
   'loading.slow': 'ใช้เวลานานกว่าปกติ รออีกสักครู่',
   'retry': 'ลองใหม่',
@@ -463,6 +465,21 @@ export const copy = {
   'a11y.add_photo': 'เพิ่มรูป',
   'a11y.member_more': 'ตัวเลือกของ {ชื่อ}',
   'a11y.memory_more': 'ตัวเลือกของความทรงจำ {ชื่อความทรงจำ}',
+
+  // --- Notifications ---
+  'notification.contribution_added': '{actor_display_name} เล่าเรื่องใน {event_title}',
+  'notification.contribution_added.hidden':
+    '{actor_display_name} เล่าเรื่องในความทรงจำที่ตอนนี้พักไว้อยู่',
+  'notification.invite_accepted': '{actor_display_name} รับคำเชิญและเข้าร่วม {family_name} แล้ว',
+  'notification.list.title': 'การแจ้งเตือน',
+  'notification.empty.title': 'ยังไม่มีอะไรใหม่',
+  'notification.empty.body': 'ถ้ามีใครมาเล่าเรื่องในความทรงจำของคุณ จะบอกที่นี่',
+  'notification.load_more': 'ดูเพิ่ม',
+  'a11y.notification.unread': 'ยังไม่ได้อ่าน',
+  'notifications.list.title': 'การแจ้งเตือน',
+  'notifications.empty.title': 'ยังไม่มีอะไรใหม่',
+  'notifications.empty.body': 'ถ้ามีใครมาเล่าเรื่องในความทรงจำของคุณ จะบอกที่นี่',
+  'notifications.load_more': 'ดูเพิ่ม',
 } as const;
 
 export type CopyKey = keyof typeof copy;

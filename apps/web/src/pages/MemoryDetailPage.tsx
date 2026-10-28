@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { ContributionPhotos } from '@/components/ContributionPhotos';
 import { PhotoAttach, type PhotoAttachState } from '@/components/PhotoAttach';
 import { QueryLoading } from '@/components/QueryLoading';
@@ -10,10 +10,26 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { copy, interpolate, truncateName } from '@/copy';
 import { api } from '@/lib/api-client';
-import { messageForError } from '@/lib/api-errors';
+import { ApiClientError, messageForError } from '@/lib/api-errors';
 import { formatThaiDate } from '@/lib/dates';
 import { familyGraph } from '@/lib/family-graph';
 import { queryKeys } from '@/lib/query-client';
+
+function MemoryUnavailableState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-body">{copy['error.generic.body']}</p>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button asChild>
+          <Link to="/home">{copy['common.back_home']}</Link>
+        </Button>
+        <Button type="button" variant="secondary" onClick={onRetry}>
+          {copy['common.retry']}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function MemoryDetailPage() {
   const { eventId = '' } = useParams();
@@ -48,11 +64,21 @@ export function MemoryDetailPage() {
     },
   });
 
+  const retryEvent = () => {
+    void event.refetch();
+  };
+
   if (event.isPending) return <QueryLoading />;
   if (event.isError) {
+    const status = event.error instanceof ApiClientError ? event.error.status : 0;
+    if (status === 404) {
+      return <MemoryUnavailableState onRetry={retryEvent} />;
+    }
     return <p className="text-body text-destructive">{messageForError(event.error)}</p>;
   }
-  if (!event.data) return null;
+  if (!event.data) {
+    return <MemoryUnavailableState onRetry={retryEvent} />;
+  }
 
   const items = stories.data?.contributions ?? [];
 

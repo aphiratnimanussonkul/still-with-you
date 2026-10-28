@@ -21,6 +21,10 @@ import {
   personListResponseSchema,
   personResponseSchema,
   mediaUploadSessionSchema,
+  notificationIdParamSchema,
+  notificationListResponseSchema,
+  notificationResponseSchema,
+  type NotificationResponse,
   updateConsentSchema,
   updateContributionSchema,
   updatePersonSchema,
@@ -37,6 +41,7 @@ import {
   mockFamilies,
   mockFocusIds,
   mockMembers,
+  mockNotifications,
   mockPeople,
   mockRelationships,
   mockTrash,
@@ -125,6 +130,10 @@ const factsByPerson: Record<
     created_at: string;
   }[]
 > = {};
+const notifications: NotificationResponse[] = mockNotifications.map((item) => ({
+  ...item,
+  payload: { ...item.payload },
+}));
 const contributions: Array<{
   id: string;
   family_id: string;
@@ -239,6 +248,63 @@ export const handlers = [
     const denied = requireAuth(request);
     if (denied) return denied;
     return HttpResponse.json(accountResponseSchema.parse(account));
+  }),
+
+  http.get(`${api}/v1/me/notifications`, ({ request }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const url = new URL(request.url);
+    const cursor = url.searchParams.get('cursor') ?? undefined;
+    const limitRaw = url.searchParams.get('limit');
+    const limit = limitRaw ? Number(limitRaw) : 20;
+    const pageSize = Number.isFinite(limit) ? Math.min(100, Math.max(1, limit)) : 20;
+
+    const memberFamilyIds = new Set(
+      members.filter((row) => row.account_id === account.id).map((row) => row.family_id)
+    );
+    const visible = notifications
+      .filter((item) => memberFamilyIds.has(item.payload.family_id))
+      .slice()
+      .sort((a, b) => {
+        if (a.created_at !== b.created_at) return a.created_at < b.created_at ? 1 : -1;
+        return a.id < b.id ? 1 : -1;
+      });
+
+    let start = 0;
+    if (cursor) {
+      const index = visible.findIndex((item) => item.id === cursor);
+      start = index === -1 ? visible.length : index + 1;
+    }
+    const page = visible.slice(start, start + pageSize);
+    const last = page[page.length - 1];
+    return jsonContract(notificationListResponseSchema, {
+      notifications: page,
+      next_cursor: start + page.length < visible.length && last ? last.id : null,
+      unread_count: visible.filter((item) => item.read_at === null).length,
+    });
+  }),
+
+  http.post(`${api}/v1/notifications/:id/read`, ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const parsed = notificationIdParamSchema.safeParse({ id: params.id });
+    if (!parsed.success) {
+      return HttpResponse.json(
+        { error: { code: 'NOT_FOUND', message: 'Notification not found' } },
+        { status: 404 }
+      );
+    }
+    const item = notifications.find((row) => row.id === parsed.data.id);
+    if (!item) {
+      return HttpResponse.json(
+        { error: { code: 'NOT_FOUND', message: 'Notification not found' } },
+        { status: 404 }
+      );
+    }
+    if (!item.read_at) {
+      item.read_at = new Date().toISOString();
+    }
+    return jsonContract(notificationResponseSchema, item);
   }),
 
   http.patch(`${api}/v1/me/consent`, async ({ request }) => {

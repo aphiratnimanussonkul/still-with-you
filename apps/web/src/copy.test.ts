@@ -44,9 +44,9 @@ describe('copy v0.4', () => {
     expect(copy['person.relationship.spouse']).toBe('เป็นคู่ของ');
     expect(copy['relation.type.child']).toBe('เป็นลูกของ');
     expect(copy['person.status.uninvited']).toBe('ยังไม่ได้เชิญ');
-    expect(copy['person.invite.status.none']).toBe('ยังไม่ได้ชวน');
     expect(copy['person.status.pending']).toBe('รอตอบรับคำเชิญ');
     expect(copy['person.status.linked']).toBe('เป็นสมาชิกแล้ว');
+    expect(copy['person.invite.status.none']).toBe('ยังไม่ได้ชวน');
     expect(copy['person.age.approx']).toBe('อายุประมาณ {n} ปี');
     expect(copy['person.birth.mode.year']).toBe('รู้แค่ปีเกิด');
     expect(copy['error.INVALID_RELATIONSHIP']).toBe(
@@ -118,6 +118,29 @@ describe('copy v0.4', () => {
     expect(copy['contribution.photos.viewer.counter']).toBe('{i}/{n}');
     expect(copy['photo.load_error']).toBe('โหลดรูปนี้ไม่ได้');
     expect(copy['contribution.photos.more']).toBe('ดูรูปอีก {n} รูป');
+  });
+
+  it('uses Eddy notification bodies exactly', () => {
+    expect(copy['notification.contribution_added']).toBe('{actor_display_name} เล่าเรื่องใน {event_title}');
+    expect(copy['notification.contribution_added.hidden']).toBe(
+      '{actor_display_name} เล่าเรื่องในความทรงจำที่ตอนนี้พักไว้อยู่'
+    );
+    expect(copy['notification.invite_accepted']).toBe(
+      '{actor_display_name} รับคำเชิญและเข้าร่วม {family_name} แล้ว'
+    );
+    expect(copy['notification.list.title']).toBe('การแจ้งเตือน');
+    expect(copy['notification.empty.title']).toBe('ยังไม่มีอะไรใหม่');
+    expect(copy['notification.empty.body']).toBe(
+      'ถ้ามีใครมาเล่าเรื่องในความทรงจำของคุณ จะบอกที่นี่'
+    );
+    expect(copy['notification.load_more']).toBe('ดูเพิ่ม');
+    expect(copy['a11y.notification.unread']).toBe('ยังไม่ได้อ่าน');
+    expect(copy['notifications.list.title']).toBe(copy['notification.list.title']);
+    expect(copy['error.generic.body']).toBe(
+      'ขอโทษด้วย ตอนนี้ยังเปิดหน้านี้ไม่ได้ เรื่องเล่าทั้งหมดยังอยู่ครบ ลองอีกครั้งได้เลย'
+    );
+    expect(copy['common.back_home']).toBe('กลับหน้าแรก');
+    expect(copy['common.retry']).toBe('ลองอีกครั้ง');
   });
 
   it('uses locked v0.4 wording for create, tree, cancel, and admin confirm split', () => {
