@@ -17,6 +17,13 @@ describe('copy v0.4', () => {
       .filter(([, value]) => value.startsWith('TODO:'))
       .map(([key]) => key);
     expect(leftovers).toEqual([
+      'memory.date.year',
+      'memory.date.month',
+      'memory.date.day',
+      'memory.people.done',
+      'memory.people.edit',
+      'memory.people.search.empty',
+      'memory.people.search.add',
       'person.family_name.label',
       'person.gender.label',
       'person.birth.label',
@@ -29,6 +36,7 @@ describe('copy v0.4', () => {
       'person.edit.action',
       'person.delete.action',
       'person.delete.confirm.primary',
+      'common.optional',
     ]);
   });
 

@@ -145,7 +145,7 @@ export function HomePage() {
           <div className="flex items-center gap-2">
             <h2 className="min-w-0 flex-1 text-h3 font-semibold">{copy['home.recent.title']}</h2>
             <Button variant="link" size="sm" className="h-9 px-3 text-primary" asChild>
-              <Link to="/memories">{copy['memory.create.action']}</Link>
+              <Link to="/memories/new">{copy['memory.create.action']}</Link>
             </Button>
           </div>
           {memoriesPending ? <RecentSkeleton /> : null}
@@ -158,7 +158,7 @@ export function HomePage() {
               <p className="text-h3 font-semibold">{copy['memory.empty.title']}</p>
               <p className="text-body text-muted-foreground">{copy['memory.empty.body']}</p>
               <Button asChild>
-                <Link to="/memories">{copy['memory.create.action']}</Link>
+                <Link to="/memories/new">{copy['memory.create.action']}</Link>
               </Button>
             </div>
           ) : null}

@@ -4,19 +4,15 @@ import { BookOpenTextIcon } from '@phosphor-icons/react/BookOpenText';
 import { CalendarBlankIcon } from '@phosphor-icons/react/CalendarBlank';
 import { MapPinIcon } from '@phosphor-icons/react/MapPin';
 import { PlusIcon } from '@phosphor-icons/react/Plus';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { FamilySwitcher } from '@/components/FamilySwitcher';
 import { Illustration } from '@/components/Illustration';
-import { PhotoAttach, type PhotoAttachState } from '@/components/PhotoAttach';
 import { QueryLoading } from '@/components/QueryLoading';
 import { Icon } from '@/components/ui/icon';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { copy, truncateName } from '@/copy';
 import { useSelectedFamily } from '@/hooks/use-selected-family';
 import { api } from '@/lib/api-client';
@@ -25,30 +21,13 @@ import { formatThaiDate } from '@/lib/dates';
 import { queryKeys } from '@/lib/query-client';
 
 export function MemoriesPage() {
-  const queryClient = useQueryClient();
   const { familiesQuery, families, familyId, select } = useSelectedFamily();
-  const [title, setTitle] = useState('');
-  const [story, setStory] = useState('');
   const [filter, setFilter] = useState<'all' | 'paused'>('all');
-  const [photos, setPhotos] = useState<PhotoAttachState>({ mediaIds: [], isBusy: false });
-  const [photoKey, setPhotoKey] = useState(0);
 
   const events = useQuery({
     queryKey: queryKeys.events(familyId ?? ''),
     queryFn: () => api.listEvents(familyId!),
     enabled: Boolean(familyId),
-  });
-
-  const create = useMutation({
-    mutationFn: () =>
-      api.createEvent(familyId!, { title, story, person_ids: [], media_ids: photos.mediaIds }),
-    onSuccess: async () => {
-      setTitle('');
-      setStory('');
-      setPhotos({ mediaIds: [], isBusy: false });
-      setPhotoKey((value) => value + 1);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.events(familyId!) });
-    },
   });
 
   if (familiesQuery.isPending) return <QueryLoading />;
@@ -77,6 +56,13 @@ export function MemoriesPage() {
   return (
     <div className="flex flex-col gap-6">
       <FamilySwitcher families={families} selectedId={familyId} onSelect={select} />
+
+      <Button asChild>
+        <Link to="/memories/new">
+          <Icon as={PlusIcon} size={20} />
+          {copy['memory.create.action']}
+        </Link>
+      </Button>
 
       <div className="flex flex-wrap gap-2">
         <Button type="button" variant={filter === 'all' ? 'default' : 'secondary'} onClick={() => setFilter('all')}>
@@ -155,54 +141,6 @@ export function MemoriesPage() {
           ))}
         </ul>
       ) : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{copy['memory.create.title']}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form
-            className="flex flex-col gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (title.trim() && story.trim()) create.mutate();
-            }}
-          >
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="memory-title">{copy['memory.title_label']}</Label>
-              <Input
-                id="memory-title"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder={copy['memory.title_placeholder']}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="memory-story">{copy['story.label.required']}</Label>
-              <Textarea
-                id="memory-story"
-                value={story}
-                onChange={(event) => setStory(event.target.value)}
-                placeholder={copy['story.placeholder']}
-              />
-            </div>
-            <PhotoAttach key={photoKey} familyId={familyId} onStateChange={setPhotos} />
-            {photos.isBusy ? (
-              <p className="text-caption text-muted-foreground">{copy['photo.upload.wait']}</p>
-            ) : null}
-            {create.isError ? (
-              <p className="text-caption text-destructive">{messageForError(create.error)}</p>
-            ) : null}
-            <Button
-              type="submit"
-              disabled={create.isPending || photos.isBusy || !title.trim() || !story.trim()}
-            >
-              <Icon as={PlusIcon} size={20} />
-              {copy['memory.create.submit']}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
     </div>
   );
 }

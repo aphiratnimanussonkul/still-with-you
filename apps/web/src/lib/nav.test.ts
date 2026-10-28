@@ -6,6 +6,7 @@ describe('isNavItemActive', () => {
     expect(isNavItemActive('home', '/home')).toBe(true);
     expect(isNavItemActive('home', '/memories')).toBe(false);
     expect(isNavItemActive('memories', '/memories')).toBe(true);
+    expect(isNavItemActive('memories', '/memories/new')).toBe(true);
     expect(isNavItemActive('memories', '/memories/abc')).toBe(true);
     expect(isNavItemActive('memories', '/family')).toBe(false);
     expect(isNavItemActive('family', '/family')).toBe(true);
@@ -27,6 +28,10 @@ describe('appBarForPath', () => {
   });
 
   it('uses a back link on memory detail, add person, and trash', () => {
+    expect(appBarForPath('/memories/new')).toEqual({
+      titleKey: 'memory.create.title',
+      backTo: '/memories',
+    });
     expect(appBarForPath('/memories/abc')).toEqual({
       titleKey: 'memory.list.title',
       backTo: '/memories',

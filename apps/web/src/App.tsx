@@ -18,6 +18,7 @@ import { PersonInvitePage } from '@/pages/PersonInvitePage';
 import { PersonPage } from '@/pages/PersonPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { MePage } from '@/pages/MePage';
+import { CreateMemoryPage } from '@/pages/CreateMemoryPage';
 import { MemoriesPage } from '@/pages/MemoriesPage';
 import { MemoryDetailPage } from '@/pages/MemoryDetailPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
@@ -62,6 +63,7 @@ export function App() {
             <Route path="/consent" element={<ConsentPage />} />
             <Route path="/home" element={<HomePage />} />
             <Route path="/memories" element={<MemoriesPage />} />
+            <Route path="/memories/new" element={<CreateMemoryPage />} />
             <Route path="/memories/:eventId" element={<MemoryDetailPage />} />
             <Route path="/family" element={<FamilyPage />} />
             <Route path="/family/people/new" element={<AddPersonPage />} />

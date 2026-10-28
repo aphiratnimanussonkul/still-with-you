@@ -297,7 +297,14 @@ export const copy = {
   'memory.title_required': 'ตั้งชื่อความทรงจำก่อน แล้วค่อยบันทึก',
   'memory.date_label': 'เกิดขึ้นเมื่อไร',
   'memory.date_placeholder': 'ไม่แน่ใจ ใส่แค่ปีก็ได้',
+  'memory.date.year': 'TODO: Eddy — memory.date.year (ปี พ.ศ.)',
+  'memory.date.month': 'TODO: Eddy — memory.date.month (เดือน)',
+  'memory.date.day': 'TODO: Eddy — memory.date.day (วัน)',
   'memory.people_label': 'ใครอยู่ในความทรงจำนี้',
+  'memory.people.done': 'TODO: Eddy — memory.people.done (เสร็จแล้ว)',
+  'memory.people.edit': 'TODO: Eddy — memory.people.edit (แก้รายชื่อ)',
+  'memory.people.search.empty': 'TODO: Eddy — memory.people.search.empty (ยังไม่มีชื่อนี้ในครอบครัว)',
+  'memory.people.search.add': 'TODO: Eddy — memory.people.search.add (เพิ่ม "{name}" เป็นคนใหม่)',
   'memory.item.meta': '{จำนวน} เรื่องเล่า · เริ่มโดย {ชื่อ}',
   'memory.item.meta.one': '1 เรื่องเล่า · เริ่มโดย {ชื่อ}',
   'memory.stories.title': 'เรื่องเล่า ({จำนวน})',
@@ -458,6 +465,7 @@ export const copy = {
 
   // --- สถานะทั่วไป ---
   'common.cancel': 'ยกเลิก',
+  'common.optional': 'TODO: Eddy — common.optional (ไม่บังคับ)',
   'common.retry': 'ลองอีกครั้ง',
   'common.back_home': 'กลับหน้าแรก',
   'loading': 'กำลังโหลด',

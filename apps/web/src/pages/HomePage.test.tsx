@@ -137,7 +137,9 @@ describe('HomePage', () => {
     expect(screen.getByLabelText('ยายสมศรี เกิดที่ไหน')).toBeTruthy();
     expect(screen.getByRole('button', { name: copy['home.question.save'] })).toBeTruthy();
     expect(screen.getByRole('button', { name: copy['home.question.skip'] })).toBeTruthy();
-    expect(screen.getByRole('link', { name: copy['memory.create.action'] })).toBeTruthy();
+    expect(screen.getByRole('link', { name: copy['memory.create.action'] }).getAttribute('href')).toBe(
+      '/memories/new'
+    );
     expect(screen.getByText('ทริปทะเลกับคุณยาย')).toBeTruthy();
     const cover = screen.getByAltText('ทริปทะเลกับคุณยาย');
     expect(cover.getAttribute('src')).toBe('https://cdn.example.com/trip.jpg');
@@ -156,7 +158,9 @@ describe('HomePage', () => {
       await screen.findByText(interpolateHeading(copy['home.greeting'], { ชื่อ: 'Atta' }))
     ).toBeTruthy();
     expect(await screen.findByText('ทริปทะเลกับคุณยาย')).toBeTruthy();
-    expect(screen.getByRole('link', { name: copy['memory.create.action'] })).toBeTruthy();
+    expect(screen.getByRole('link', { name: copy['memory.create.action'] }).getAttribute('href')).toBe(
+      '/memories/new'
+    );
     expect(screen.queryByText(copy['home.question.title'])).toBeNull();
     expect(screen.getByText(copy['error.generic'])).toBeTruthy();
   });
