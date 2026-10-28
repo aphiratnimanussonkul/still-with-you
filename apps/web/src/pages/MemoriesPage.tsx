@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ArchiveIcon } from '@phosphor-icons/react/Archive';
 import { BookOpenTextIcon } from '@phosphor-icons/react/BookOpenText';
 import { CalendarBlankIcon } from '@phosphor-icons/react/CalendarBlank';
@@ -22,13 +22,22 @@ import { useSelectedFamily } from '@/hooks/use-selected-family';
 import { api } from '@/lib/api-client';
 import { messageForError } from '@/lib/api-errors';
 import { formatThaiDate } from '@/lib/dates';
+import {
+  MEMORY_CREATE_DRAFT_KEY,
+  PWA_FLUSH_DRAFTS_EVENT,
+  clearDraft,
+  readDraft,
+  writeDraft,
+  type MemoryCreateDraft,
+} from '@/lib/form-draft';
 import { queryKeys } from '@/lib/query-client';
 
 export function MemoriesPage() {
   const queryClient = useQueryClient();
   const { familiesQuery, families, familyId, select } = useSelectedFamily();
-  const [title, setTitle] = useState('');
-  const [story, setStory] = useState('');
+  const restoredCreate = readDraft<MemoryCreateDraft>(MEMORY_CREATE_DRAFT_KEY);
+  const [title, setTitle] = useState(restoredCreate?.title ?? '');
+  const [story, setStory] = useState(restoredCreate?.story ?? '');
   const [filter, setFilter] = useState<'all' | 'paused'>('all');
   const [photos, setPhotos] = useState<PhotoAttachState>({ mediaIds: [], isBusy: false });
   const [photoKey, setPhotoKey] = useState(0);
@@ -47,9 +56,27 @@ export function MemoriesPage() {
       setStory('');
       setPhotos({ mediaIds: [], isBusy: false });
       setPhotoKey((value) => value + 1);
+      clearDraft(MEMORY_CREATE_DRAFT_KEY);
       await queryClient.invalidateQueries({ queryKey: queryKeys.events(familyId!) });
     },
   });
+
+  const persistCreateDraft = useCallback(() => {
+    if (!title.trim() && !story.trim()) {
+      clearDraft(MEMORY_CREATE_DRAFT_KEY);
+      return;
+    }
+    writeDraft(MEMORY_CREATE_DRAFT_KEY, { title, story } satisfies MemoryCreateDraft);
+  }, [story, title]);
+
+  useEffect(() => {
+    persistCreateDraft();
+  }, [persistCreateDraft]);
+
+  useEffect(() => {
+    window.addEventListener(PWA_FLUSH_DRAFTS_EVENT, persistCreateDraft);
+    return () => window.removeEventListener(PWA_FLUSH_DRAFTS_EVENT, persistCreateDraft);
+  }, [persistCreateDraft]);
 
   if (familiesQuery.isPending) return <QueryLoading />;
   if (familiesQuery.isError) {

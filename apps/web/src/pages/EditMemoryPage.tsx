@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { CircleNotchIcon } from '@phosphor-icons/react/CircleNotch';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -21,6 +21,14 @@ import {
   type MemoryConflictField,
   type MemoryEditBaseline,
 } from '@/lib/event-edit';
+import {
+  PWA_FLUSH_DRAFTS_EVENT,
+  clearDraft,
+  memoryEditDraftKey,
+  readDraft,
+  writeDraft,
+  type MemoryEditDraft,
+} from '@/lib/form-draft';
 import { queryKeys } from '@/lib/query-client';
 
 export function EditMemoryPage() {
@@ -46,11 +54,31 @@ export function EditMemoryPage() {
     if (!event.data || hydratedFor.current === event.data.id) return;
     hydratedFor.current = event.data.id;
     const title = event.data.title ?? '';
-    setDraftTitle(title);
+    const stored = readDraft<MemoryEditDraft>(memoryEditDraftKey(event.data.id));
+    setDraftTitle(stored?.title ?? title);
     setSavedTitle(title);
     setSaveVersion(event.data.version);
     setBaseline(baselineFromEvent(event.data));
   }, [event.data]);
+
+  const persistEditDraft = useCallback(() => {
+    if (!eventId || hydratedFor.current !== eventId) return;
+    const key = memoryEditDraftKey(eventId);
+    if (draftTitle.trim() === savedTitle.trim()) {
+      clearDraft(key);
+      return;
+    }
+    writeDraft(key, { title: draftTitle } satisfies MemoryEditDraft);
+  }, [draftTitle, eventId, savedTitle]);
+
+  useEffect(() => {
+    persistEditDraft();
+  }, [persistEditDraft]);
+
+  useEffect(() => {
+    window.addEventListener(PWA_FLUSH_DRAFTS_EVENT, persistEditDraft);
+    return () => window.removeEventListener(PWA_FLUSH_DRAFTS_EVENT, persistEditDraft);
+  }, [persistEditDraft]);
 
   const save = useMutation({
     mutationFn: () =>
@@ -63,6 +91,7 @@ export function EditMemoryPage() {
       setChangedFields([]);
       setSavedTitle(saved.title ?? draftTitle.trim());
       setSaveVersion(saved.version);
+      clearDraft(memoryEditDraftKey(eventId));
       toast.success(copy['save.toast']);
       await queryClient.invalidateQueries({ queryKey: queryKeys.event(eventId) });
       navigate(`/memories/${eventId}`);

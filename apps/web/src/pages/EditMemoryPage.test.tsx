@@ -20,6 +20,7 @@ vi.mock('sonner', () => {
 });
 
 import { api } from '@/lib/api-client';
+import { flushPwaDrafts, memoryEditDraftKey, readDraft, writeDraft } from '@/lib/form-draft';
 import { EditMemoryPage } from '@/pages/EditMemoryPage';
 
 const loaded = mockEvents[0];
@@ -45,6 +46,7 @@ function renderPage() {
 
 describe('EditMemoryPage conflict', () => {
   beforeEach(() => {
+    sessionStorage.clear();
     vi.mocked(api.getEvent).mockReset();
     vi.mocked(api.updateEvent).mockReset();
     vi.mocked(api.getEvent).mockResolvedValue(loaded);
@@ -109,5 +111,20 @@ describe('EditMemoryPage conflict', () => {
       expect(vi.mocked(api.getEvent).mock.calls.length).toBeGreaterThan(1);
     });
     expect((title as HTMLInputElement).value).toBe('ฉันพิมพ์ไว้แล้ว');
+  });
+
+  it('restores an in-progress title from sessionStorage after reload', async () => {
+    writeDraft(memoryEditDraftKey(loaded.id), { title: 'ฉันพิมพ์ไว้แล้ว' });
+    renderPage();
+    const title = await screen.findByLabelText(copy['memory.title_label']);
+    expect((title as HTMLInputElement).value).toBe('ฉันพิมพ์ไว้แล้ว');
+  });
+
+  it('writes the draft on flush so a PWA reload keeps it', async () => {
+    renderPage();
+    const title = await screen.findByLabelText(copy['memory.title_label']);
+    fireEvent.change(title, { target: { value: 'ยังไม่บันทึก' } });
+    flushPwaDrafts();
+    expect(readDraft(memoryEditDraftKey(loaded.id))).toEqual({ title: 'ยังไม่บันทึก' });
   });
 });

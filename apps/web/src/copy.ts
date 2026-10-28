@@ -476,6 +476,8 @@ export const copy = {
   'page.not_found.body': 'ลิงก์อาจไม่ถูกต้อง หรือหน้านี้ถูกย้ายไปแล้ว',
   'pwa.update.body': 'มีเวอร์ชันใหม่พร้อมใช้',
   'pwa.update.action': 'อัปเดตเลย',
+  'app.update.body': 'มีเวอร์ชันใหม่แล้ว เปิดใหม่อีกทีเพื่อใช้ต่อได้เลย',
+  'app.update.action': 'เปิดใหม่',
   'pwa.install.action': 'เพิ่มไว้ที่หน้าจอหลัก',
 
   // --- aria-label ของปุ่มไอคอนเดี่ยว ---

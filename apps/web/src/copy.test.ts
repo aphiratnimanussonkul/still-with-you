@@ -237,6 +237,11 @@ describe('copy v0.4', () => {
     expect(copy['family.focus.load_error.action']).toBe('ลองอีกครั้ง');
   });
 
+  it('uses Eddy PWA update copy', () => {
+    expect(copy['app.update.body']).toBe('มีเวอร์ชันใหม่แล้ว เปิดใหม่อีกทีเพื่อใช้ต่อได้เลย');
+    expect(copy['app.update.action']).toBe('เปิดใหม่');
+  });
+
   it('includes Eddy aria-label keys for icon-only controls', () => {
     expect(copy['a11y.back']).toBe('ย้อนกลับ');
     expect(copy['a11y.more']).toBe('ตัวเลือกเพิ่มเติม');

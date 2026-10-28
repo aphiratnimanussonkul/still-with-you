@@ -34,6 +34,7 @@ vi.mock('@/components/PhotoAttach', () => ({
 }));
 
 import { api } from '@/lib/api-client';
+import { MEMORY_CREATE_DRAFT_KEY, flushPwaDrafts, readDraft, writeDraft } from '@/lib/form-draft';
 import { MemoriesPage } from '@/pages/MemoriesPage';
 
 const familyId = mockFamilies[0].id;
@@ -148,5 +149,31 @@ describe('MemoriesPage photo attach', () => {
         media_ids: [mediaId],
       });
     });
+  });
+
+  it('restores create title and story from sessionStorage after reload', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(api.listEvents).mockResolvedValue({ events: mockEvents });
+    writeDraft(MEMORY_CREATE_DRAFT_KEY, { title: 'งานบวช', story: 'วันนั้นทั้งบ้านตื่น' });
+    renderPage();
+    expect(await screen.findByLabelText(copy['memory.title_label'])).toBeTruthy();
+    expect((screen.getByLabelText(copy['memory.title_label']) as HTMLInputElement).value).toBe('งานบวช');
+    expect((screen.getByLabelText(copy['story.label.required']) as HTMLTextAreaElement).value).toBe(
+      'วันนั้นทั้งบ้านตื่น'
+    );
+  });
+
+  it('writes the create draft on flush so a PWA reload keeps it', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(api.listEvents).mockResolvedValue({ events: mockEvents });
+    renderPage();
+    fireEvent.change(await screen.findByLabelText(copy['memory.title_label']), {
+      target: { value: 'ยังไม่บันทึก' },
+    });
+    fireEvent.change(screen.getByLabelText(copy['story.label.required']), {
+      target: { value: 'พิมพ์ค้างไว้' },
+    });
+    flushPwaDrafts();
+    expect(readDraft(MEMORY_CREATE_DRAFT_KEY)).toEqual({ title: 'ยังไม่บันทึก', story: 'พิมพ์ค้างไว้' });
   });
 });
