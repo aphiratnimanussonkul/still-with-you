@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ErrorCode, eventEditConflictErrorSchema, updateEventSchema } from '@still-with-you/contracts';
+import {
+  ErrorCode,
+  eventEditConflictErrorSchema,
+  eventPatchVersionMessage,
+  updateEventSchema,
+} from '@still-with-you/contracts';
 import { mockEvents } from '@/mocks/data';
 import { mockPatchEvent } from '@/mocks/event-patch';
 
@@ -19,6 +24,15 @@ describe('mock PATCH /v1/events/{id}', () => {
     expect(parsed.success).toBe(false);
     if (parsed.success) return;
     expect(parsed.error.errors[0]?.path).toEqual(['version']);
+    expect(parsed.error.errors[0]?.message).toBe(eventPatchVersionMessage);
+  });
+
+  it('rejects a non-integer version at the schema', () => {
+    const parsed = updateEventSchema.safeParse({ title: 'ทศนิยม', version: 1.5 });
+    expect(parsed.success).toBe(false);
+    if (parsed.success) return;
+    expect(parsed.error.errors[0]?.path).toEqual(['version']);
+    expect(parsed.error.errors[0]?.message).toBe(eventPatchVersionMessage);
   });
 
   it('returns 409 EVENT_EDIT_CONFLICT with details.current_version and no editor name', () => {

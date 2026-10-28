@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { eventResponseSchema } from '@still-with-you/contracts';
+import { eventPatchVersionMessage, eventResponseSchema } from '@still-with-you/contracts';
 import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
 import { db, familyMembers } from '../lib/db/index.js';
 
@@ -83,13 +83,13 @@ describe('PATCH /v1/events/:id optimistic concurrency', () => {
     expect(eventResponseSchema.parse(JSON.parse(got.body)).version).toBe(1);
   });
 
-  it('returns 400 VALIDATION_ERROR with field version when PATCH omits version', async () => {
+  it('returns 400 INVALID_INPUT with field version when PATCH omits version', async () => {
     const created = await createEvent();
     const patched = await patchEvent(created.id, { title: 'หัวข้อใหม่' });
     expect(patched.statusCode).toBe(400);
     expect(JSON.parse(patched.body).error).toEqual({
-      code: 'VALIDATION_ERROR',
-      message: 'version is required',
+      code: 'INVALID_INPUT',
+      message: eventPatchVersionMessage,
       field: 'version',
     });
     const still = await server.inject({
@@ -101,46 +101,21 @@ describe('PATCH /v1/events/:id optimistic concurrency', () => {
     expect(eventResponseSchema.parse(JSON.parse(still.body)).version).toBe(1);
   });
 
-  it('emits structured event_patch_missing_version warn when PATCH omits version', async () => {
+  it('returns 400 INVALID_INPUT with field version when PATCH version is not an integer', async () => {
     const created = await createEvent();
-    const patched = await server.inject({
-      method: 'PATCH',
+    const patched = await patchEvent(created.id, { title: 'หัวข้อใหม่', version: '1' });
+    expect(patched.statusCode).toBe(400);
+    expect(JSON.parse(patched.body).error).toEqual({
+      code: 'INVALID_INPUT',
+      message: eventPatchVersionMessage,
+      field: 'version',
+    });
+    const still = await server.inject({
+      method: 'GET',
       url: `/v1/events/${created.id}`,
-      headers: {
-        authorization: `Bearer ${creatorToken}`,
-        'user-agent': 'swy-test-agent/1.0',
-      },
-      payload: { title: 'ไม่มีเวอร์ชัน' },
+      headers: { authorization: `Bearer ${creatorToken}` },
     });
-    expect(patched.statusCode).toBe(200);
-
-    const warns = logLines.filter((line) => line.msg === 'event_patch_missing_version');
-    expect(warns).toHaveLength(1);
-    expect(warns[0]).toMatchObject({
-      level: 40,
-      msg: 'event_patch_missing_version',
-      event: 'event_patch_missing_version',
-      event_id: created.id,
-      account_id: creator.id,
-      user_agent: 'swy-test-agent/1.0',
-    });
-    const serialized = JSON.stringify(warns[0]);
-    expect(serialized).not.toMatch(/creator-cas@example.com|auth-creator-cas/);
-    expect(serialized).not.toContain(creator.displayName);
-    expect(serialized).not.toContain('ไม่มีเวอร์ชัน');
-    expect(warns[0]).not.toHaveProperty('email');
-    expect(warns[0]).not.toHaveProperty('display_name');
-    expect(warns[0]).not.toHaveProperty('req');
-
-    const beforeWithVersion = logLines.length;
-    const withVersion = await patchEvent(created.id, {
-      title: 'มีเวอร์ชัน',
-      version: eventResponseSchema.parse(JSON.parse(patched.body)).version,
-    });
-    expect(withVersion.statusCode).toBe(200);
-    expect(logLines.slice(beforeWithVersion).filter((line) => line.msg === 'event_patch_missing_version')).toHaveLength(
-      0
-    );
+    expect(eventResponseSchema.parse(JSON.parse(still.body)).version).toBe(1);
   });
 
   it('succeeds when body.version matches and returns the incremented version', async () => {

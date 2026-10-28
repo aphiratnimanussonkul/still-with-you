@@ -32,7 +32,6 @@ import {
   eventEditConflictErrorSchema,
   ErrorCode,
   EVENT_DELETE_COOLING_DAYS,
-  errorMessages,
 } from '@still-with-you/contracts';
 import { http, HttpResponse, passthrough } from 'msw';
 import type { z } from 'zod';
@@ -518,20 +517,18 @@ export const handlers = [
     }
     const parsed = updateEventSchema.safeParse(await request.json());
     if (!parsed.success) {
-      const field = parsed.error.errors[0]?.path.join('.') || undefined;
-      if (field === 'version') {
-        return HttpResponse.json(
-          {
-            error: {
-              code: ErrorCode.VALIDATION_ERROR,
-              message: errorMessages[ErrorCode.VALIDATION_ERROR],
-              field: 'version',
-            },
+      const first = parsed.error.errors[0];
+      const field = first?.path.join('.') || undefined;
+      return HttpResponse.json(
+        {
+          error: {
+            code: ErrorCode.INVALID_INPUT,
+            message: first?.message ?? 'invalid event',
+            ...(field ? { field } : {}),
           },
-          { status: 400 }
-        );
-      }
-      return HttpResponse.json({ error: { code: 'INVALID_INPUT', message: 'invalid event' } }, { status: 400 });
+        },
+        { status: 400 }
+      );
     }
     const result = mockPatchEvent(event, parsed.data);
     if (!result.ok) {
