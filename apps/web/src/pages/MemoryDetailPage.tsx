@@ -25,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Illustration } from '@/components/Illustration';
 import { PhotoAttach, type PhotoAttachState } from '@/components/PhotoAttach';
 import { StoryCard } from '@/components/StoryCard';
-import { copy, interpolate, truncateName } from '@/copy';
+import { copy, interpolate, storyCounter, storyToldAt, truncateName } from '@/copy';
 import { api } from '@/lib/api-client';
 import { ApiClientError, messageForError } from '@/lib/api-errors';
 import { formatThaiDate } from '@/lib/dates';
@@ -284,11 +284,9 @@ export function MemoryDetailPage() {
         </div>
 
         <section className="flex flex-col gap-3">
-          <h3 className="text-h3 font-semibold">
-            {interpolate(copy['memory.stories.title'], {
-              จำนวน: String(stories.isSuccess ? items.length : 0),
-            })}
-          </h3>
+          {stories.isSuccess ? (
+            <h3 className="text-h3 font-semibold">{storyCounter(items.length)}</h3>
+          ) : null}
           {stories.isPending ? (
             <>
               <Skeleton className="h-[140px] w-full rounded-xl" />
@@ -312,7 +310,7 @@ export function MemoryDetailPage() {
                 <li key={item.id}>
                   <StoryCard
                     name={item.owner_display_name ?? copy['glossary.event_creator_fallback']}
-                    date={formatThaiDate(item.created_at)}
+                    date={storyToldAt(item.created_at)}
                     body={item.story}
                     media={item.media}
                   />

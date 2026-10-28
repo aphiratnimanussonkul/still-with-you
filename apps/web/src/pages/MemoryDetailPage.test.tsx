@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Link, RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PhotoAttachState } from '@/components/PhotoAttach';
-import { copy, interpolate } from '@/copy';
+import { copy, interpolate, storyCounter, storyToldAt } from '@/copy';
 import { ApiClientError } from '@/lib/api-errors';
 import { mockContributions, mockEvents } from '@/mocks/data';
 
@@ -126,6 +126,7 @@ describe('MemoryDetailPage stories isolation', () => {
       true
     );
     expect(screen.queryByLabelText(copy['story.label.required'])).toBeNull();
+    expect(screen.getByRole('heading', { name: copy['story.counter.empty'] })).toBeTruthy();
   });
 });
 
@@ -152,6 +153,8 @@ describe('MemoryDetailPage contribution photos', () => {
 
     renderPage();
     expect(await screen.findByText('จำได้ว่าทะเลเงียบ')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: storyCounter(2) })).toBeTruthy();
+    expect(screen.getAllByText(storyToldAt(mockContributions[0].created_at)).length).toBe(2);
     expect(
       screen.getByAltText(
         interpolate(copy['contribution.photo.alt'], {

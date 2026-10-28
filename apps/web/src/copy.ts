@@ -4,6 +4,8 @@
  * Never invent Thai copy here — missing strings are prefixed with TODO.
  */
 
+import { formatStoryItemDate, isJustNow } from '@/lib/dates';
+
 export const copy = {
   // --- Glossary (user-facing terms from v0.4 §2) ---
   'glossary.event': 'ความทรงจำ',
@@ -314,8 +316,10 @@ export const copy = {
   'story.add.context': 'เล่าใน {ชื่อความทรงจำ} ไม่ทับเรื่องเล่าของใคร',
   'story.save': 'บันทึก',
   'story.action.edit': 'แก้ไข',
-  'story.told_at': 'TODO: Eddy — story.told_at',
-  'story.counter': 'TODO: Eddy — story.counter',
+  'story.told_at': 'เล่าเมื่อ {date}',
+  'story.counter': '{n} เรื่องเล่า',
+  'story.counter.empty': 'ยังไม่มีใครเล่า',
+  'just_now': 'เล่าเมื่อสักครู่',
   'contribution.photos.label': 'รูปภาพ (ไม่บังคับ)',
   'contribution.photo.alt': 'รูปที่ {ชื่อผู้เล่า} แนบไว้ {i} จาก {n}',
   'contribution.photos.viewer.counter': '{i}/{n}',
@@ -554,6 +558,18 @@ export const pageHeadingClassName = 'min-w-0 break-words line-clamp-2';
 export function homeFocusCardMeta(count: number): string {
   if (count === 0) return copy['home.focus.card.meta.empty'];
   return interpolate(copy['home.focus.card.meta'], { จำนวน: String(count) });
+}
+
+/** Memory stories heading: empty copy when count is 0, otherwise "{n} เรื่องเล่า". */
+export function storyCounter(count: number): string {
+  if (count === 0) return copy['story.counter.empty'];
+  return interpolate(copy['story.counter'], { n: String(count) });
+}
+
+/** Story-card date line. Just-now uses `just_now`; otherwise `story.told_at`. */
+export function storyToldAt(iso: string, now = Date.now()): string {
+  if (isJustNow(iso, now)) return copy['just_now'];
+  return interpolate(copy['story.told_at'], { date: formatStoryItemDate(iso) });
 }
 
 /** family.item.meta — hide {บทบาทของฉัน} unless the viewer is an admin. */
