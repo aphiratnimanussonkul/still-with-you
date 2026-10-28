@@ -138,6 +138,21 @@ export const updateEventSchema = z.object({
   version: z.number().int().optional(),
 });
 
+/** 409 EVENT_EDIT_CONFLICT `error.details`. Integer on the row only; no editor name. */
+export const eventEditConflictDetailsSchema = z
+  .object({
+    current_version: z.number().int(),
+  })
+  .strict();
+
+export const eventEditConflictErrorSchema = z.object({
+  error: z.object({
+    code: z.literal('EVENT_EDIT_CONFLICT'),
+    message: z.string(),
+    details: eventEditConflictDetailsSchema,
+  }),
+});
+
 export const deleteEventSchema = z.object({
   confirm_text: nonEmptyStringSchema,
 });
@@ -578,6 +593,8 @@ export type FamilyListResponse = z.infer<typeof familyListResponseSchema>;
 export type FamilyMemberResponse = z.infer<typeof familyMemberResponseSchema>;
 export type CreateEvent = z.input<typeof createEventSchema>;
 export type UpdateEvent = z.infer<typeof updateEventSchema>;
+export type EventEditConflictDetails = z.infer<typeof eventEditConflictDetailsSchema>;
+export type EventEditConflictError = z.infer<typeof eventEditConflictErrorSchema>;
 export type DeleteEvent = z.infer<typeof deleteEventSchema>;
 export type EventResponse = z.infer<typeof eventResponseSchema>;
 export type EventListResponse = z.infer<typeof eventListResponseSchema>;

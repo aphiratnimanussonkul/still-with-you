@@ -10,6 +10,7 @@ import {
   familyResponseSchema,
   updateConsentSchema,
   updateContributionSchema,
+  updateEventSchema,
   type AccountResponse,
   type CreateContribution,
   type CreateEvent,
@@ -21,6 +22,7 @@ import {
   type FamilyResponse,
   type UpdateConsent,
   type UpdateContribution,
+  type UpdateEvent,
 } from '@still-with-you/contracts';
 import type { z } from 'zod';
 import { ApiClientError, NetworkError, codeForFailedResponse } from '@/lib/api-errors';
@@ -143,6 +145,24 @@ export const api = {
       method: 'POST',
       body: createEventSchema.parse(body),
       idempotent: true,
+    });
+  },
+
+  /**
+   * PATCH /v1/events/{id}. `version` is optional on the API; the web client
+   * always sends the loaded event's version for compare-and-swap.
+   */
+  updateEvent(
+    eventId: string,
+    body: Omit<UpdateEvent, 'version'> & { version: number }
+  ): Promise<EventResponse> {
+    const payload = updateEventSchema.parse({ ...body, version: body.version });
+    if (payload.version === undefined) {
+      throw new TypeError('updateEvent requires version from the loaded event');
+    }
+    return request(`/v1/events/${eventId}`, eventResponseSchema, {
+      method: 'PATCH',
+      body: payload,
     });
   },
 
