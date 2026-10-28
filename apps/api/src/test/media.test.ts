@@ -277,7 +277,15 @@ describe('Media uploads (v0.5)', () => {
       url: `/v1/contributions/${storyId}`,
       headers: { authorization: `Bearer ${authorToken}` },
     });
+    expect(got.statusCode).toBe(200);
     expect(JSON.parse(got.body).media[0].url).toBeNull();
+
+    const asOther = await server.inject({
+      method: 'GET',
+      url: `/v1/contributions/${storyId}`,
+      headers: { authorization: `Bearer ${otherToken}` },
+    });
+    expect(asOther.statusCode).toBe(404);
   });
 
   it('purge deletes media rows and storage objects', async () => {

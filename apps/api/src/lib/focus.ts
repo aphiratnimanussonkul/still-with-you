@@ -1,6 +1,5 @@
 import { and, asc, eq } from 'drizzle-orm';
 import { db, focusPeople, media, people } from './db/index.js';
-import { findActiveMember, isFamilySteward } from './authz.js';
 import { personMemoryCountExpr } from './event-visibility.js';
 import { signAvatarUrl } from './people.js';
 
@@ -13,16 +12,13 @@ export type FocusItem = {
 };
 
 export async function listFocusItems(familyId: string, accountId: string): Promise<FocusItem[]> {
-  const member = await findActiveMember(familyId, accountId);
-  const steward = member ? isFamilySteward(member.role) : false;
-
   const rows = await db
     .select({
       personId: people.id,
       displayName: people.displayName,
       position: focusPeople.position,
       avatar: media,
-      memoryCount: personMemoryCountExpr(accountId, steward),
+      memoryCount: personMemoryCountExpr(accountId),
     })
     .from(focusPeople)
     .innerJoin(people, eq(people.id, focusPeople.personId))

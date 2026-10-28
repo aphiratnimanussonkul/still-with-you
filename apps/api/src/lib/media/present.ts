@@ -31,6 +31,8 @@ export async function presentStoryMedia(story: Story, accountId: string): Promis
 
   const member = await findActiveMember(story.familyId, accountId);
   const [origin] = await db.select().from(events).where(eq(events.id, story.originEventId)).limit(1);
+  // Archived origin: no signed URLs for anyone (including the event creator).
+  // Non-owners never reach here: contribution GET 404s when the origin is archived.
   const hideUrls =
     !member ||
     story.status !== 'published' ||

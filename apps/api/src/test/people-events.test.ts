@@ -94,7 +94,7 @@ describe('GET /v1/people/:id/events', () => {
     expect(body.next_cursor).toBeNull();
   });
 
-  it('hides archived events from other members; creator and steward still see them', async () => {
+  it('hides archived events from other members and stewards; only the creator sees them', async () => {
     const created = await createEvent(creatorToken, 'เรื่องเก่า', [personId]);
     const eventId = JSON.parse(created.body).id;
     const archived = await server.inject({
@@ -124,7 +124,7 @@ describe('GET /v1/people/:id/events', () => {
       url: `/v1/people/${personId}/events`,
       headers: await auth(stewardToken),
     });
-    expect(JSON.parse(asSteward.body).events).toHaveLength(1);
+    expect(JSON.parse(asSteward.body).events).toHaveLength(0);
   });
 
   it('paginates with cursor', async () => {

@@ -552,4 +552,74 @@ describe('Notifications API', () => {
     expect(items.some((item) => item.payload.actor_display_name === 'เก่า')).toBe(true);
     expect(items.some((item) => item.payload.actor_display_name === 'Member')).toBe(true);
   });
+
+  it('keeps the notification and returns event_title null when the event is archived and the caller is not the creator', async () => {
+    const created = await server.inject({
+      method: 'POST',
+      url: `/v1/families/${familyId}/events`,
+      headers: await auth(creatorToken),
+      payload: { title: 'วันเกิดยาย', story: 'เรื่องแรก' },
+    });
+    const eventId = JSON.parse(created.body).id;
+    await server.inject({
+      method: 'POST',
+      url: `/v1/events/${eventId}/contributions`,
+      headers: await auth(memberToken),
+      payload: { story: 'เรื่องของฉัน' },
+    });
+    const archived = await server.inject({
+      method: 'POST',
+      url: `/v1/events/${eventId}/archive`,
+      headers: await auth(creatorToken),
+    });
+    expect(archived.statusCode).toBe(200);
+
+    const seeded = await seedNotification(steward.id, NotificationType.CONTRIBUTION_ADDED, {
+      actor_display_name: 'Member',
+      event_title: 'วันเกิดยาย',
+      event_id: eventId,
+      family_id: familyId,
+      extra_event_blurb: 'ไม่ควรเห็น',
+    });
+
+    const asCreator = await server.inject({
+      method: 'GET',
+      url: '/v1/me/notifications',
+      headers: await auth(creatorToken),
+    });
+    expect(asCreator.statusCode).toBe(200);
+    const creatorPayload = contributionAddedPayloadSchema.parse(
+      JSON.parse(asCreator.body).notifications[0].payload
+    );
+    expect(creatorPayload.event_title).toBe('วันเกิดยาย');
+
+    const asSteward = await server.inject({
+      method: 'GET',
+      url: '/v1/me/notifications',
+      headers: await auth(stewardToken),
+    });
+    expect(asSteward.statusCode).toBe(200);
+    const stewardBody = JSON.parse(asSteward.body);
+    expect(stewardBody.notifications).toHaveLength(1);
+    expect(stewardBody.notifications[0].id).toBe(seeded.id);
+    expect(stewardBody.notifications[0].payload).toEqual({
+      actor_display_name: 'Member',
+      event_title: null,
+      event_id: eventId,
+      family_id: familyId,
+    });
+    expect(stewardBody.notifications[0].payload).not.toHaveProperty('extra_event_blurb');
+    expect(contributionAddedPayloadSchema.parse(stewardBody.notifications[0].payload).event_title).toBeNull();
+
+    const read = await server.inject({
+      method: 'POST',
+      url: `/v1/notifications/${seeded.id}/read`,
+      headers: await auth(stewardToken),
+    });
+    expect(read.statusCode).toBe(200);
+    expect(notificationResponseSchema.parse(JSON.parse(read.body)).payload).toMatchObject({
+      event_title: null,
+      event_id: eventId,
+    });
+  });
 });

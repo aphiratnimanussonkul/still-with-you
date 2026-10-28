@@ -317,7 +317,7 @@ export const notificationTypeSchema = z.enum(['contribution_added', 'invite_acce
 
 export const contributionAddedPayloadSchema = z.object({
   actor_display_name: z.string(),
-  event_title: z.string(),
+  event_title: z.string().nullable(),
   event_id: uuidSchema,
   family_id: uuidSchema,
 });

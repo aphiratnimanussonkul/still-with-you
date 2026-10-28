@@ -225,7 +225,23 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
       expect(body.error.details.deletable_at).toBeTruthy();
     });
 
-    it('returns 403 FORBIDDEN with no dates when caller is neither creator nor steward', async () => {
+    it('returns 403 FORBIDDEN with no dates when a non-manager deletes an active event', async () => {
+      const created = await createEvent(creatorToken);
+      const event = JSON.parse(created.body);
+
+      const response = await server.inject({
+        method: 'POST',
+        url: `/v1/events/${event.id}/delete`,
+        headers: { authorization: `Bearer ${otherToken}` },
+        payload: { confirm_text: EVENT_DELETE_CONFIRM_TEXT },
+      });
+      expect(response.statusCode).toBe(403);
+      const body = JSON.parse(response.body);
+      expect(body.error.code).toBe('FORBIDDEN');
+      expect(body.error.details).toBeUndefined();
+    });
+
+    it('returns 404 when a non-creator tries to delete someone else\'s archived event', async () => {
       const created = await createEvent(creatorToken);
       const event = JSON.parse(created.body);
       await server.inject({
@@ -244,10 +260,9 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
         headers: { authorization: `Bearer ${otherToken}` },
         payload: { confirm_text: EVENT_DELETE_CONFIRM_TEXT },
       });
-      expect(response.statusCode).toBe(403);
-      const body = JSON.parse(response.body);
-      expect(body.error.code).toBe('FORBIDDEN');
-      expect(body.error.details).toBeUndefined();
+      expect(response.statusCode).toBe(404);
+      expect(JSON.parse(response.body).error.code).toBe('NOT_FOUND');
+      expect(JSON.parse(response.body).error.details).toBeUndefined();
     });
 
     it('returns CONFIRM_TEXT_MISMATCH unless confirm_text is exactly ลบเรื่องนี้ after trim', async () => {
@@ -341,7 +356,7 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
   });
 
   describe('AC-23 AC-26 canManageEvent (creator OR steward)', () => {
-    it('allows steward to edit, archive, restore, and delete another member\'s event', async () => {
+    it('allows steward to edit and archive another member\'s active event, but not see or restore it once archived', async () => {
       const created = await createEvent(creatorToken);
       const event = JSON.parse(created.body);
 
@@ -366,7 +381,14 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
         url: `/v1/events/${event.id}/unarchive`,
         headers: { authorization: `Bearer ${stewardToken}` },
       });
-      expect(restored.statusCode).toBe(200);
+      expect(restored.statusCode).toBe(404);
+
+      const asCreator = await server.inject({
+        method: 'POST',
+        url: `/v1/events/${event.id}/unarchive`,
+        headers: { authorization: `Bearer ${creatorToken}` },
+      });
+      expect(asCreator.statusCode).toBe(200);
 
       await server.inject({
         method: 'POST',
@@ -384,7 +406,15 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
         headers: { authorization: `Bearer ${stewardToken}` },
         payload: { confirm_text: EVENT_DELETE_CONFIRM_TEXT },
       });
-      expect(deleted.statusCode).toBe(204);
+      expect(deleted.statusCode).toBe(404);
+
+      const creatorDelete = await server.inject({
+        method: 'POST',
+        url: `/v1/events/${event.id}/delete`,
+        headers: { authorization: `Bearer ${creatorToken}` },
+        payload: { confirm_text: EVENT_DELETE_CONFIRM_TEXT },
+      });
+      expect(creatorDelete.statusCode).toBe(204);
     });
 
     it('lets a steward (not creator) replace event people', async () => {
