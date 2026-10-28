@@ -10,11 +10,12 @@ import { appBarForPath } from '@/lib/nav';
 import { cn } from '@/lib/utils';
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const me = useMe();
-  const bar = appBarForPath(pathname);
+  const bar = appBarForPath(pathname, search);
   const title = copy[bar.titleKey];
   const homeChrome = pathname === '/home';
+  const memoryDetailChrome = /^\/memories\/[^/]+/.test(pathname);
 
   return (
     <div className="min-h-dvh bg-background lg:flex">
@@ -55,21 +56,25 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <main
           className={cn(
-            'mx-auto flex w-full flex-1 flex-col',
+            'mx-auto flex w-full min-h-0 flex-1 flex-col',
             homeChrome
               ? 'max-w-2xl pb-[calc(var(--bottom-nav-height)+var(--safe-bottom))] lg:max-w-[680px] lg:pb-8'
-              : 'max-w-2xl gap-6 px-4 py-6 pb-[calc(var(--bottom-nav-height)+var(--safe-bottom)+1.5rem)] lg:max-w-[680px] lg:pb-8'
+              : memoryDetailChrome
+                ? 'max-w-2xl lg:max-w-[680px]'
+                : 'max-w-2xl gap-6 px-4 py-6 pb-[calc(var(--bottom-nav-height)+var(--safe-bottom)+1.5rem)] lg:max-w-[680px] lg:pb-8'
           )}
         >
           {children}
         </main>
 
-        <div
-          data-nav-region="bottom"
-          className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[env(safe-area-inset-bottom,0px)] lg:hidden"
-        >
-          <AppNav variant="bottom" />
-        </div>
+        {memoryDetailChrome ? null : (
+          <div
+            data-nav-region="bottom"
+            className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[env(safe-area-inset-bottom,0px)] lg:hidden"
+          >
+            <AppNav variant="bottom" />
+          </div>
+        )}
       </div>
     </div>
   );

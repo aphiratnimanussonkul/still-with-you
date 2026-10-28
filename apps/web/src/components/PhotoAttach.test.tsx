@@ -67,6 +67,12 @@ describe('PhotoAttach', () => {
     expect(input.hasAttribute('multiple')).toBe(true);
   });
 
+  it('uses the 72px photo add tile in the tiles variant', () => {
+    render(<PhotoAttach familyId={familyId} onStateChange={vi.fn()} variant="tiles" />);
+    expect(screen.getByText(copy['a11y.add_photo']).parentElement?.className).toContain('size-[72px]');
+    expect(screen.getByText(copy['a11y.add_photo']).parentElement?.className).toContain('border-dashed');
+  });
+
   it('can override the field label', () => {
     render(
       <PhotoAttach

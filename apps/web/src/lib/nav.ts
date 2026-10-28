@@ -36,10 +36,16 @@ export function isNavItemActive(id: NavId, pathname: string): boolean {
   );
 }
 
-export function appBarForPath(pathname: string): AppBarState {
+export function appBarForPath(pathname: string, search = ''): AppBarState {
   if (pathname === '/home') return { titleKey: 'nav.home', backTo: null };
   if (pathname === '/memories') return { titleKey: 'memory.list.title', backTo: null };
-  if (/^\/memories\/[^/]+/.test(pathname)) return { titleKey: 'memory.list.title', backTo: '/memories' };
+  if (/^\/memories\/[^/]+/.test(pathname)) {
+    const eventId = pathname.split('/')[2] ?? '';
+    if (new URLSearchParams(search).get('compose') === '1') {
+      return { titleKey: 'story.add.title', backTo: `/memories/${eventId}` };
+    }
+    return { titleKey: 'memory.list.title', backTo: '/memories' };
+  }
   if (pathname === '/family') return { titleKey: 'nav.family', backTo: null };
   if (pathname === '/family/invite') return { titleKey: 'invite.title', backTo: '/family' };
   if (pathname === '/family/people/new') return { titleKey: 'person.add.title', backTo: '/family' };

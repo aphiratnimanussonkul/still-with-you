@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { copy, familyItemMeta, homeFocusCardMeta, interpolate, interpolateHeading, personRelationLabel, truncateName } from '@/copy';
+import {
+  copy,
+  familyItemMeta,
+  homeFocusCardMeta,
+  interpolate,
+  interpolateHeading,
+  personRelationLabel,
+  storyCounter,
+  storyToldAt,
+  truncateName,
+} from '@/copy';
 
 describe('copy v0.4', () => {
   it('has no remaining TODO placeholders except draft people-CRUD keys', () => {
@@ -255,6 +265,29 @@ describe('copy v0.4', () => {
     expect(homeFocusCardMeta(12)).toBe('12 ความทรงจำ');
     expect(homeFocusCardMeta(0)).not.toContain('(');
     expect(homeFocusCardMeta(2)).not.toContain('(');
+  });
+
+  it('uses Eddy story counter and told-at copy', () => {
+    expect(copy['story.told_at']).toBe('เล่าเมื่อ {date}');
+    expect(copy['story.counter']).toBe('{n} เรื่องเล่า');
+    expect(copy['story.counter.empty']).toBe('ยังไม่มีใครเล่า');
+    expect(copy['just_now']).toBe('เล่าเมื่อสักครู่');
+    expect(storyCounter(0)).toBe('ยังไม่มีใครเล่า');
+    expect(storyCounter(1)).toBe('1 เรื่องเล่า');
+    expect(storyCounter(3)).toBe('3 เรื่องเล่า');
+    expect(storyToldAt('2026-10-03T00:00:00.000Z', Date.parse('2026-10-28T00:00:00.000Z'))).toBe(
+      'เล่าเมื่อ 3 ต.ค. 2569'
+    );
+    expect(storyToldAt('2026-10-28T00:00:00.000Z', Date.parse('2026-10-28T00:00:30.000Z'))).toBe(
+      'เล่าเมื่อสักครู่'
+    );
+  });
+
+  it('uses dedicated memory unavailable title and body, not error.generic.body as the key', () => {
+    expect(copy['memory.unavailable.title']).toBe('ยังเปิดความทรงจำนี้ไม่ได้');
+    expect(copy['memory.unavailable.body']).toBe(
+      'ขอโทษด้วย ตอนนี้ยังเปิดหน้านี้ไม่ได้ เรื่องเล่าทั้งหมดยังอยู่ครบ ลองอีกครั้งได้เลย'
+    );
   });
 
   it('keeps the full name in page headings', () => {

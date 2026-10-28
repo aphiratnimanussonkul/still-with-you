@@ -76,10 +76,19 @@ describe('AppShell', () => {
     const { unmount } = renderAt('/memories');
     expect(screen.queryByLabelText(copy['a11y.back'])).toBeNull();
     expect(screen.getByRole('heading', { name: copy['memory.list.title'] })).toBeTruthy();
+    expect(document.querySelector('[data-nav-region="bottom"]')).toBeTruthy();
     unmount();
 
     renderAt('/memories/abc');
     expect(screen.getByLabelText(copy['a11y.back']).getAttribute('href')).toBe('/memories');
+    expect(document.querySelector('[data-nav-region="bottom"]')).toBeNull();
+  });
+
+  it('uses the add-story title and back-to-detail on compose', () => {
+    renderAt('/memories/abc?compose=1');
+    expect(screen.getByRole('heading', { name: copy['story.add.title'] })).toBeTruthy();
+    expect(screen.getByLabelText(copy['a11y.back']).getAttribute('href')).toBe('/memories/abc');
+    expect(document.querySelector('[data-nav-region="bottom"]')).toBeNull();
   });
 
   it('uses ฉัน and trash titles', () => {
