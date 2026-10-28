@@ -310,6 +310,8 @@ export const copy = {
   'memory.edit.conflict.body':
     'มีคนแก้ความทรงจำนี้ไปเมื่อกี้ ที่คุณแก้ไว้ยังอยู่ครบ ลองเปิดฉบับล่าสุดดูก่อน แล้วจึงแก้ต่อ',
   'memory.edit.conflict.action': 'เปิดฉบับล่าสุด',
+  'memory.edit.conflict.load_failed':
+    'ขอโทษด้วย ตอนนี้ยังเปิดฉบับล่าสุดไม่ได้ ที่คุณแก้ไว้ยังอยู่ครบ ลองอีกครั้งได้เลย',
   'memory.conflict.changed_fields': 'มีคนแก้{fields}ไปแล้ว ที่คุณแก้ไว้ด้านล่างยังอยู่ครบ',
   'memory.conflict.field.title': 'ชื่อความทรงจำ',
   'memory.conflict.field.date': 'วันที่',

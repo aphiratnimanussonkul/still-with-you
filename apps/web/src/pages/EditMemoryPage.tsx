@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { MemoryEditConflictBanner } from '@/components/MemoryEditConflictBanner';
+import { MemoryUnavailableState } from '@/components/MemoryUnavailableState';
 import { QueryLoading } from '@/components/QueryLoading';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,7 @@ export function EditMemoryPage() {
   const [conflict, setConflict] = useState(false);
   const [changedFields, setChangedFields] = useState<MemoryConflictField[]>([]);
   const [opening, setOpening] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const hydratedFor = useRef<string | null>(null);
 
   useEffect(() => {
@@ -75,10 +77,13 @@ export function EditMemoryPage() {
   const openLatest = async () => {
     if (!baseline) return;
     setOpening(true);
+    setLoadFailed(false);
     try {
       const opened = await openLatestForConflict(eventId, baseline);
       setSaveVersion(opened.saveVersion);
       setChangedFields(opened.changedFields);
+    } catch {
+      setLoadFailed(true);
     } finally {
       setOpening(false);
     }
@@ -87,7 +92,8 @@ export function EditMemoryPage() {
   if (event.isPending) return <QueryLoading />;
   if (event.isError) {
     const status = event.error instanceof ApiClientError ? event.error.status : 0;
-    return <Alert>{status === 404 ? copy['memory.unavailable.body'] : copy['error.generic.body']}</Alert>;
+    if (status === 404) return <MemoryUnavailableState kind="not_found" />;
+    return <Alert>{copy['error.generic.body']}</Alert>;
   }
   if (!event.data || saveVersion === undefined) return <QueryLoading />;
 
@@ -113,6 +119,7 @@ export function EditMemoryPage() {
               void openLatest();
             }}
             opening={opening}
+            loadFailed={loadFailed}
           />
         ) : save.isError ? (
           <Alert>{messageForError(save.error)}</Alert>
