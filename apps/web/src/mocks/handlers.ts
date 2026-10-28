@@ -27,7 +27,9 @@ import {
   type NotificationResponse,
   updateConsentSchema,
   updateContributionSchema,
+  updateEventSchema,
   updatePersonSchema,
+  eventEditConflictErrorSchema,
   ErrorCode,
 } from '@still-with-you/contracts';
 import { http, HttpResponse, passthrough } from 'msw';
@@ -61,6 +63,7 @@ import {
   personInviteSchema,
 } from '@/lib/family-graph';
 import { deathDatePrecisionOrNull } from '@/lib/person-years';
+import { mockPatchEvent } from '@/mocks/event-patch';
 import { HOME_QUESTION_TEMPLATES, fillQuestionText, homeQuestionId } from '@/mocks/home-questions';
 
 const api = env.apiUrl.replace(/\/$/, '');
@@ -495,6 +498,31 @@ export const handlers = [
       );
     }
     return HttpResponse.json(eventResponseSchema.parse(event));
+  }),
+
+  http.patch(`${api}/v1/events/:id`, async ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const event = events.find((item) => item.id === params.id);
+    if (!event) {
+      return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Event not found' } }, { status: 404 });
+    }
+    if (event.status !== 'active') {
+      return HttpResponse.json(
+        { error: { code: ErrorCode.EVENT_NOT_ACTIVE, message: 'Event must be active to edit' } },
+        { status: 409 }
+      );
+    }
+    const parsed = updateEventSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return HttpResponse.json({ error: { code: 'INVALID_INPUT', message: 'invalid event' } }, { status: 400 });
+    }
+    const result = mockPatchEvent(event, parsed.data);
+    if (!result.ok) {
+      return jsonContract(eventEditConflictErrorSchema, result.body, { status: result.status });
+    }
+    Object.assign(event, result.event);
+    return jsonContract(eventResponseSchema, event);
   }),
 
   http.get(`${api}/v1/families/:fid/home`, ({ request, params }) => {

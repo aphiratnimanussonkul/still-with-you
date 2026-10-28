@@ -20,6 +20,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { MePage } from '@/pages/MePage';
 import { CreateMemoryPage } from '@/pages/CreateMemoryPage';
 import { MemoriesPage } from '@/pages/MemoriesPage';
+import { EditMemoryPage } from '@/pages/EditMemoryPage';
 import { MemoryDetailPage } from '@/pages/MemoryDetailPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { RequireSession } from '@/pages/RequireSession';
@@ -64,6 +65,7 @@ export function App() {
             <Route path="/home" element={<HomePage />} />
             <Route path="/memories" element={<MemoriesPage />} />
             <Route path="/memories/new" element={<CreateMemoryPage />} />
+            <Route path="/memories/:eventId/edit" element={<EditMemoryPage />} />
             <Route path="/memories/:eventId" element={<MemoryDetailPage />} />
             <Route path="/family" element={<FamilyPage />} />
             <Route path="/family/people/new" element={<AddPersonPage />} />

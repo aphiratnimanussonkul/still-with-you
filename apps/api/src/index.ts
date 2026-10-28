@@ -1,4 +1,4 @@
-import Fastify from 'fastify';
+import Fastify, { type FastifyServerOptions } from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { AppError, ErrorCode, errorMessages } from '@still-with-you/contracts';
@@ -7,24 +7,30 @@ import authPlugin from './plugins/auth.js';
 import errorHandlerPlugin from './plugins/error-handler.js';
 import routes from './routes/index.js';
 
+export type BuildServerOptions = {
+  logger?: FastifyServerOptions['logger'];
+};
+
 /**
  * Create and configure Fastify server
  */
-async function buildServer() {
+async function buildServer(options: BuildServerOptions = {}) {
   const fastify = Fastify({
-    logger: {
-      level: env.NODE_ENV === 'production' ? 'info' : 'debug',
-      transport:
-        env.NODE_ENV === 'development'
-          ? {
-              target: 'pino-pretty',
-              options: {
-                translateTime: 'HH:MM:ss Z',
-                ignore: 'pid,hostname',
-              },
-            }
-          : undefined,
-    },
+    logger:
+      options.logger ??
+      {
+        level: env.NODE_ENV === 'production' ? 'info' : 'debug',
+        transport:
+          env.NODE_ENV === 'development'
+            ? {
+                target: 'pino-pretty',
+                options: {
+                  translateTime: 'HH:MM:ss Z',
+                  ignore: 'pid,hostname',
+                },
+              }
+            : undefined,
+      },
   });
 
   // Register CORS (no credentials - using Bearer tokens only)

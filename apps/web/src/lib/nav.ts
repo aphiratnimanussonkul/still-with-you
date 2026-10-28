@@ -40,6 +40,10 @@ export function appBarForPath(pathname: string, search = ''): AppBarState {
   if (pathname === '/home') return { titleKey: 'nav.home', backTo: null };
   if (pathname === '/memories') return { titleKey: 'memory.list.title', backTo: null };
   if (pathname === '/memories/new') return { titleKey: 'memory.create.title', backTo: '/memories' };
+  if (/^\/memories\/[^/]+\/edit$/.test(pathname)) {
+    const eventId = pathname.split('/')[2] ?? '';
+    return { titleKey: 'memory.edit.title', backTo: `/memories/${eventId}` };
+  }
   if (/^\/memories\/[^/]+/.test(pathname)) {
     const eventId = pathname.split('/')[2] ?? '';
     if (new URLSearchParams(search).get('compose') === '1') {

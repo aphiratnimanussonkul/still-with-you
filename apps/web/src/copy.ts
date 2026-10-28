@@ -315,6 +315,16 @@ export const copy = {
   'memory.filter.all': 'ทั้งหมด',
   'memory.filter.paused': 'พักไว้',
   'memory.edit.title': 'แก้ไขความทรงจำ',
+  'memory.edit.conflict.body':
+    'มีคนแก้ความทรงจำนี้ไปเมื่อกี้ ที่คุณแก้ไว้ยังอยู่ครบ ลองเปิดฉบับล่าสุดดูก่อน แล้วจึงแก้ต่อ',
+  'memory.edit.conflict.action': 'เปิดฉบับล่าสุด',
+  'memory.edit.conflict.load_failed':
+    'ขอโทษด้วย ตอนนี้ยังเปิดฉบับล่าสุดไม่ได้ ที่คุณแก้ไว้ยังอยู่ครบ ลองอีกครั้งได้เลย',
+  'memory.conflict.changed_fields': 'มีคนแก้{fields}ไปแล้ว ที่คุณแก้ไว้ด้านล่างยังอยู่ครบ',
+  'memory.conflict.field.title': 'ชื่อความทรงจำ',
+  'memory.conflict.field.date': 'วันที่',
+  'memory.conflict.field.people': 'คนในความทรงจำ',
+  'memory.conflict.field.cover': 'รูปปก',
   'memory.detail.meta': '{ชื่อคนเริ่ม} เริ่มความทรงจำนี้ · {ปี/วันที่}',
   'memory.action.edit': 'แก้ข้อมูลความทรงจำ',
   'memory.unavailable.title': 'หาความทรงจำนี้ไม่เจอ',
