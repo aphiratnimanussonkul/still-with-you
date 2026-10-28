@@ -27,6 +27,10 @@ describe('appBarForPath', () => {
   });
 
   it('uses a back link on memory detail, add person, and trash', () => {
+    expect(appBarForPath('/memories/abc/edit')).toEqual({
+      titleKey: 'memory.edit.title',
+      backTo: '/memories/abc',
+    });
     expect(appBarForPath('/memories/abc')).toEqual({
       titleKey: 'memory.list.title',
       backTo: '/memories',
