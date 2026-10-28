@@ -1,4 +1,4 @@
-import { buildServer } from '../index.js';
+import { buildServer, type BuildServerOptions } from '../index.js';
 import { db, accounts, families, familyMembers, sql } from '../lib/db/index.js';
 import { SignJWT } from 'jose';
 import { env } from '../lib/env.js';
@@ -7,8 +7,8 @@ import { env } from '../lib/env.js';
  * Test helpers
  */
 
-export async function createTestServer() {
-  const server = await buildServer();
+export async function createTestServer(options: BuildServerOptions = {}) {
+  const server = await buildServer(options);
   return server;
 }
 
