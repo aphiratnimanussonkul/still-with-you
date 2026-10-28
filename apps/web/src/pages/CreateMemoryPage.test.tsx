@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Link, RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PhotoAttachState } from '@/components/PhotoAttach';
-import { copy, interpolate } from '@/copy';
+import { copy, interpolate, optionalFieldLabel } from '@/copy';
 import { ApiClientError } from '@/lib/api-errors';
 import { mockEvents, mockFamilies, mockPeople } from '@/mocks/data';
 
@@ -99,7 +99,8 @@ describe('CreateMemoryPage', () => {
     expect(screen.getByLabelText(copy['memory.date.month'])).toBeTruthy();
     expect(screen.getByLabelText(copy['memory.date.day'])).toBeTruthy();
     expect(screen.getByText(copy['memory.date_placeholder'])).toBeTruthy();
-    expect(screen.getByText(copy['memory.people_label'])).toBeTruthy();
+    expect(screen.getByText(optionalFieldLabel(copy['memory.date_label']))).toBeTruthy();
+    expect(screen.getByText(optionalFieldLabel(copy['memory.people_label']))).toBeTruthy();
     expect(screen.getByRole('button', { name: copy['home.focus.invite.action'] })).toBeTruthy();
     expect(screen.getByLabelText(copy['story.label.required'])).toBeTruthy();
     expect(screen.getByText(interpolate(copy['person.bio.counter'], { count: '0' }))).toBeTruthy();
@@ -247,6 +248,17 @@ describe('CreateMemoryPage', () => {
         .getByRole('link', { name: interpolate(copy['memory.people.search.add'], { name: 'ป้าแดง' }) })
         .getAttribute('href')
     ).toBe('/family/people/new');
+  });
+
+  it('uses add_empty when the people search query is blank', async () => {
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: [], relationships: [] });
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: copy['home.focus.invite.action'] }));
+    expect(await screen.findByText(copy['memory.people.search.empty'])).toBeTruthy();
+    expect(screen.getByRole('link', { name: copy['memory.people.search.add_empty'] }).getAttribute('href')).toBe(
+      '/family/people/new'
+    );
+    expect(screen.queryByText(/เป็นคนใหม่/)).toBeNull();
   });
 
   it('confirms before discarding an unsaved create', async () => {

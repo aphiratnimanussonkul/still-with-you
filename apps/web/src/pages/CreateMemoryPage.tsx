@@ -32,7 +32,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
-import { copy, interpolate } from '@/copy';
+import { copy, interpolate, optionalFieldLabel } from '@/copy';
 import { useSelectedFamily } from '@/hooks/use-selected-family';
 import { api } from '@/lib/api-client';
 import { ApiClientError, fieldForError, messageForError } from '@/lib/api-errors';
@@ -271,7 +271,7 @@ export function CreateMemoryPage() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <p className="text-label font-medium">{copy['memory.date_label']}</p>
+            <p className="text-label font-medium">{optionalFieldLabel(copy['memory.date_label'])}</p>
             <div className="flex gap-2">
               <select
                 aria-label={copy['memory.date.year']}
@@ -317,7 +317,7 @@ export function CreateMemoryPage() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <p className="text-label font-medium">{copy['memory.people_label']}</p>
+            <p className="text-label font-medium">{optionalFieldLabel(copy['memory.people_label'])}</p>
             <div className="flex flex-wrap items-center gap-2">
               {selectedPeople.map((person) => (
                 <PersonChip
@@ -411,14 +411,14 @@ export function CreateMemoryPage() {
             {people.isSuccess && filteredPeople.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-6 text-center">
                 <p className="text-body text-muted-foreground">{copy['memory.people.search.empty']}</p>
-                {peopleQuery.trim() ? (
-                  <Button variant="outline" asChild>
-                    <Link to="/family/people/new">
-                      <Icon as={PlusIcon} size={16} />
-                      {interpolate(copy['memory.people.search.add'], { name: peopleQuery.trim() })}
-                    </Link>
-                  </Button>
-                ) : null}
+                <Button variant="outline" asChild>
+                  <Link to="/family/people/new">
+                    <Icon as={PlusIcon} size={16} />
+                    {peopleQuery.trim()
+                      ? interpolate(copy['memory.people.search.add'], { name: peopleQuery.trim() })
+                      : copy['memory.people.search.add_empty']}
+                  </Link>
+                </Button>
               </div>
             ) : null}
             {people.isSuccess && filteredPeople.length > 0 ? (
