@@ -12,12 +12,33 @@ export function MemoryEditConflictBanner({
   changedFields,
   onOpenLatest,
   opening = false,
+  loadFailed = false,
 }: {
   changedFields: readonly MemoryConflictField[];
   onOpenLatest: () => void;
   opening?: boolean;
+  loadFailed?: boolean;
 }) {
   const changed = changedFieldsMessage(changedFields);
+
+  if (loadFailed) {
+    return (
+      <div className="flex w-full flex-col items-start gap-5">
+        <Alert>{copy['memory.edit.conflict.load_failed']}</Alert>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9 min-h-9 w-fit gap-1 px-3"
+          onClick={onOpenLatest}
+          disabled={opening}
+          aria-busy={opening}
+        >
+          {copy['common.retry']}
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex w-full flex-col items-start gap-5">

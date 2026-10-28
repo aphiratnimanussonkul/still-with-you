@@ -30,6 +30,7 @@ function renderPage() {
     [
       { path: '/memories/:eventId/edit', element: <EditMemoryPage /> },
       { path: '/memories/:eventId', element: <p>memory-detail</p> },
+      { path: '/home', element: <p>home-page</p> },
     ],
     { initialEntries: [`/memories/${loaded.id}/edit`] }
   );
@@ -109,5 +110,63 @@ describe('EditMemoryPage conflict', () => {
       expect(vi.mocked(api.getEvent).mock.calls.length).toBeGreaterThan(1);
     });
     expect((title as HTMLInputElement).value).toBe('ฉันพิมพ์ไว้แล้ว');
+  });
+
+  it('keeps the draft and shows load_failed plus retry when opening latest fails', async () => {
+    vi.mocked(api.updateEvent).mockRejectedValueOnce(
+      new ApiClientError(ErrorCode.EVENT_EDIT_CONFLICT, 'stale', 409, undefined, { current_version: 2 })
+    );
+    vi.mocked(api.getEvent)
+      .mockResolvedValueOnce(loaded)
+      .mockRejectedValueOnce(new ApiClientError('INTERNAL_ERROR', 'boom', 500))
+      .mockResolvedValueOnce({
+        ...loaded,
+        title: 'แก้จากที่อื่น',
+        occurred_from: '2019-01-01',
+        version: 2,
+      });
+
+    renderPage();
+    const title = await screen.findByLabelText(copy['memory.title_label']);
+    fireEvent.change(title, { target: { value: 'ฉันพิมพ์ไว้แล้ว' } });
+    fireEvent.click(screen.getByRole('button', { name: copy['story.save'] }));
+    expect((await screen.findByRole('alert')).textContent).toBe(copy['memory.edit.conflict.body']);
+
+    fireEvent.click(screen.getByRole('button', { name: copy['memory.edit.conflict.action'] }));
+    expect(await screen.findByText(copy['memory.edit.conflict.load_failed'])).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toBe(copy['memory.edit.conflict.load_failed']);
+    expect((title as HTMLInputElement).value).toBe('ฉันพิมพ์ไว้แล้ว');
+    expect(screen.queryByText(copy['error.generic.body'])).toBeNull();
+    expect(screen.getByRole('button', { name: copy['common.retry'] })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: copy['common.retry'] }));
+    expect(
+      await screen.findByText('มีคนแก้ชื่อความทรงจำและวันที่ไปแล้ว ที่คุณแก้ไว้ด้านล่างยังอยู่ครบ')
+    ).toBeTruthy();
+    expect((title as HTMLInputElement).value).toBe('ฉันพิมพ์ไว้แล้ว');
+    expect(screen.queryByText(copy['memory.edit.conflict.load_failed'])).toBeNull();
+  });
+});
+
+describe('EditMemoryPage unavailable', () => {
+  beforeEach(() => {
+    vi.mocked(api.getEvent).mockReset();
+    vi.mocked(api.updateEvent).mockReset();
+  });
+
+  it('shows MemoryUnavailableState title and home link on 404', async () => {
+    vi.mocked(api.getEvent).mockRejectedValue(new ApiClientError('NOT_FOUND', 'gone', 404));
+    renderPage();
+    expect(
+      await screen.findByRole('heading', { name: copy['memory.unavailable.title'] })
+    ).toBeTruthy();
+    expect(screen.getByText(copy['memory.unavailable.body'])).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: copy['memory.unavailable.home'] }).getAttribute('href')
+    ).toBe('/home');
+    expect(screen.queryByRole('button', { name: copy['common.retry'] })).toBeNull();
+    expect(screen.queryByLabelText(copy['memory.title_label'])).toBeNull();
+    fireEvent.click(screen.getByRole('link', { name: copy['memory.unavailable.home'] }));
+    expect(await screen.findByText('home-page')).toBeTruthy();
   });
 });
