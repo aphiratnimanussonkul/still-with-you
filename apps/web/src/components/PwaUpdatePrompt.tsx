@@ -4,7 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { copy } from '@/copy';
 import { env } from '@/lib/env';
-import { PWA_UPDATE_CHECK_MS, reloadForAppUpdate, setPwaUpdateHandler } from '@/lib/form-draft';
+import {
+  PWA_UPDATE_CHECK_MS,
+  reloadForAppUpdate,
+  setPwaNeedRefresh,
+  setPwaRegistration,
+  setPwaUpdateHandler,
+} from '@/lib/form-draft';
 
 export function PwaUpdatePrompt() {
   const [needRefresh, setNeedRefresh] = useState(false);
@@ -25,10 +31,13 @@ export function PwaUpdatePrompt() {
           registerSW({
             immediate: true,
             onNeedRefresh() {
+              setPwaNeedRefresh(true);
               setNeedRefresh(true);
             },
             onRegisteredSW(_url, registration) {
-              if (!registration || cancelled) return;
+              if (cancelled) return;
+              if (registration) setPwaRegistration(registration);
+              if (!registration) return;
               intervalId = window.setInterval(() => {
                 void registration.update();
               }, PWA_UPDATE_CHECK_MS);

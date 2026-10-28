@@ -8,6 +8,8 @@ export type MemoryCreateDraft = { title: string; story: string };
 type PwaUpdateFn = (reloadPage?: boolean) => Promise<void>;
 
 let pwaUpdateFn: PwaUpdateFn | null = null;
+let pwaNeedRefresh = false;
+let pwaRegistration: ServiceWorkerRegistration | undefined;
 
 export function memoryEditDraftKey(eventId: string): string {
   return `swy:draft:memory-edit:${eventId}`;
@@ -20,12 +22,31 @@ export function flushPwaDrafts(): void {
 /** Register the vite-pwa `updateServiceWorker` so เปิดใหม่ can skipWaiting + reload. */
 export function setPwaUpdateHandler(fn: PwaUpdateFn | null): void {
   pwaUpdateFn = fn;
+  if (!fn) {
+    pwaNeedRefresh = false;
+    pwaRegistration = undefined;
+  }
 }
 
-/** Persist in-progress drafts, then skipWaiting+reload when a SW is waiting. */
+export function setPwaNeedRefresh(needRefresh: boolean): void {
+  pwaNeedRefresh = needRefresh;
+}
+
+export function setPwaRegistration(registration?: ServiceWorkerRegistration): void {
+  pwaRegistration = registration;
+}
+
+function hasWaitingServiceWorker(): boolean {
+  return pwaNeedRefresh || pwaRegistration?.waiting != null;
+}
+
+/**
+ * Persist in-progress drafts, then skipWaiting+reload when a SW is waiting.
+ * A 400 `field: version` can happen with no waiting worker — fall back to location.reload().
+ */
 export function reloadForAppUpdate(): void {
   flushPwaDrafts();
-  if (pwaUpdateFn) {
+  if (pwaUpdateFn && hasWaitingServiceWorker()) {
     void pwaUpdateFn(true);
     return;
   }

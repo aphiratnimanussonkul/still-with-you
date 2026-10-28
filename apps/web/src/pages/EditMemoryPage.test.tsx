@@ -61,6 +61,7 @@ describe('EditMemoryPage conflict', () => {
 
   afterEach(() => {
     setPwaUpdateHandler(null);
+    vi.unstubAllGlobals();
   });
 
   it('keeps in-progress title on 409 and only fetches latest after tapping เปิดฉบับล่าสุด', async () => {
@@ -143,6 +144,8 @@ describe('EditMemoryPage conflict', () => {
     'shows app.update copy on 400 field version (%s), not generic input error',
     async (code) => {
       const update = vi.fn(async () => undefined);
+      const reload = vi.fn();
+      vi.stubGlobal('location', { reload });
       setPwaUpdateHandler(update);
       vi.mocked(api.updateEvent).mockRejectedValueOnce(
         new ApiClientError(code, 'version is required', 400, 'version')
@@ -159,7 +162,8 @@ describe('EditMemoryPage conflict', () => {
 
       fireEvent.click(screen.getByRole('button', { name: copy['app.update.action'] }));
       expect(readDraft(memoryEditDraftKey(loaded.id))).toEqual({ title: 'ฉันพิมพ์ไว้แล้ว' });
-      expect(update).toHaveBeenCalledWith(true);
+      expect(update).not.toHaveBeenCalled();
+      expect(reload).toHaveBeenCalledTimes(1);
     }
   );
 
