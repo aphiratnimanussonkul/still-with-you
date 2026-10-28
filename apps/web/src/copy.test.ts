@@ -284,10 +284,11 @@ describe('copy v0.4', () => {
   });
 
   it('uses dedicated memory unavailable title and body, not error.generic.body as the key', () => {
-    expect(copy['memory.unavailable.title']).toBe('ยังเปิดความทรงจำนี้ไม่ได้');
+    expect(copy['memory.unavailable.title']).toBe('หาความทรงจำนี้ไม่เจอ');
     expect(copy['memory.unavailable.body']).toBe(
-      'ขอโทษด้วย ตอนนี้ยังเปิดหน้านี้ไม่ได้ เรื่องเล่าทั้งหมดยังอยู่ครบ ลองอีกครั้งได้เลย'
+      'ความทรงจำนี้อาจพักไว้อยู่ หรือไม่ได้อยู่ที่นี่แล้ว ลองกลับไปดูที่หน้าแรกก่อน'
     );
+    expect(copy['memory.unavailable.home']).toBe('กลับหน้าแรก');
   });
 
   it('keeps the full name in page headings', () => {

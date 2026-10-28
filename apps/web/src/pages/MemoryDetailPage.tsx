@@ -52,7 +52,9 @@ function MemoryUnavailableState({
       )}
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button asChild>
-          <Link to="/home">{copy['common.back_home']}</Link>
+          <Link to="/home">
+            {kind === 'not_found' ? copy['memory.unavailable.home'] : copy['common.back_home']}
+          </Link>
         </Button>
         {kind === 'error' && onRetry ? (
           <Button type="button" variant="secondary" onClick={onRetry}>

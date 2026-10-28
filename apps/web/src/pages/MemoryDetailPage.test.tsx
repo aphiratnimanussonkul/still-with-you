@@ -110,13 +110,13 @@ describe('MemoryDetailPage stories isolation', () => {
       await screen.findByRole('heading', { name: copy['memory.unavailable.title'] })
     ).toBeTruthy();
     expect(screen.getByText(copy['memory.unavailable.body'])).toBeTruthy();
-    expect(screen.getByRole('link', { name: copy['common.back_home'] }).getAttribute('href')).toBe(
-      '/home'
-    );
+    expect(
+      screen.getByRole('link', { name: copy['memory.unavailable.home'] }).getAttribute('href')
+    ).toBe('/home');
     expect(screen.queryByRole('button', { name: copy['common.retry'] })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'ทริปทะเลกับคุณยาย' })).toBeNull();
     expect(screen.queryByText(copy['page.not_found.title'])).toBeNull();
-    fireEvent.click(screen.getByRole('link', { name: copy['common.back_home'] }));
+    fireEvent.click(screen.getByRole('link', { name: copy['memory.unavailable.home'] }));
     expect(await screen.findByText('home-page')).toBeTruthy();
   });
 
