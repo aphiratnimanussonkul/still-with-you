@@ -364,7 +364,7 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
         method: 'PATCH',
         url: `/v1/events/${event.id}`,
         headers: { authorization: `Bearer ${stewardToken}` },
-        payload: { title: 'หัวข้อใหม่' },
+        payload: { title: 'หัวข้อใหม่', version: event.version },
       });
       expect(patched.statusCode).toBe(200);
       expect(JSON.parse(patched.body).title).toBe('หัวข้อใหม่');
@@ -440,7 +440,7 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
         method: 'PATCH',
         url: `/v1/events/${event.id}`,
         headers: { authorization: `Bearer ${stewardToken}` },
-        payload: { person_ids: [personB.id] },
+        payload: { person_ids: [personB.id], version: event.version },
       });
       expect(patched.statusCode).toBe(200);
 
@@ -466,7 +466,7 @@ describe('Event steward, archive, and contributions (AC-19..AC-27)', () => {
         method: 'PATCH',
         url: `/v1/events/${event.id}`,
         headers: { authorization: `Bearer ${stewardToken}` },
-        payload: { person_ids: [outsider.id] },
+        payload: { person_ids: [outsider.id], version: event.version },
       });
       expect(patched.statusCode).toBe(400);
       const body = JSON.parse(patched.body);

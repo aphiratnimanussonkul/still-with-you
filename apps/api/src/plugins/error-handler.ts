@@ -87,6 +87,15 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
           },
         });
       }
+      if (field === 'version') {
+        return reply.status(400).send({
+          error: {
+            code: ErrorCode.VALIDATION_ERROR,
+            message: errorMessages[ErrorCode.VALIDATION_ERROR],
+            field: 'version',
+          },
+        });
+      }
       return reply.status(400).send({
         error: {
           code: ErrorCode.INVALID_INPUT,

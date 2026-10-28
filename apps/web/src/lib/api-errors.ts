@@ -47,6 +47,7 @@ const CODE_COPY: Partial<Record<string, string>> = {
   [ErrorCode.SOURCE_NOT_DELETED]: copy['error.SOURCE_NOT_DELETED'],
   [ErrorCode.VERSION_CONFLICT]: copy['error.VERSION_CONFLICT'],
   [ErrorCode.EVENT_EDIT_CONFLICT]: copy['error.EVENT_EDIT_CONFLICT'],
+  [ErrorCode.VALIDATION_ERROR]: copy['error.INVALID_INPUT'],
   [ErrorCode.RATE_LIMITED]: copy['error.RATE_LIMITED'],
   [ErrorCode.NAME_REQUIRED]: copy['error.NAME_REQUIRED'],
 };

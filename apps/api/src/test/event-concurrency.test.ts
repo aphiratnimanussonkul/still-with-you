@@ -71,7 +71,7 @@ describe('PATCH /v1/events/:id optimistic concurrency', () => {
     await cleanupTestData();
   });
 
-  it('returns version 1 on GET/create and increments when PATCH omits version', async () => {
+  it('returns version 1 on GET/create', async () => {
     const created = await createEvent();
     expect(created.version).toBe(1);
 
@@ -81,12 +81,24 @@ describe('PATCH /v1/events/:id optimistic concurrency', () => {
       headers: { authorization: `Bearer ${creatorToken}` },
     });
     expect(eventResponseSchema.parse(JSON.parse(got.body)).version).toBe(1);
+  });
 
+  it('returns 400 VALIDATION_ERROR with field version when PATCH omits version', async () => {
+    const created = await createEvent();
     const patched = await patchEvent(created.id, { title: 'หัวข้อใหม่' });
-    expect(patched.statusCode).toBe(200);
-    const body = eventResponseSchema.parse(JSON.parse(patched.body));
-    expect(body.title).toBe('หัวข้อใหม่');
-    expect(body.version).toBe(2);
+    expect(patched.statusCode).toBe(400);
+    expect(JSON.parse(patched.body).error).toEqual({
+      code: 'VALIDATION_ERROR',
+      message: 'version is required',
+      field: 'version',
+    });
+    const still = await server.inject({
+      method: 'GET',
+      url: `/v1/events/${created.id}`,
+      headers: { authorization: `Bearer ${creatorToken}` },
+    });
+    expect(eventResponseSchema.parse(JSON.parse(still.body)).title).toBe('วันเกิดยาย');
+    expect(eventResponseSchema.parse(JSON.parse(still.body)).version).toBe(1);
   });
 
   it('emits structured event_patch_missing_version warn when PATCH omits version', async () => {

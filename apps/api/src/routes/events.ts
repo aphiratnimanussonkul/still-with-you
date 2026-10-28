@@ -140,11 +140,6 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const updated = await db.transaction(async (tx) => {
-      const match =
-        body.version === undefined
-          ? eq(events.id, event.id)
-          : and(eq(events.id, event.id), eq(events.version, body.version));
-
       const [row] = await tx
         .update(events)
         .set({
@@ -157,7 +152,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           updatedAt: new Date(),
           version: sql`${events.version} + 1`,
         })
-        .where(match)
+        .where(and(eq(events.id, event.id), eq(events.version, body.version)))
         .returning();
 
       if (!row) {
