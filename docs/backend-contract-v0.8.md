@@ -1,7 +1,7 @@
 # Still With You — Backend Contract v0.8
 
 **Updated:** Oct 22, 2026  
-**Status:** Canonical spec.  
+**Status:** Superseded by [v0.9](./backend-contract-v0.9.md).  
 **Supersedes:** [v0.7](./backend-contract-v0.7.md). **[v0.6](./backend-contract-v0.6.md) is cancelled** (never deployed; do not use `/quick-question` or `/persons/{id}/answers`).  
 **Changes from v0.7:** family-tree people profile (gender, birth date + precision, computed age, bio, avatar); `person_relationships`; person PATCH/DELETE; steward person invites; GET people returns `{ people, relationships }`; public invite preview; invite create `url`; people events list; in-app notifications (`contribution_added`, `invite_accepted`)  
 **Requirements v1.2 (AC-19..AC-27):** family steward, `archived_at` / `deletable_at`, 7-day permanent delete, `canManageEvent`, owner-only stories  

@@ -1,6 +1,6 @@
 /**
  * Error codes for Still With You API
- * Based on backend-contract-v0.8.md
+ * Based on backend-contract-v0.9.md
  */
 
 export const ErrorCode = {
@@ -46,6 +46,7 @@ export const ErrorCode = {
 
   EVENT_NOT_ACTIVE: 'EVENT_NOT_ACTIVE',
   EVENT_NOT_ARCHIVED: 'EVENT_NOT_ARCHIVED',
+  EVENT_EDIT_CONFLICT: 'EVENT_EDIT_CONFLICT',
   SOURCE_ARCHIVED: 'SOURCE_ARCHIVED',
   SOURCE_NOT_DELETED: 'SOURCE_NOT_DELETED',
   VERSION_CONFLICT: 'VERSION_CONFLICT',
@@ -124,6 +125,7 @@ export const errorMessages: Record<ErrorCode, string> = {
   NOT_FOUND: 'Resource not found',
   EVENT_NOT_ACTIVE: 'Event must be active for this operation',
   EVENT_NOT_ARCHIVED: 'Event must be archived before deletion',
+  EVENT_EDIT_CONFLICT: 'Event was modified by another edit',
   SOURCE_ARCHIVED: 'Cannot restore contribution when origin event is archived',
   SOURCE_NOT_DELETED: 'Cannot create event from contributions whose origin event is not deleted',
   VERSION_CONFLICT: 'Resource was modified by another user',
