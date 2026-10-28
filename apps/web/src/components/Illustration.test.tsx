@@ -15,7 +15,7 @@ describe('Illustration', () => {
   });
 
   it('accepts every typed illustration name', () => {
-    expect(ILLUSTRATION_NAMES).toHaveLength(19);
+    expect(ILLUSTRATION_NAMES).toHaveLength(20);
     for (const name of ILLUSTRATION_NAMES) {
       const { container, unmount } = render(<Illustration name={name} float={false} />);
       const img = container.querySelector('img');

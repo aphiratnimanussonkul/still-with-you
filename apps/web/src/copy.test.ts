@@ -7,6 +7,9 @@ describe('copy v0.4', () => {
       .filter(([, value]) => value.startsWith('TODO:'))
       .map(([key]) => key);
     expect(leftovers).toEqual([
+      'home.recent.title',
+      'home.focus.card.meta',
+      'home.greeting',
       'person.family_name.label',
       'person.gender.label',
       'person.birth.label',

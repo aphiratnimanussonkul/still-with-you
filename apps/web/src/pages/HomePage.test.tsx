@@ -102,7 +102,7 @@ const homePayload = {
     },
     text: 'ยายสมศรี เกิดที่ไหน',
   },
-  recent_memories: [mockEvents[0]],
+  recent_memories: [{ ...mockEvents[0], cover_url: 'https://cdn.example.com/trip.jpg' }],
 };
 
 describe('HomePage', () => {
@@ -114,7 +114,9 @@ describe('HomePage', () => {
 
   it('shows greeting, focus photos, question, recent memories, and start-new-memory', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
-    vi.mocked(api.listEvents).mockResolvedValue({ events: mockEvents });
+    vi.mocked(api.listEvents).mockResolvedValue({
+      events: [{ ...mockEvents[0], cover_url: 'https://cdn.example.com/trip.jpg' }, mockEvents[1]],
+    });
     vi.mocked(homeApi.getHome).mockResolvedValue(homePayload);
 
     renderPage();
@@ -124,7 +126,7 @@ describe('HomePage', () => {
     expect(await screen.findByText(copy['home.focus.title'])).toBeTruthy();
     expect(screen.getByText(copy['home.focus.see_all'])).toBeTruthy();
     expect(screen.getByAltText('ยายสมศรี').getAttribute('src')).toBe('https://cdn.example.com/yay.jpg');
-    expect(screen.getByAltText('ปู่สมชาย')).toBeTruthy();
+    expect(screen.getByText('ป')).toBeTruthy();
     expect(screen.getByText(interpolate(copy['person.memories.title'], { จำนวน: '2' }))).toBeTruthy();
     expect(screen.getByText(copy['home.question.title'])).toBeTruthy();
     expect(screen.getByLabelText('ยายสมศรี เกิดที่ไหน')).toBeTruthy();
@@ -132,6 +134,10 @@ describe('HomePage', () => {
     expect(screen.getByRole('button', { name: copy['home.question.skip'] })).toBeTruthy();
     expect(screen.getByRole('link', { name: copy['memory.create.action'] })).toBeTruthy();
     expect(screen.getByText('ทริปทะเลกับคุณยาย')).toBeTruthy();
+    const cover = screen.getByAltText('ทริปทะเลกับคุณยาย');
+    expect(cover.getAttribute('src')).toBe('https://cdn.example.com/trip.jpg');
+    expect(cover.getAttribute('width')).toBe('128');
+    expect(cover.getAttribute('height')).toBe('128');
     expect(screen.getByLabelText(copy['family.switcher'])).toBeTruthy();
   });
 

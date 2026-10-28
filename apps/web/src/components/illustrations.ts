@@ -3,6 +3,7 @@ import familyHome from '@/assets/illustrations/family-home.webp';
 import familyMembers from '@/assets/illustrations/family-members.webp';
 import familyTree from '@/assets/illustrations/family-tree.webp';
 import invitation from '@/assets/illustrations/invitation.webp';
+import loginFamilyTree from '@/assets/illustrations/login-family-tree.png';
 import loadingPhotos from '@/assets/illustrations/loading-photos.webp';
 import loading from '@/assets/illustrations/loading.webp';
 import memoryArchived from '@/assets/illustrations/memory-archived.webp';
@@ -24,6 +25,7 @@ export const illustrationSrc = {
   'family-members': familyMembers,
   'family-tree': familyTree,
   invitation,
+  'login-family-tree': loginFamilyTree,
   'loading-photos': loadingPhotos,
   loading,
   'memory-archived': memoryArchived,
