@@ -99,14 +99,17 @@ describe('MemoryDetailPage stories isolation', () => {
     expect(screen.queryByText(copy['error.INTERNAL_ERROR'])).toBeNull();
   });
 
-  it('shows the generic unavailable state when the memory is 404', async () => {
+  it('shows the unavailable title and body when the memory is 404', async () => {
     vi.mocked(api.getEvent).mockRejectedValue(new ApiClientError('NOT_FOUND', 'gone', 404));
     vi.mocked(familyGraph.listContributions).mockRejectedValue(
       new ApiClientError('NOT_FOUND', 'gone', 404)
     );
 
     renderPage();
-    expect(await screen.findByText(copy['error.generic.body'])).toBeTruthy();
+    expect(
+      await screen.findByRole('heading', { name: copy['memory.unavailable.title'] })
+    ).toBeTruthy();
+    expect(screen.getByText(copy['memory.unavailable.body'])).toBeTruthy();
     expect(screen.getByRole('link', { name: copy['common.back_home'] }).getAttribute('href')).toBe(
       '/home'
     );
@@ -117,7 +120,7 @@ describe('MemoryDetailPage stories isolation', () => {
     expect(await screen.findByText('home-page')).toBeTruthy();
   });
 
-  it('shows retry on a generic memory load error, not the 404 home-only state', async () => {
+  it('shows retry and error.generic.body on a generic memory load error', async () => {
     vi.mocked(api.getEvent).mockRejectedValue(new ApiClientError('INTERNAL_ERROR', 'boom', 500));
     vi.mocked(familyGraph.listContributions).mockRejectedValue(
       new ApiClientError('INTERNAL_ERROR', 'boom', 500)
@@ -127,6 +130,7 @@ describe('MemoryDetailPage stories isolation', () => {
     expect(await screen.findByText(copy['error.generic.body'])).toBeTruthy();
     expect(screen.getByRole('button', { name: copy['common.retry'] })).toBeTruthy();
     expect(screen.getByRole('link', { name: copy['common.back_home'] })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: copy['memory.unavailable.title'] })).toBeNull();
     expect(screen.queryByText(copy['error.INTERNAL_ERROR'])).toBeNull();
     expect(screen.queryByRole('heading', { name: 'ทริปทะเลกับคุณยาย' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: copy['common.retry'] }));

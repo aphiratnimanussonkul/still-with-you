@@ -283,6 +283,13 @@ describe('copy v0.4', () => {
     );
   });
 
+  it('uses dedicated memory unavailable title and body, not error.generic.body as the key', () => {
+    expect(copy['memory.unavailable.title']).toBe('ยังเปิดความทรงจำนี้ไม่ได้');
+    expect(copy['memory.unavailable.body']).toBe(
+      'ขอโทษด้วย ตอนนี้ยังเปิดหน้านี้ไม่ได้ เรื่องเล่าทั้งหมดยังอยู่ครบ ลองอีกครั้งได้เลย'
+    );
+  });
+
   it('keeps the full name in page headings', () => {
     expect(
       interpolateHeading(copy['welcome.title'], { ชื่อ: 'Aphirat Nimanussonkul' })

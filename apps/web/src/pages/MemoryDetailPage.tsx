@@ -32,16 +32,29 @@ import { formatThaiDate } from '@/lib/dates';
 import { familyGraph } from '@/lib/family-graph';
 import { queryKeys } from '@/lib/query-client';
 
-function MemoryUnavailableState({ onRetry }: { onRetry?: () => void }) {
+function MemoryUnavailableState({
+  kind,
+  onRetry,
+}: {
+  kind: 'not_found' | 'error';
+  onRetry?: () => void;
+}) {
   return (
     <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
       <Illustration name="error-offline" float={false} className="size-[200px]" />
-      <p className="text-body">{copy['error.generic.body']}</p>
+      {kind === 'not_found' ? (
+        <>
+          <h2 className="text-h3 font-semibold">{copy['memory.unavailable.title']}</h2>
+          <p className="text-body text-muted-foreground">{copy['memory.unavailable.body']}</p>
+        </>
+      ) : (
+        <p className="text-body">{copy['error.generic.body']}</p>
+      )}
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button asChild>
           <Link to="/home">{copy['common.back_home']}</Link>
         </Button>
-        {onRetry ? (
+        {kind === 'error' && onRetry ? (
           <Button type="button" variant="secondary" onClick={onRetry}>
             {copy['common.retry']}
           </Button>
@@ -160,10 +173,13 @@ export function MemoryDetailPage() {
   if (event.isPending) return <MemoryLoading />;
   if (event.isError) {
     const status = event.error instanceof ApiClientError ? event.error.status : 0;
-    return <MemoryUnavailableState onRetry={status === 404 ? undefined : retryEvent} />;
+    if (status === 404) {
+      return <MemoryUnavailableState kind="not_found" />;
+    }
+    return <MemoryUnavailableState kind="error" onRetry={retryEvent} />;
   }
   if (!event.data) {
-    return <MemoryUnavailableState />;
+    return <MemoryUnavailableState kind="not_found" />;
   }
 
   const items = stories.data?.contributions ?? [];
