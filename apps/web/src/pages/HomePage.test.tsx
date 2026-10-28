@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorCode } from '@still-with-you/contracts';
-import { copy, interpolate } from '@/copy';
+import { copy, homeFocusCardMeta, interpolateHeading } from '@/copy';
 import { ApiClientError } from '@/lib/api-errors';
 import { mockEvents, mockFamilies, mockPeople } from '@/mocks/data';
 
@@ -88,7 +88,7 @@ const homePayload = {
       avatar_placeholder: null,
       full_url: null,
       full_url_expires_at: null,
-      memory_count: 1,
+      memory_count: 0,
       position: 1,
     },
   ],
@@ -121,13 +121,18 @@ describe('HomePage', () => {
 
     renderPage();
     expect(
-      await screen.findByText(interpolate(copy['welcome.title'], { ชื่อ: 'Atta' }))
+      await screen.findByText(interpolateHeading(copy['home.greeting'], { ชื่อ: 'Atta' }))
     ).toBeTruthy();
     expect(await screen.findByText(copy['home.focus.title'])).toBeTruthy();
     expect(screen.getByText(copy['home.focus.see_all'])).toBeTruthy();
     expect(screen.getByAltText('ยายสมศรี').getAttribute('src')).toBe('https://cdn.example.com/yay.jpg');
     expect(screen.getByText('ป')).toBeTruthy();
-    expect(screen.getByText(interpolate(copy['person.memories.title'], { จำนวน: '2' }))).toBeTruthy();
+    expect(screen.getByText(homeFocusCardMeta(2))).toBeTruthy();
+    expect(screen.getByText(homeFocusCardMeta(0))).toBeTruthy();
+    expect(screen.getByText(copy['home.focus.card.meta.empty'])).toBeTruthy();
+    expect(screen.getByText('2 ความทรงจำ')).toBeTruthy();
+    expect(screen.queryByText(interpolateHeading(copy['welcome.title'], { ชื่อ: 'Atta' }))).toBeNull();
+    expect(screen.getByRole('heading', { name: copy['home.recent.title'] })).toBeTruthy();
     expect(screen.getByText(copy['home.question.title'])).toBeTruthy();
     expect(screen.getByLabelText('ยายสมศรี เกิดที่ไหน')).toBeTruthy();
     expect(screen.getByRole('button', { name: copy['home.question.save'] })).toBeTruthy();
@@ -148,7 +153,7 @@ describe('HomePage', () => {
 
     renderPage();
     expect(
-      await screen.findByText(interpolate(copy['welcome.title'], { ชื่อ: 'Atta' }))
+      await screen.findByText(interpolateHeading(copy['home.greeting'], { ชื่อ: 'Atta' }))
     ).toBeTruthy();
     expect(await screen.findByText('ทริปทะเลกับคุณยาย')).toBeTruthy();
     expect(screen.getByRole('link', { name: copy['memory.create.action'] })).toBeTruthy();

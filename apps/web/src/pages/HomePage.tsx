@@ -13,7 +13,7 @@ import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { copy, interpolate } from '@/copy';
+import { copy, homeFocusCardMeta, interpolateHeading } from '@/copy';
 import { useMe } from '@/hooks/use-me';
 import { useSelectedFamily } from '@/hooks/use-selected-family';
 import { api } from '@/lib/api-client';
@@ -42,7 +42,7 @@ export function HomePage() {
     return <p className="px-6 py-5 text-body text-destructive">{messageForError(familiesQuery.error)}</p>;
   }
 
-  const greeting = interpolate(copy['welcome.title'], {
+  const greeting = interpolateHeading(copy['home.greeting'], {
     ชื่อ: me.data?.display_name || me.data?.email || '',
   });
 
@@ -128,7 +128,7 @@ export function HomePage() {
                       <div className="flex flex-col gap-0.5 p-3">
                         <p className="truncate text-body font-medium text-primary">{card.person.display_name}</p>
                         <p className="truncate text-caption text-muted-foreground">
-                          {interpolate(copy['person.memories.title'], { จำนวน: String(card.memory_count) })}
+                          {homeFocusCardMeta(card.memory_count)}
                         </p>
                       </div>
                     </Link>
@@ -143,7 +143,7 @@ export function HomePage() {
 
         <section className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <h2 className="min-w-0 flex-1 text-h3 font-semibold">{copy['memory.list.title']}</h2>
+            <h2 className="min-w-0 flex-1 text-h3 font-semibold">{copy['home.recent.title']}</h2>
             <Button variant="link" size="sm" className="h-9 px-3 text-primary" asChild>
               <Link to="/memories">{copy['memory.create.action']}</Link>
             </Button>

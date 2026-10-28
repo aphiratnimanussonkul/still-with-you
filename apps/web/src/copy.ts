@@ -259,9 +259,10 @@ export const copy = {
   'home.question.saved.toast': 'บันทึกคำตอบแล้ว',
   'home.question.skipped.toast': 'ข้ามไปก่อน คำถามนี้จะกลับมาอีกในภายหลัง',
   'home.question.already_answered.action': 'แก้คำตอบเดิม',
-  'home.recent.title': 'TODO: Eddy — home.recent.title',
-  'home.focus.card.meta': 'TODO: Eddy — home.focus.card.meta',
-  'home.greeting': 'TODO: Eddy — home.greeting',
+  'home.recent.title': 'ความทรงจำล่าสุด',
+  'home.focus.card.meta': '{จำนวน} ความทรงจำ',
+  'home.focus.card.meta.empty': 'ยังไม่มีความทรงจำ',
+  'home.greeting': 'สวัสดี {ชื่อ}',
   'family.focus.toggle': 'แสดงบนหน้าแรก',
   'family.focus.note': 'เห็นเฉพาะคุณ',
   'family.focus.load_error': 'โหลดรายชื่อบนหน้าแรกไม่สำเร็จ',
@@ -546,6 +547,12 @@ export function personRelationLabel(name?: string | null): string {
 
 /** h1 page titles: wrap up to 2 lines, then clamp. List/meta/toasts stay single-line … */
 export const pageHeadingClassName = 'min-w-0 break-words line-clamp-2';
+
+/** Home focus-card meta: empty copy when count is 0, otherwise "{จำนวน} ความทรงจำ". */
+export function homeFocusCardMeta(count: number): string {
+  if (count === 0) return copy['home.focus.card.meta.empty'];
+  return interpolate(copy['home.focus.card.meta'], { จำนวน: String(count) });
+}
 
 /** family.item.meta — hide {บทบาทของฉัน} unless the viewer is an admin. */
 export function familyItemMeta(memberCount: number, isAdmin: boolean): string {
