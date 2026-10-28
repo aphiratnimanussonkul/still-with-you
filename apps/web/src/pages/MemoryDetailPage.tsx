@@ -32,24 +32,20 @@ import { formatThaiDate } from '@/lib/dates';
 import { familyGraph } from '@/lib/family-graph';
 import { queryKeys } from '@/lib/query-client';
 
-function MemoryUnavailableState({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
+function MemoryUnavailableState({ onRetry }: { onRetry?: () => void }) {
   return (
     <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
       <Illustration name="error-offline" float={false} className="size-[200px]" />
-      <p className="text-body">{message}</p>
+      <p className="text-body">{copy['error.generic.body']}</p>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button asChild>
           <Link to="/home">{copy['common.back_home']}</Link>
         </Button>
-        <Button type="button" variant="secondary" onClick={onRetry}>
-          {copy['common.retry']}
-        </Button>
+        {onRetry ? (
+          <Button type="button" variant="secondary" onClick={onRetry}>
+            {copy['common.retry']}
+          </Button>
+        ) : null}
       </div>
     </div>
   );
@@ -164,15 +160,10 @@ export function MemoryDetailPage() {
   if (event.isPending) return <MemoryLoading />;
   if (event.isError) {
     const status = event.error instanceof ApiClientError ? event.error.status : 0;
-    return (
-      <MemoryUnavailableState
-        message={status === 404 ? copy['error.generic.body'] : messageForError(event.error)}
-        onRetry={retryEvent}
-      />
-    );
+    return <MemoryUnavailableState onRetry={status === 404 ? undefined : retryEvent} />;
   }
   if (!event.data) {
-    return <MemoryUnavailableState message={copy['error.generic.body']} onRetry={retryEvent} />;
+    return <MemoryUnavailableState />;
   }
 
   const items = stories.data?.contributions ?? [];

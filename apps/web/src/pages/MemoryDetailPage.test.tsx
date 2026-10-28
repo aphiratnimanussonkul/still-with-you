@@ -110,9 +110,29 @@ describe('MemoryDetailPage stories isolation', () => {
     expect(screen.getByRole('link', { name: copy['common.back_home'] }).getAttribute('href')).toBe(
       '/home'
     );
-    expect(screen.getByRole('button', { name: copy['common.retry'] })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: copy['common.retry'] })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'ทริปทะเลกับคุณยาย' })).toBeNull();
     expect(screen.queryByText(copy['page.not_found.title'])).toBeNull();
+    fireEvent.click(screen.getByRole('link', { name: copy['common.back_home'] }));
+    expect(await screen.findByText('home-page')).toBeTruthy();
+  });
+
+  it('shows retry on a generic memory load error, not the 404 home-only state', async () => {
+    vi.mocked(api.getEvent).mockRejectedValue(new ApiClientError('INTERNAL_ERROR', 'boom', 500));
+    vi.mocked(familyGraph.listContributions).mockRejectedValue(
+      new ApiClientError('INTERNAL_ERROR', 'boom', 500)
+    );
+
+    renderPage();
+    expect(await screen.findByText(copy['error.generic.body'])).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy['common.retry'] })).toBeTruthy();
+    expect(screen.getByRole('link', { name: copy['common.back_home'] })).toBeTruthy();
+    expect(screen.queryByText(copy['error.INTERNAL_ERROR'])).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'ทริปทะเลกับคุณยาย' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: copy['common.retry'] }));
+    await waitFor(() => {
+      expect(vi.mocked(api.getEvent).mock.calls.length).toBeGreaterThan(1);
+    });
   });
 
   it('disables add-story when the memory is paused', async () => {
