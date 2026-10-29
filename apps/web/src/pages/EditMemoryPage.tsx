@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { CircleNotchIcon } from '@phosphor-icons/react/CircleNotch';
+import { PauseCircleIcon } from '@phosphor-icons/react/PauseCircle';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AppUpdateBanner } from '@/components/AppUpdateBanner';
 import { MemoryEditConflictBanner } from '@/components/MemoryEditConflictBanner';
+import { MemoryPauseOthersDialog } from '@/components/MemoryPauseOthersDialog';
+import { MemoryUnavailableState } from '@/components/MemoryUnavailableState';
 import { QueryLoading } from '@/components/QueryLoading';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { copy } from '@/copy';
+import { copy, interpolate, ownerDisplayName } from '@/copy';
 import { api } from '@/lib/api-client';
 import { ApiClientError, messageForError } from '@/lib/api-errors';
 import {
@@ -43,6 +46,10 @@ export function EditMemoryPage() {
     queryFn: () => api.getEvent(eventId),
     enabled: Boolean(eventId),
   });
+  const me = useQuery({
+    queryKey: queryKeys.me,
+    queryFn: () => api.getMe(),
+  });
 
   const [draftTitle, setDraftTitle] = useState('');
   const [savedTitle, setSavedTitle] = useState('');
@@ -51,6 +58,8 @@ export function EditMemoryPage() {
   const [conflict, setConflict] = useState(false);
   const [changedFields, setChangedFields] = useState<MemoryConflictField[]>([]);
   const [opening, setOpening] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [pauseOpen, setPauseOpen] = useState(false);
   const hydratedFor = useRef<string | null>(null);
 
   useEffect(() => {
@@ -104,13 +113,27 @@ export function EditMemoryPage() {
     },
   });
 
+  const pauseOthers = useMutation({
+    mutationFn: () => api.archiveEvent(eventId),
+    onSuccess: async () => {
+      setPauseOpen(false);
+      const name = ownerDisplayName(event.data?.creator_display_name);
+      toast.success(interpolate(copy['memory.pause.others.after'], { owner_display_name: name }));
+      await queryClient.invalidateQueries({ queryKey: queryKeys.event(eventId) });
+      navigate('/home');
+    },
+  });
+
   const openLatest = async () => {
     if (!baseline) return;
     setOpening(true);
+    setLoadFailed(false);
     try {
       const opened = await openLatestForConflict(eventId, baseline);
       setSaveVersion(opened.saveVersion);
       setChangedFields(opened.changedFields);
+    } catch {
+      setLoadFailed(true);
     } finally {
       setOpening(false);
     }
@@ -119,7 +142,8 @@ export function EditMemoryPage() {
   if (event.isPending) return <QueryLoading />;
   if (event.isError) {
     const status = event.error instanceof ApiClientError ? event.error.status : 0;
-    return <Alert>{status === 404 ? copy['memory.unavailable.body'] : copy['error.generic.body']}</Alert>;
+    if (status === 404) return <MemoryUnavailableState kind="not_found" />;
+    return <Alert>{copy['error.generic.body']}</Alert>;
   }
   if (!event.data || saveVersion === undefined) return <QueryLoading />;
 
@@ -128,6 +152,17 @@ export function EditMemoryPage() {
   const conflictError = save.error instanceof EventEditConflictError;
   const showConflict = conflict || conflictError;
   const showAppUpdate = !showConflict && isEventVersionFieldError(save.error);
+  const canPauseOthers = Boolean(
+    me.data &&
+      me.data.id !== event.data.creator_account_id &&
+      !event.data.paused &&
+      event.data.status === 'active'
+  );
+  const ownerName = ownerDisplayName(event.data.creator_display_name);
+  const pauseError =
+    pauseOthers.isError && !(pauseOthers.error instanceof EventEditConflictError)
+      ? messageForError(pauseOthers.error)
+      : null;
 
   return (
     <form
@@ -146,11 +181,14 @@ export function EditMemoryPage() {
               void openLatest();
             }}
             opening={opening}
+            loadFailed={loadFailed}
           />
         ) : showAppUpdate ? (
           <AppUpdateBanner onReload={reloadForAppUpdate} />
         ) : save.isError ? (
           <Alert>{messageForError(save.error)}</Alert>
+        ) : pauseError ? (
+          <Alert>{pauseError}</Alert>
         ) : null}
         <div className="flex flex-col gap-2">
           <Label htmlFor="memory-title">{copy['memory.title_label']}</Label>
@@ -163,7 +201,29 @@ export function EditMemoryPage() {
             <p className="text-caption text-destructive">{copy['memory.title_required']}</p>
           ) : null}
         </div>
+        {canPauseOthers ? (
+          <div className="flex flex-col gap-4 border-t border-border pt-5">
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-auto w-fit justify-start gap-2 px-0 text-destructive hover:bg-transparent hover:text-destructive"
+              onClick={() => setPauseOpen(true)}
+            >
+              <Icon as={PauseCircleIcon} size={20} />
+              {copy['memory.pause.action']}
+            </Button>
+          </div>
+        ) : null}
       </div>
+      <MemoryPauseOthersDialog
+        open={pauseOpen}
+        onOpenChange={(open) => {
+          if (!pauseOthers.isPending) setPauseOpen(open);
+        }}
+        ownerName={ownerName}
+        confirming={pauseOthers.isPending}
+        onConfirm={() => pauseOthers.mutate()}
+      />
       <div className="border-t border-border bg-background px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
         <Button
           type="submit"

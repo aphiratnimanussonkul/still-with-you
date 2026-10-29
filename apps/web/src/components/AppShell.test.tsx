@@ -32,6 +32,7 @@ function renderAt(path: string) {
       <Routes>
         <Route path="/home" element={<AppShell><p>home-body</p></AppShell>} />
         <Route path="/memories" element={<AppShell><p>memories-body</p></AppShell>} />
+        <Route path="/memories/new" element={<AppShell><p>create-memory</p></AppShell>} />
         <Route path="/memories/:eventId" element={<AppShell><p>memory-detail</p></AppShell>} />
         <Route path="/family" element={<AppShell><p>family-body</p></AppShell>} />
         <Route path="/me" element={<AppShell><p>me-body</p></AppShell>} />
@@ -80,6 +81,13 @@ describe('AppShell', () => {
     unmount();
 
     renderAt('/memories/abc');
+    expect(screen.getByLabelText(copy['a11y.back']).getAttribute('href')).toBe('/memories');
+    expect(document.querySelector('[data-nav-region="bottom"]')).toBeNull();
+  });
+
+  it('hides bottom nav and uses the create title on /memories/new', () => {
+    renderAt('/memories/new');
+    expect(screen.getByRole('heading', { name: copy['memory.create.title'] })).toBeTruthy();
     expect(screen.getByLabelText(copy['a11y.back']).getAttribute('href')).toBe('/memories');
     expect(document.querySelector('[data-nav-region="bottom"]')).toBeNull();
   });

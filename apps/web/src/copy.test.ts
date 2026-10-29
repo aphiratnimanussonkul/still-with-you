@@ -5,6 +5,9 @@ import {
   homeFocusCardMeta,
   interpolate,
   interpolateHeading,
+  ownerDisplayName,
+  optionalBadgeText,
+  optionalFieldLabel,
   personRelationLabel,
   storyCounter,
   storyToldAt,
@@ -272,6 +275,24 @@ describe('copy v0.4', () => {
     expect(homeFocusCardMeta(2)).not.toContain('(');
   });
 
+  it('uses Eddy create-memory date, people, and optional copy', () => {
+    expect(copy['memory.date.year']).toBe('ปี พ.ศ.');
+    expect(copy['memory.date.month']).toBe('เดือน');
+    expect(copy['memory.date.day']).toBe('วัน');
+    expect(copy['memory.people.done']).toBe('เสร็จแล้ว');
+    expect(copy['memory.people.edit']).toBe('แก้รายชื่อ');
+    expect(copy['memory.people.search.empty']).toBe('ยังไม่มีชื่อนี้ในครอบครัว');
+    expect(copy['memory.people.search.add']).toBe('เพิ่ม "{name}" เป็นคนใหม่');
+    expect(copy['memory.people.search.add_empty']).toBe('เพิ่มคนใหม่');
+    expect(copy['common.optional']).toBe('(ไม่บังคับ)');
+    expect(optionalFieldLabel(copy['memory.date_label'])).toBe('เกิดขึ้นเมื่อไร (ไม่บังคับ)');
+    expect(optionalFieldLabel(copy['memory.people_label'])).toBe('ใครอยู่ในความทรงจำนี้ (ไม่บังคับ)');
+    expect(optionalBadgeText()).toBe('ไม่บังคับ');
+    expect(interpolate(copy['memory.people.search.add'], { name: 'ป้าแดง' })).toBe(
+      'เพิ่ม "ป้าแดง" เป็นคนใหม่'
+    );
+  });
+
   it('uses Eddy story counter and told-at copy', () => {
     expect(copy['story.told_at']).toBe('เล่าเมื่อ {date}');
     expect(copy['story.counter']).toBe('{n} เรื่องเล่า');
@@ -293,6 +314,9 @@ describe('copy v0.4', () => {
       'มีคนแก้ความทรงจำนี้ไปเมื่อกี้ ที่คุณแก้ไว้ยังอยู่ครบ ลองเปิดฉบับล่าสุดดูก่อน แล้วจึงแก้ต่อ'
     );
     expect(copy['memory.edit.conflict.action']).toBe('เปิดฉบับล่าสุด');
+    expect(copy['memory.edit.conflict.load_failed']).toBe(
+      'ขอโทษด้วย ตอนนี้ยังเปิดฉบับล่าสุดไม่ได้ ที่คุณแก้ไว้ยังอยู่ครบ ลองอีกครั้งได้เลย'
+    );
     expect(copy['memory.conflict.changed_fields']).toBe(
       'มีคนแก้{fields}ไปแล้ว ที่คุณแก้ไว้ด้านล่างยังอยู่ครบ'
     );
@@ -301,6 +325,34 @@ describe('copy v0.4', () => {
     expect(copy['memory.conflict.field.date']).toBe('วันที่');
     expect(copy['memory.conflict.field.people']).toBe('คนในความทรงจำ');
     expect(copy['memory.conflict.field.cover']).toBe('รูปปก');
+  });
+
+  it('uses Eddy steward-others pause copy and fills owner_display_name or มีคน', () => {
+    expect(copy['memory.pause.others.title']).toBe('พักความทรงจำของ{owner_display_name}ไว้');
+    expect(copy['memory.pause.others.body']).toBe(
+      'พอพักแล้ว ความทรงจำนี้และเรื่องเล่าข้างในจะเห็นได้แค่{owner_display_name} คุณจะมองไม่เห็นและเลิกพักเองไม่ได้ มีแค่{owner_display_name}ที่เลิกพักได้'
+    );
+    expect(copy['memory.pause.others.confirm']).toBe('พักไว้');
+    expect(copy['memory.pause.others.cancel']).toBe('ยังไม่พัก');
+    expect(copy['memory.pause.others.after']).toBe('พักความทรงจำของ{owner_display_name}ไว้แล้ว');
+    expect(ownerDisplayName('มาลี ใจดี')).toBe('มาลี ใจดี');
+    expect(ownerDisplayName(null)).toBe('มีคน');
+    expect(ownerDisplayName('   ')).toBe('มีคน');
+    expect(
+      interpolate(copy['memory.pause.others.after'], {
+        owner_display_name: ownerDisplayName('มาลี ใจดี'),
+      })
+    ).toBe('พักความทรงจำของมาลี ใจดีไว้แล้ว');
+    expect(
+      interpolate(copy['memory.pause.others.after'], {
+        owner_display_name: ownerDisplayName(null),
+      })
+    ).toBe('พักความทรงจำของมีคนไว้แล้ว');
+    expect(
+      interpolateHeading(copy['memory.pause.others.title'], {
+        owner_display_name: ownerDisplayName(null),
+      })
+    ).toBe('พักความทรงจำของมีคนไว้');
   });
 
   it('uses dedicated memory unavailable title and body, not error.generic.body as the key', () => {

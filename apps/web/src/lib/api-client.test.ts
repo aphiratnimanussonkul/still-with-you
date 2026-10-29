@@ -50,6 +50,33 @@ describe('request 4xx envelope', () => {
   });
 });
 
+describe('api.archiveEvent', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('POSTs /v1/events/{id}/archive', async () => {
+    const archived = { ...mockEvents[0], status: 'archived' as const, paused: true };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: async () => JSON.stringify(archived),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.archiveEvent(mockEvents[0].id)).resolves.toMatchObject({
+      id: mockEvents[0].id,
+      paused: true,
+      status: 'archived',
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(`/v1/events/${mockEvents[0].id}/archive`),
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+});
+
 describe('api.updateEvent', () => {
   afterEach(() => {
     vi.unstubAllGlobals();

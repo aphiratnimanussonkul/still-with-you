@@ -67,6 +67,12 @@ export const copy = {
     'ระหว่างพักไว้ คนอื่นจะเปิดดูหรือแก้เรื่องเล่าในความทรงจำนี้ไม่ได้ คุณนำกลับมาได้ทุกเมื่อ',
   'memory.pause.confirm.note': 'ถ้าต้องการลบถาวร ต้องพักไว้ครบ 7 วันก่อน',
   'memory.pause.success': 'พัก {ชื่อความทรงจำ} ไว้แล้ว',
+  'memory.pause.others.title': 'พักความทรงจำของ{owner_display_name}ไว้',
+  'memory.pause.others.body':
+    'พอพักแล้ว ความทรงจำนี้และเรื่องเล่าข้างในจะเห็นได้แค่{owner_display_name} คุณจะมองไม่เห็นและเลิกพักเองไม่ได้ มีแค่{owner_display_name}ที่เลิกพักได้',
+  'memory.pause.others.confirm': 'พักไว้',
+  'memory.pause.others.cancel': 'ยังไม่พัก',
+  'memory.pause.others.after': 'พักความทรงจำของ{owner_display_name}ไว้แล้ว',
   'memory.paused.badge': 'พักไว้',
   'memory.paused.banner':
     'ความทรงจำนี้ถูกพักไว้ คนอื่นมองไม่เห็น และตอนนี้เปิดดูได้อย่างเดียว',
@@ -297,7 +303,15 @@ export const copy = {
   'memory.title_required': 'ตั้งชื่อความทรงจำก่อน แล้วค่อยบันทึก',
   'memory.date_label': 'เกิดขึ้นเมื่อไร',
   'memory.date_placeholder': 'ไม่แน่ใจ ใส่แค่ปีก็ได้',
+  'memory.date.year': 'ปี พ.ศ.',
+  'memory.date.month': 'เดือน',
+  'memory.date.day': 'วัน',
   'memory.people_label': 'ใครอยู่ในความทรงจำนี้',
+  'memory.people.done': 'เสร็จแล้ว',
+  'memory.people.edit': 'แก้รายชื่อ',
+  'memory.people.search.empty': 'ยังไม่มีชื่อนี้ในครอบครัว',
+  'memory.people.search.add': 'เพิ่ม "{name}" เป็นคนใหม่',
+  'memory.people.search.add_empty': 'เพิ่มคนใหม่',
   'memory.item.meta': '{จำนวน} เรื่องเล่า · เริ่มโดย {ชื่อ}',
   'memory.item.meta.one': '1 เรื่องเล่า · เริ่มโดย {ชื่อ}',
   'memory.stories.title': 'เรื่องเล่า ({จำนวน})',
@@ -310,6 +324,8 @@ export const copy = {
   'memory.edit.conflict.body':
     'มีคนแก้ความทรงจำนี้ไปเมื่อกี้ ที่คุณแก้ไว้ยังอยู่ครบ ลองเปิดฉบับล่าสุดดูก่อน แล้วจึงแก้ต่อ',
   'memory.edit.conflict.action': 'เปิดฉบับล่าสุด',
+  'memory.edit.conflict.load_failed':
+    'ขอโทษด้วย ตอนนี้ยังเปิดฉบับล่าสุดไม่ได้ ที่คุณแก้ไว้ยังอยู่ครบ ลองอีกครั้งได้เลย',
   'memory.conflict.changed_fields': 'มีคนแก้{fields}ไปแล้ว ที่คุณแก้ไว้ด้านล่างยังอยู่ครบ',
   'memory.conflict.field.title': 'ชื่อความทรงจำ',
   'memory.conflict.field.date': 'วันที่',
@@ -466,6 +482,7 @@ export const copy = {
 
   // --- สถานะทั่วไป ---
   'common.cancel': 'ยกเลิก',
+  'common.optional': '(ไม่บังคับ)',
   'common.retry': 'ลองอีกครั้ง',
   'common.back_home': 'กลับหน้าแรก',
   'loading': 'กำลังโหลด',
@@ -526,6 +543,7 @@ const NAME_VAR_KEYS = new Set([
   'actor_display_name',
   'event_title',
   'family_name',
+  'owner_display_name',
 ]);
 
 export const DISPLAY_NAME_MAX = 20;
@@ -554,9 +572,25 @@ export function interpolate(
   });
 }
 
+/** Append common.optional after a field label. */
+export function optionalFieldLabel(label: string): string {
+  return `${label} ${copy['common.optional']}`;
+}
+
+/** Strip surrounding parentheses when common.optional is a separate badge. */
+export function optionalBadgeText(value = copy['common.optional']): string {
+  return value.replace(/^\(|\)$/g, '');
+}
+
 /** Page headings show the full name; CSS line-clamp handles overflow. */
 export function interpolateHeading(template: string, vars: Record<string, string>): string {
   return interpolate(template, vars, { truncateNames: false });
+}
+
+/** Fill `{owner_display_name}` from `creator_display_name`; null/blank → มีคน. */
+export function ownerDisplayName(name: string | null | undefined): string {
+  const trimmed = name?.trim();
+  return trimmed ? trimmed : 'มีคน';
 }
 
 /** Relation field: swap `{name}` for คุณ when no person is selected. */

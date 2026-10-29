@@ -7,9 +7,9 @@ import {
   updateFocusSchema,
 } from '@still-with-you/contracts';
 import { and, desc, eq, ne } from 'drizzle-orm';
-import { db, events, focusPeople } from '../lib/db/index.js';
+import { db, accounts, events, focusPeople } from '../lib/db/index.js';
 import { getActiveMember } from '../lib/authz.js';
-import { presentEvents } from '../lib/event-response.js';
+import { presentEventRows } from '../lib/event-response.js';
 import { listFocusItems } from '../lib/focus.js';
 import { assertPeopleInFamily } from '../lib/people.js';
 import { pickQuickQuestion } from '../lib/questions.js';
@@ -62,8 +62,12 @@ const focusRoutes: FastifyPluginAsync = async (fastify) => {
     const quickQuestion = await pickQuickQuestion(fid, request.user!.id);
 
     const recent = await db
-      .select()
+      .select({
+        event: events,
+        creatorDisplayName: accounts.displayName,
+      })
       .from(events)
+      .leftJoin(accounts, eq(accounts.id, events.creatorAccountId))
       .where(and(eq(events.familyId, fid), ne(events.status, 'archived'), ne(events.status, 'deleted')))
       .orderBy(desc(events.createdAt))
       .limit(HOME_RECENT_MEMORIES_LIMIT);
@@ -71,7 +75,7 @@ const focusRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({
       focus,
       quick_question: quickQuestion,
-      recent_memories: await presentEvents(recent, 'card'),
+      recent_memories: await presentEventRows(recent, 'card'),
     });
   });
 };

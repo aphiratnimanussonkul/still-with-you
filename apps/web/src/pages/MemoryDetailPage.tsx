@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useBeforeUnload, useBlocker, useParams, useSearchParams } from 'react-router-dom';
+import { useBeforeUnload, useBlocker, useParams, useSearchParams } from 'react-router-dom';
 import { CircleNotchIcon } from '@phosphor-icons/react/CircleNotch';
 import { ImagesIcon } from '@phosphor-icons/react/Images';
 import { PlusIcon } from '@phosphor-icons/react/Plus';
@@ -22,7 +22,7 @@ import { Icon } from '@/components/ui/icon';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { Illustration } from '@/components/Illustration';
+import { MemoryUnavailableState } from '@/components/MemoryUnavailableState';
 import { PhotoAttach, type PhotoAttachState } from '@/components/PhotoAttach';
 import { StoryCard } from '@/components/StoryCard';
 import { copy, interpolate, storyCounter, storyToldAt, truncateName } from '@/copy';
@@ -31,40 +31,6 @@ import { ApiClientError, messageForError } from '@/lib/api-errors';
 import { formatThaiDate } from '@/lib/dates';
 import { familyGraph } from '@/lib/family-graph';
 import { queryKeys } from '@/lib/query-client';
-
-function MemoryUnavailableState({
-  kind,
-  onRetry,
-}: {
-  kind: 'not_found' | 'error';
-  onRetry?: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
-      <Illustration name="error-offline" float={false} className="size-[200px]" />
-      {kind === 'not_found' ? (
-        <>
-          <h2 className="text-h3 font-semibold">{copy['memory.unavailable.title']}</h2>
-          <p className="text-body text-muted-foreground">{copy['memory.unavailable.body']}</p>
-        </>
-      ) : (
-        <p className="text-body">{copy['error.generic.body']}</p>
-      )}
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <Button asChild>
-          <Link to="/home">
-            {kind === 'not_found' ? copy['memory.unavailable.home'] : copy['common.back_home']}
-          </Link>
-        </Button>
-        {kind === 'error' && onRetry ? (
-          <Button type="button" variant="secondary" onClick={onRetry}>
-            {copy['common.retry']}
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
 
 function MemoryCover({ src, alt }: { src: string | null; alt: string }) {
   const [failed, setFailed] = useState(false);
