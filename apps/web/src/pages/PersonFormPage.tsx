@@ -58,26 +58,53 @@ export function PersonFormPage() {
   if (!person.data) {
     return <p className="text-body text-destructive">{copy['error.NOT_FOUND']}</p>;
   }
-  if (!isFamilySteward(members.data?.members, me.data?.id)) {
-    return <EditPersonForbidden personId={personId} />;
-  }
 
-  return <EditPersonForm familyId={familyId} person={person.data} />;
+  return (
+    <EditPersonForm
+      familyId={familyId}
+      person={person.data}
+      initiallyForbidden={!isFamilySteward(members.data?.members, me.data?.id)}
+    />
+  );
 }
 
 function EditPersonForbidden({ personId }: { personId: string }) {
   const navigate = useNavigate();
+  return <EditPersonForbiddenDialog open onDismiss={() => navigate(`/family/people/${personId}`)} />;
+}
+
+function EditPersonForbiddenDialog({ open, onDismiss }: { open: boolean; onDismiss: () => void }) {
   return (
-    <div className="flex flex-col gap-4">
-      <Alert>{copy['person.edit.forbidden']}</Alert>
-      <Button type="button" variant="outline" onClick={() => navigate(`/family/people/${personId}`)}>
-        {copy['a11y.back']}
-      </Button>
-    </div>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onDismiss();
+      }}
+    >
+      <AlertDialogContent className="rounded-xl">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{copy['person.edit.forbidden.title']}</AlertDialogTitle>
+          <AlertDialogDescription>{copy['person.edit.forbidden']}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="flex flex-col gap-2 sm:flex-col">
+          <AlertDialogAction className="w-full" onClick={onDismiss}>
+            {copy['person.error.ok']}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
-function EditPersonForm({ familyId, person }: { familyId: string; person: FamilyPerson }) {
+function EditPersonForm({
+  familyId,
+  person,
+  initiallyForbidden = false,
+}: {
+  familyId: string;
+  person: FamilyPerson;
+  initiallyForbidden?: boolean;
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const name = personDisplayName(person);
@@ -93,8 +120,9 @@ function EditPersonForm({ familyId, person }: { familyId: string; person: Family
   const [existingUrl, setExistingUrl] = useState(person.avatar_url);
   const [fieldErrors, setFieldErrors] = useState<{ display_name?: string; avatar_media_id?: string }>({});
   const [saveFailed, setSaveFailed] = useState(false);
-  const [allowLeave, setAllowLeave] = useState(false);
-  const [forbidden, setForbidden] = useState(false);
+  const [mediaNotReady, setMediaNotReady] = useState(false);
+  const [allowLeave, setAllowLeave] = useState(initiallyForbidden);
+  const [forbidden, setForbidden] = useState(initiallyForbidden);
 
   const draft = useMemo(
     () => ({ displayName, nickname, living, bio, photoId, photoRemoved }),
@@ -147,7 +175,8 @@ function EditPersonForm({ familyId, person }: { familyId: string; person: Family
         return;
       }
       if (error instanceof ApiClientError && error.code === 'MEDIA_NOT_READY') {
-        setFieldErrors({ avatar_media_id: copy['person.edit.media_not_ready'] });
+        setFieldErrors({});
+        setMediaNotReady(true);
         setSaveFailed(false);
         return;
       }
@@ -165,23 +194,22 @@ function EditPersonForm({ familyId, person }: { familyId: string; person: Family
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (photoBusy || !dirty) return;
+    if (photoBusy || !dirty || forbidden) return;
     setFieldErrors({});
     setSaveFailed(false);
+    setMediaNotReady(false);
     save.mutate();
   }
 
   const footerLabel = saveFailed ? copy['common.retry'] : copy['person.save'];
-
-  if (forbidden) {
-    return <EditPersonForbidden personId={person.id} />;
-  }
+  const goToProfile = () => navigate(`/family/people/${person.id}`);
 
   return (
     <>
       <form className="flex min-h-0 flex-1 flex-col" onSubmit={onSubmit}>
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
           {saveFailed ? <Alert>{copy['person.edit.save_failed']}</Alert> : null}
+          {mediaNotReady ? <Alert>{copy['person.edit.media_not_ready']}</Alert> : null}
 
           <PersonPhotoField
             familyId={familyId}
@@ -289,6 +317,8 @@ function EditPersonForm({ familyId, person }: { familyId: string; person: Family
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EditPersonForbiddenDialog open={forbidden} onDismiss={goToProfile} />
     </>
   );
 }

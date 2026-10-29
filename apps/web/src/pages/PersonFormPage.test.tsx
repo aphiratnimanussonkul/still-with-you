@@ -137,15 +137,17 @@ describe('PersonFormPage edit', () => {
     expect(familyGraph.updatePerson).not.toHaveBeenCalled();
   });
 
-  it('shows MEDIA_NOT_READY under the photo field', async () => {
+  it('shows MEDIA_NOT_READY as an alert on the form', async () => {
     vi.mocked(familyGraph.updatePerson).mockRejectedValue(
       new ApiClientError('MEDIA_NOT_READY', 'not ready', 409, 'avatar_media_id')
     );
     renderEdit();
     fireEvent.click(await screen.findByRole('button', { name: 'add-photo' }));
     fireEvent.click(screen.getByRole('button', { name: copy['person.save'] }));
-    expect(await screen.findByText(copy['person.edit.media_not_ready'])).toBeTruthy();
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByText(copy['person.edit.media_not_ready'])).toBeTruthy();
     expect(screen.queryByText(copy['person.edit.save_failed'])).toBeNull();
+    expect(screen.getByRole('button', { name: copy['person.save'] })).toBeTruthy();
   });
 
   it('shows person.edit.forbidden on 403 and returns to the profile on dismiss', async () => {
@@ -155,8 +157,10 @@ describe('PersonFormPage edit', () => {
       target: { value: 'สมศรี นิมานัส' },
     });
     fireEvent.click(screen.getByRole('button', { name: copy['person.save'] }));
-    expect(await screen.findByText(copy['person.edit.forbidden'])).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: copy['a11y.back'] }));
+    expect(await screen.findByText(copy['person.edit.forbidden.title'])).toBeTruthy();
+    expect(screen.getByText(copy['person.edit.forbidden'])).toBeTruthy();
+    expect(screen.getByLabelText(copy['person.name.label'])).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: copy['person.error.ok'] }));
     expect(await screen.findByText('person-page')).toBeTruthy();
   });
 
@@ -172,14 +176,15 @@ describe('PersonFormPage edit', () => {
     await waitFor(() => expect(familyGraph.updatePerson).toHaveBeenCalledTimes(2));
   });
 
-  it('hides the form when the viewer is not an admin and returns to the profile', async () => {
+  it('shows the forbidden dialog over the form when the viewer is not an admin', async () => {
     vi.mocked(familyGraph.listMembers).mockResolvedValue({
       members: mockMembers.map((member) => ({ ...member, role: 'member' as const })),
     });
     renderEdit();
-    expect(await screen.findByText(copy['person.edit.forbidden'])).toBeTruthy();
-    expect(screen.queryByLabelText(copy['person.name.label'])).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: copy['a11y.back'] }));
+    expect(await screen.findByText(copy['person.edit.forbidden.title'])).toBeTruthy();
+    expect(screen.getByText(copy['person.edit.forbidden'])).toBeTruthy();
+    expect(screen.getByLabelText(copy['person.name.label'])).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: copy['person.error.ok'] }));
     expect(await screen.findByText('person-page')).toBeTruthy();
   });
 

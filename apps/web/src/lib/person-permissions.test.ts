@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mockAccount, mockMembers, mockPeople } from '@/mocks/data';
-import { canEditPerson, isFamilySteward } from '@/lib/person-permissions';
+import { canEditPerson, canInvitePerson, isFamilySteward } from '@/lib/person-permissions';
 
 describe('person permissions', () => {
   it('allows only the family steward to PATCH or DELETE a person', () => {
@@ -27,5 +27,15 @@ describe('person permissions', () => {
         []
       )
     ).toBe(false);
+  });
+
+  it('hides the invite button unless the viewer is a steward of a living uninvited person', () => {
+    const living = { ...mockPeople[1], invite_status: 'none' as const, account_id: null };
+    expect(canInvitePerson(living, true)).toBe(true);
+    expect(canInvitePerson(living, false)).toBe(false);
+    expect(canInvitePerson({ ...living, is_living: false }, true)).toBe(false);
+    expect(canInvitePerson({ ...living, invite_status: 'pending' }, true)).toBe(false);
+    expect(canInvitePerson({ ...living, invite_status: 'linked' }, true)).toBe(false);
+    expect(canInvitePerson({ ...living, account_id: mockAccount.id }, true)).toBe(false);
   });
 });

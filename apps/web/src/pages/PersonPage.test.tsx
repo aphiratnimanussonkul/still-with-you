@@ -24,6 +24,7 @@ vi.mock('@/lib/family-graph', async () => {
       getPerson: vi.fn(),
       updatePerson: vi.fn(),
       deletePerson: vi.fn(),
+      createPersonInvite: vi.fn(),
     },
   };
 });
@@ -216,6 +217,30 @@ describe('PersonPage', () => {
     expect(await screen.findByText('ยายสมศรี')).toBeTruthy();
     expect(screen.queryByRole('button', { name: copy['a11y.more'] })).toBeNull();
     expect(screen.queryByText(copy['person.menu.edit'])).toBeNull();
+  });
+
+  it('shows the invite button for an admin on a living uninvited person', async () => {
+    mockPage({ ...mockPeople[1], invite_status: 'none', account_id: null });
+    renderPerson(mockPeople[1].id);
+    expect(
+      await screen.findByRole('button', {
+        name: interpolateHeading(copy['person.invite.action'], { name: mockPeople[1].display_name }),
+      })
+    ).toBeTruthy();
+  });
+
+  it('hides the invite button when the viewer is not an admin', async () => {
+    mockPage(
+      { ...mockPeople[1], invite_status: 'none', account_id: null },
+      mockMembers.map((member) => ({ ...member, role: 'member' as const }))
+    );
+    renderPerson(mockPeople[1].id);
+    expect(await screen.findByText(mockPeople[1].display_name)).toBeTruthy();
+    expect(
+      screen.queryByRole('button', {
+        name: interpolateHeading(copy['person.invite.action'], { name: mockPeople[1].display_name }),
+      })
+    ).toBeNull();
   });
 
   it('does not offer delete for a linked member', async () => {

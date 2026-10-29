@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { useAppBarOverride } from '@/components/app-bar-override';
+import { PersonInviteCard } from '@/components/PersonInviteCard';
 import { PersonProfileMenu } from '@/components/PersonProfileMenu';
 import { QueryLoading } from '@/components/QueryLoading';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,7 @@ import { messageForError } from '@/lib/api-errors';
 import { familyGraph, isPersonLiving, personDisplayName, type FamilyPerson } from '@/lib/family-graph';
 import { FOCUS_MAX, homeApi } from '@/lib/home-api';
 import { apiPersonAge, personAgeCopyKey } from '@/lib/person-age';
-import { isFamilySteward } from '@/lib/person-permissions';
+import { canInvitePerson, isFamilySteward } from '@/lib/person-permissions';
 import { formatNodeYears, livingDeathWriteFields } from '@/lib/person-years';
 import { queryKeys } from '@/lib/query-client';
 
@@ -147,6 +148,7 @@ function PersonPageBody({
   setLivingDraft: (value: boolean | null) => void;
 }) {
   const name = personDisplayName(person);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const extra = useMemo(
     () => (isAdmin && familyId ? <PersonProfileMenu person={person} familyId={familyId} /> : null),
     [isAdmin, familyId, person]
@@ -169,6 +171,7 @@ function PersonPageBody({
           : null;
   const living = livingDraft ?? isPersonLiving(person);
   const livingDirty = living !== isPersonLiving(person);
+  const showInvite = canInvitePerson(person, isAdmin);
   const focusedIds = focus.data?.items.map((item) => item.person.id) ?? [];
   const focused = focusedIds.includes(person.id);
   const focusUnavailable = focus.isError || focus.isPending;
@@ -201,7 +204,13 @@ function PersonPageBody({
         {inviteStatusCopy ? (
           <p className="text-caption text-muted-foreground">{inviteStatusCopy}</p>
         ) : null}
+        {showInvite ? (
+          <Button type="button" variant="outline" onClick={() => setInviteOpen(true)}>
+            {interpolateHeading(copy['person.invite.action'], { name })}
+          </Button>
+        ) : null}
       </div>
+      {showInvite && inviteOpen ? <PersonInviteCard personId={person.id} name={name} /> : null}
 
       {familyId ? (
         <div className="flex min-h-11 items-start gap-3">

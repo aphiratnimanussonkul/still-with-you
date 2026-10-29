@@ -42,6 +42,7 @@ export function PersonProfileMenu({
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [linkedBlocked, setLinkedBlocked] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const name = personDisplayName(person);
   const linked = isLinkedPerson(person);
@@ -61,8 +62,9 @@ export function PersonProfileMenu({
     },
     onError: (error) => {
       if (error instanceof ApiClientError && error.code === 'PERSON_LINKED') {
-        setDeleteError(interpolateHeading(copy['person.delete.linked'], { ชื่อ: name }));
         setConfirmDelete(false);
+        setOpen(false);
+        setLinkedBlocked(true);
         return;
       }
       setDeleteError(messageForError(error, { name }));
@@ -146,6 +148,22 @@ export function PersonProfileMenu({
               {copy['person.delete.confirm.primary']}
             </AlertDialogAction>
             <AlertDialogCancel className="w-full">{copy['person.delete.confirm.secondary']}</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={linkedBlocked} onOpenChange={setLinkedBlocked}>
+        <AlertDialogContent className="rounded-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{copy['person.delete.linked.title']}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {interpolateHeading(copy['person.delete.linked'], { ชื่อ: name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col gap-2 sm:flex-col">
+            <AlertDialogAction variant="outline" className="w-full">
+              {copy['person.error.ok']}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

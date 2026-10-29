@@ -48,11 +48,13 @@ describe('PersonProfileMenu', () => {
     fireEvent.click(screen.getByRole('button', { name: copy['a11y.more'] }));
     fireEvent.click(await screen.findByRole('button', { name: copy['person.delete.action'] }));
     fireEvent.click(screen.getByRole('button', { name: copy['person.delete.confirm.primary'] }));
+    expect(await screen.findByText(copy['person.delete.linked.title'])).toBeTruthy();
     expect(
-      await screen.findByText(
+      screen.getByText(
         interpolateHeading(copy['person.delete.linked'], { ชื่อ: mockPeople[0].display_name })
       )
     ).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy['person.error.ok'] })).toBeTruthy();
     expect(screen.queryByText('family-page')).toBeNull();
     await waitFor(() => expect(familyGraph.deletePerson).toHaveBeenCalledWith(mockPeople[0].id));
   });

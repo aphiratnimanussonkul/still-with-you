@@ -29,8 +29,11 @@ describe('copy v0.4', () => {
       'person.relationship.related',
       'person.invite.share',
       'person.edit.action',
+      'person.edit.forbidden.title',
       'person.edit.photo.change',
       'person.edit.photo.remove',
+      'person.error.ok',
+      'person.delete.linked.title',
     ]);
   });
 
