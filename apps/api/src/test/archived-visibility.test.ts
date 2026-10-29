@@ -58,7 +58,7 @@ describe('archived event visibility (creator only)', () => {
       { familyId, accountId: contributor.id, role: 'member' },
     ]);
 
-    const personRes = await post(`/v1/families/${familyId}/people`, ownerToken, { name: 'ยาย' });
+    const personRes = await post(`/v1/families/${familyId}/people`, stewardToken, { name: 'ยาย' });
     personId = JSON.parse(personRes.body).person.id;
 
     const created = await post(`/v1/families/${familyId}/events`, ownerToken, {

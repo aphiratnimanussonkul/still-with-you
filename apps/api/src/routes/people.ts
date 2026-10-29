@@ -70,6 +70,12 @@ async function requirePersonFamilyMember(person: typeof people.$inferSelect, acc
   return member;
 }
 
+function requireFamilySteward(member: { role: string }) {
+  if (!isFamilySteward(member.role)) {
+    throw new AppError(ErrorCode.FORBIDDEN, 'This action requires the family steward (admin) role', 403);
+  }
+}
+
 function canEditPerson(
   person: typeof people.$inferSelect,
   member: { role: string; accountId: string },
@@ -144,8 +150,10 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
+  // Steward only (`family_members.role = 'admin'`), with or without inline relationship. Non-member → 404.
   fastify.post<{ Params: { fid: string } }>('/families/:fid/people', async (request, reply) => {
-    await requireFamilyMember(request.params.fid, request.user!.id);
+    const member = await requireFamilyMember(request.params.fid, request.user!.id);
+    requireFamilySteward(member);
     const body = createPersonSchema.parse(request.body);
     const { displayName } = resolvePersonName(body, true);
     const birth = parseBirthFields(body);
@@ -317,8 +325,10 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(204).send();
   });
 
+  // Steward only (`family_members.role = 'admin'`). Edge creator / member → 403; non-member → 404. No PATCH.
   fastify.post<{ Params: { fid: string } }>('/families/:fid/relationships', async (request, reply) => {
-    await requireFamilyMember(request.params.fid, request.user!.id);
+    const member = await requireFamilyMember(request.params.fid, request.user!.id);
+    requireFamilySteward(member);
     const body = createRelationshipSchema.parse(request.body);
 
     let personId = body.person_id;
@@ -339,6 +349,7 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send(toRelationshipResponse(created));
   });
 
+  // Steward only. Edge creator who is not a steward → 403. Non-member / missing → 404.
   fastify.delete<{ Params: { id: string } }>('/relationships/:id', async (request, reply) => {
     const [edge] = await db
       .select()
@@ -352,9 +363,7 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     if (!member) {
       throw new AppError(ErrorCode.NOT_FOUND, 'Relationship not found', 404);
     }
-    if (!isFamilySteward(member.role) && edge.createdByAccountId !== request.user!.id) {
-      throw new AppError(ErrorCode.FORBIDDEN, 'You do not have permission to delete this relationship', 403);
-    }
+    requireFamilySteward(member);
     await db.delete(personRelationships).where(eq(personRelationships.id, edge.id));
     return reply.status(204).send();
   });
@@ -368,9 +377,7 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
       throw new AppError(ErrorCode.INVITE_INVALID, errorMessages[ErrorCode.INVITE_INVALID], 410);
     }
     const member = await requirePersonFamilyMember(person, request.user!.id);
-    if (!isFamilySteward(member.role)) {
-      throw new AppError(ErrorCode.FORBIDDEN, 'This action requires the family steward (admin) role', 403);
-    }
+    requireFamilySteward(member);
     if (person.accountId) {
       throw new AppError(
         ErrorCode.PERSON_ALREADY_LINKED,

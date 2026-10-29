@@ -138,7 +138,7 @@ describe('Web-compat routes (contributions list, people, envelope, api-client)',
       const created = await server.inject({
         method: 'POST',
         url: `/v1/families/${familyId}/people`,
-        headers: await auth(memberToken),
+        headers: await auth(stewardToken),
         payload: { name: '  ยายสมศรี  ', relation_label: 'ยาย' },
       });
       expect(created.statusCode).toBe(201);
@@ -207,7 +207,7 @@ describe('Web-compat routes (contributions list, people, envelope, api-client)',
       const created = await server.inject({
         method: 'POST',
         url: `/v1/families/${familyId}/people`,
-        headers: await auth(memberToken),
+        headers: await auth(stewardToken),
         payload: { name: 'ปู่สมชาย', relation_label: 'ปู่' },
       });
       expect(created.statusCode).toBe(201);

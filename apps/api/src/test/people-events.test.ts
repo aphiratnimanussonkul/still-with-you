@@ -57,14 +57,14 @@ describe('GET /v1/people/:id/events', () => {
     const personRes = await server.inject({
       method: 'POST',
       url: `/v1/families/${familyId}/people`,
-      headers: await auth(creatorToken),
+      headers: await auth(stewardToken),
       payload: { name: 'ยาย' },
     });
     personId = JSON.parse(personRes.body).person.id;
     const otherPersonRes = await server.inject({
       method: 'POST',
       url: `/v1/families/${familyId}/people`,
-      headers: await auth(creatorToken),
+      headers: await auth(stewardToken),
       payload: { name: 'ตา' },
     });
     otherPersonId = JSON.parse(otherPersonRes.body).person.id;

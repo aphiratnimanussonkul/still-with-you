@@ -113,8 +113,8 @@ describe('Member cards + Memory page contract', () => {
     familyId = JSON.parse(familyRes.body).id;
     await db.insert(familyMembers).values({ familyId, accountId: member.id, role: 'member' });
 
-    grandmaId = await createPerson(memberToken, 'ยาย');
-    grandpaId = await createPerson(memberToken, 'ปู่');
+    grandmaId = await createPerson(stewardToken, 'ยาย');
+    grandpaId = await createPerson(stewardToken, 'ปู่');
   });
 
   afterEach(async () => {
@@ -215,7 +215,7 @@ describe('Member cards + Memory page contract', () => {
     const attached = await server.inject({
       method: 'PATCH',
       url: `/v1/people/${grandmaId}`,
-      headers: await auth(memberToken),
+      headers: await auth(stewardToken),
       payload: { avatar_media_id: avatarId },
     });
     expect(attached.statusCode).toBe(200);
@@ -270,7 +270,7 @@ describe('Member cards + Memory page contract', () => {
     const wrongPurpose = await server.inject({
       method: 'PATCH',
       url: `/v1/people/${grandpaId}`,
-      headers: await auth(memberToken),
+      headers: await auth(stewardToken),
       payload: { avatar_media_id: storyId },
     });
     expect(wrongPurpose.statusCode).toBe(422);
@@ -336,7 +336,7 @@ describe('Member cards + Memory page contract', () => {
     await server.inject({
       method: 'PATCH',
       url: `/v1/people/${grandmaId}`,
-      headers: await auth(memberToken),
+      headers: await auth(stewardToken),
       payload: { avatar_media_id: avatarId },
     });
 
@@ -374,7 +374,7 @@ describe('Member cards + Memory page contract', () => {
     const attached = await server.inject({
       method: 'PATCH',
       url: `/v1/people/${grandmaId}`,
-      headers: await auth(memberToken),
+      headers: await auth(stewardToken),
       payload: { avatar_media_id: avatarId },
     });
     const patched = personResponseSchema.parse(JSON.parse(attached.body));

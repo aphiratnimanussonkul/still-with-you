@@ -115,6 +115,10 @@ export function messageForError(error: unknown, vars?: Record<string, string>): 
       return copy['error.TOO_MANY_FOCUS'];
     }
 
+    if (error.code === ErrorCode.TOO_MANY_PARENTS) {
+      return copy['error.TOO_MANY_PARENTS'];
+    }
+
     if (error.code === ErrorCode.ALREADY_ANSWERED) {
       return copy['error.ALREADY_ANSWERED'];
     }

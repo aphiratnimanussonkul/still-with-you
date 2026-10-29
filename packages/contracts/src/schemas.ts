@@ -400,6 +400,7 @@ export const inlineRelationshipSchema = z.object({
   person_id: uuidSchema,
 });
 
+/** POST /v1/families/{id}/people. Steward only, with or without inline relationship. */
 export const createPersonSchema = z.object({
   display_name: optionalNameSchema,
   name: optionalNameSchema,
@@ -431,6 +432,7 @@ export const updatePersonSchema = z.object({
   avatar_media_id: uuidSchema.nullable().optional(),
 });
 
+/** POST /v1/families/{id}/relationships. Steward only. No PATCH. Parent cap 2 live parents (422 TOO_MANY_PARENTS). */
 export const createRelationshipSchema = z.object({
   person_id: uuidSchema,
   related_person_id: uuidSchema,

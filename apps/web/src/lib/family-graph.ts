@@ -166,6 +166,7 @@ export const familyGraph = {
     return request(`/v1/people/${personId}`, familyPersonSchema);
   },
 
+  /** POST /v1/families/{id}/people — family steward only (with or without inline relationship). */
   createPerson(familyId: string, body: CreatePersonBody) {
     return request(`/v1/families/${familyId}/people`, createPersonResultSchema, {
       method: 'POST',
@@ -198,6 +199,7 @@ export const familyGraph = {
     });
   },
 
+  /** POST /v1/families/{id}/relationships — family steward only. Others 403; missing/non-member 404. */
   createRelationship(familyId: string, body: CreateRelationship) {
     return request(`/v1/families/${familyId}/relationships`, relationshipResponseSchema, {
       method: 'POST',
@@ -205,6 +207,7 @@ export const familyGraph = {
     });
   },
 
+  /** DELETE /v1/relationships/{id} — family steward only. Edge creator who is not steward → 403. */
   deleteRelationship(relationshipId: string) {
     return request(`/v1/relationships/${relationshipId}`, z.void(), { method: 'DELETE' });
   },

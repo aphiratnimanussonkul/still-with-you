@@ -302,6 +302,22 @@ export function mapRelationshipKind(
   return { personId, relatedPersonId, type: 'spouse' };
 }
 
+export const MAX_LIVE_PARENTS = 2;
+
+async function countLiveParents(client: QueryClient, childId: string): Promise<number> {
+  const rows = await client
+    .select({ id: personRelationships.id })
+    .from(personRelationships)
+    .innerJoin(
+      people,
+      and(eq(people.id, personRelationships.personId), isNull(people.deletedAt))
+    )
+    .where(
+      and(eq(personRelationships.relatedPersonId, childId), eq(personRelationships.type, 'parent'))
+    );
+  return rows.length;
+}
+
 export async function insertPersonRelationship(
   client: QueryClient,
   input: {
@@ -385,6 +401,10 @@ export async function insertPersonRelationship(
     .limit(1);
   if (existing) {
     throw new AppError(ErrorCode.RELATIONSHIP_EXISTS, errorMessages[ErrorCode.RELATIONSHIP_EXISTS], 409);
+  }
+
+  if (input.type === 'parent' && (await countLiveParents(client, relatedPersonId)) >= MAX_LIVE_PARENTS) {
+    throw new AppError(ErrorCode.TOO_MANY_PARENTS, errorMessages[ErrorCode.TOO_MANY_PARENTS], 422);
   }
 
   const [created] = await client

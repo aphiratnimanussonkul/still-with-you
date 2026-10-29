@@ -673,6 +673,7 @@ export const handlers = [
     });
   }),
 
+  // POST /v1/families/{id}/people is family steward only on the API (others 403).
   http.post(`${api}/v1/families/:fid/people`, async ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
@@ -934,6 +935,7 @@ export const handlers = [
     });
   }),
 
+  // POST /v1/families/{id}/relationships is family steward only on the API (others 403).
   http.post(`${api}/v1/families/:fid/relationships`, async ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
