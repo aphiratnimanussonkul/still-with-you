@@ -159,6 +159,8 @@ export const eventResponseSchema = z.object({
   id: uuidSchema,
   family_id: uuidSchema,
   creator_account_id: uuidSchema,
+  /** Current `accounts.display_name` of `creator_account_id`; null if unresolved. */
+  creator_display_name: z.string().nullable(),
   title: z.string().nullable(),
   description: z.string().nullable(),
   occurred_from: z.string().date().nullable(),
