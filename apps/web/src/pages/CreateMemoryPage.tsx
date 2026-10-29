@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { CircleNotchIcon } from '@phosphor-icons/react/CircleNotch';
 import { PlusIcon } from '@phosphor-icons/react/Plus';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -43,6 +43,14 @@ import {
   thaiMonthLabel,
 } from '@/lib/dates';
 import { familyGraph, personDisplayName, type FamilyPerson } from '@/lib/family-graph';
+import {
+  MEMORY_CREATE_DRAFT_KEY,
+  PWA_FLUSH_DRAFTS_EVENT,
+  clearDraft,
+  readDraft,
+  writeDraft,
+  type MemoryCreateDraft,
+} from '@/lib/form-draft';
 import { nameInitial } from '@/lib/initials';
 import { queryKeys } from '@/lib/query-client';
 import { cn } from '@/lib/utils';
@@ -83,8 +91,9 @@ export function CreateMemoryPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { familiesQuery, familyId } = useSelectedFamily();
-  const [title, setTitle] = useState('');
-  const [story, setStory] = useState('');
+  const restoredCreate = readDraft<MemoryCreateDraft>(MEMORY_CREATE_DRAFT_KEY);
+  const [title, setTitle] = useState(restoredCreate?.title ?? '');
+  const [story, setStory] = useState(restoredCreate?.story ?? '');
   const [yearBe, setYearBe] = useState('');
   const [month, setMonth] = useState('');
   const [day, setDay] = useState('');
@@ -146,6 +155,23 @@ export function CreateMemoryPage() {
   );
   const blocker = useBlocker(dirty && !allowLeave);
 
+  const persistCreateDraft = useCallback(() => {
+    if (!title.trim() && !story.trim()) {
+      clearDraft(MEMORY_CREATE_DRAFT_KEY);
+      return;
+    }
+    writeDraft(MEMORY_CREATE_DRAFT_KEY, { title, story } satisfies MemoryCreateDraft);
+  }, [story, title]);
+
+  useEffect(() => {
+    persistCreateDraft();
+  }, [persistCreateDraft]);
+
+  useEffect(() => {
+    window.addEventListener(PWA_FLUSH_DRAFTS_EVENT, persistCreateDraft);
+    return () => window.removeEventListener(PWA_FLUSH_DRAFTS_EVENT, persistCreateDraft);
+  }, [persistCreateDraft]);
+
   const create = useMutation({
     mutationFn: () => {
       const date = eventDatePayload(yearBe, month, day);
@@ -159,6 +185,7 @@ export function CreateMemoryPage() {
     },
     onSuccess: async (event) => {
       setAllowLeave(true);
+      clearDraft(MEMORY_CREATE_DRAFT_KEY);
       toast.success(copy['save.toast']);
       await queryClient.invalidateQueries({ queryKey: queryKeys.events(familyId!) });
       navigate(`/memories/${event.id}`);

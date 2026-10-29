@@ -48,6 +48,7 @@ vi.mock('@/components/PhotoAttach', () => ({
 
 import { api } from '@/lib/api-client';
 import { familyGraph, personDisplayName } from '@/lib/family-graph';
+import { MEMORY_CREATE_DRAFT_KEY, flushPwaDrafts, readDraft, writeDraft } from '@/lib/form-draft';
 import { toast } from 'sonner';
 import { CreateMemoryPage } from '@/pages/CreateMemoryPage';
 
@@ -274,4 +275,27 @@ describe('CreateMemoryPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: copy['unsaved.leave'] }));
     expect(await screen.findByText('memories-list')).toBeTruthy();
   });
+
+  it('restores create title and story from sessionStorage after reload', async () => {
+    writeDraft(MEMORY_CREATE_DRAFT_KEY, { title: 'งานบวช', story: 'วันนั้นทั้งบ้านตื่น' });
+    renderPage();
+    expect(await screen.findByLabelText(copy['memory.title_label'])).toBeTruthy();
+    expect((screen.getByLabelText(copy['memory.title_label']) as HTMLInputElement).value).toBe('งานบวช');
+    expect((screen.getByLabelText(copy['story.label.required']) as HTMLTextAreaElement).value).toBe(
+      'วันนั้นทั้งบ้านตื่น'
+    );
+  });
+
+  it('writes the create draft on flush so a PWA reload keeps it', async () => {
+    renderPage();
+    fireEvent.change(await screen.findByLabelText(copy['memory.title_label']), {
+      target: { value: 'ยังไม่บันทึก' },
+    });
+    fireEvent.change(screen.getByLabelText(copy['story.label.required']), {
+      target: { value: 'พิมพ์ค้างไว้' },
+    });
+    flushPwaDrafts();
+    expect(readDraft(MEMORY_CREATE_DRAFT_KEY)).toEqual({ title: 'ยังไม่บันทึก', story: 'พิมพ์ค้างไว้' });
+  });
 });
+
