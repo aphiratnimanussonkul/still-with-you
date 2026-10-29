@@ -1,17 +1,21 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
+import { useAppBarOverride } from '@/components/app-bar-override';
+import { PersonProfileMenu } from '@/components/PersonProfileMenu';
 import { QueryLoading } from '@/components/QueryLoading';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { copy, interpolate, interpolateHeading } from '@/copy';
 import { formatThaiDate } from '@/lib/dates';
+import { useMe } from '@/hooks/use-me';
 import { useSelectedFamily } from '@/hooks/use-selected-family';
 import { messageForError } from '@/lib/api-errors';
-import { familyGraph, isPersonLiving, personDisplayName } from '@/lib/family-graph';
+import { familyGraph, isPersonLiving, personDisplayName, type FamilyPerson } from '@/lib/family-graph';
 import { FOCUS_MAX, homeApi } from '@/lib/home-api';
 import { apiPersonAge, personAgeCopyKey } from '@/lib/person-age';
+import { isFamilySteward } from '@/lib/person-permissions';
 import { formatNodeYears, livingDeathWriteFields } from '@/lib/person-years';
 import { queryKeys } from '@/lib/query-client';
 
@@ -19,6 +23,12 @@ export function PersonPage() {
   const { personId } = useParams();
   const { familyId } = useSelectedFamily();
   const queryClient = useQueryClient();
+  const me = useMe();
+  const members = useQuery({
+    queryKey: queryKeys.members(familyId ?? ''),
+    queryFn: () => familyGraph.listMembers(familyId!),
+    enabled: Boolean(familyId),
+  });
   const people = useQuery({
     queryKey: queryKeys.people(familyId ?? ''),
     queryFn: () => familyGraph.listPeople(familyId!),
@@ -68,7 +78,9 @@ export function PersonPage() {
     },
   });
 
-  if (people.isPending || personQuery.isPending) return <QueryLoading />;
+  if (people.isPending || personQuery.isPending || (familyId && members.isPending)) {
+    return <QueryLoading />;
+  }
   const person = personQuery.data ?? people.data?.people.find((row) => row.id === personId);
   if (personQuery.isError && !person) {
     return <p className="text-body text-destructive">{messageForError(personQuery.error)}</p>;
@@ -77,7 +89,69 @@ export function PersonPage() {
     return <p className="text-body text-destructive">{copy['error.NOT_FOUND']}</p>;
   }
 
+  return (
+    <PersonPageBody
+      person={person}
+      familyId={familyId ?? undefined}
+      isAdmin={isFamilySteward(members.data?.members, me.data?.id)}
+      facts={facts}
+      focus={focus}
+      toggleFocus={toggleFocus}
+      saveLiving={saveLiving}
+      livingDraft={livingDraft}
+      setLivingDraft={setLivingDraft}
+    />
+  );
+}
+
+function PersonPageBody({
+  person,
+  familyId,
+  isAdmin,
+  facts,
+  focus,
+  toggleFocus,
+  saveLiving,
+  livingDraft,
+  setLivingDraft,
+}: {
+  person: FamilyPerson;
+  familyId?: string;
+  isAdmin: boolean;
+  facts: {
+    isPending: boolean;
+    isError: boolean;
+    isSuccess: boolean;
+    error: unknown;
+    data?: {
+      groups: Array<{
+        question: { text: string };
+        answers: Array<{
+          id: string;
+          answer_text: string;
+          author?: { display_name: string };
+          created_at?: string;
+        }>;
+      }>;
+    };
+  };
+  focus: {
+    isPending: boolean;
+    isError: boolean;
+    data?: { items: Array<{ person: { id: string } }> };
+    refetch: () => unknown;
+  };
+  toggleFocus: { isPending: boolean; isError: boolean; error: unknown; mutate: (ids: string[]) => void };
+  saveLiving: { isPending: boolean; isError: boolean; error: unknown; mutate: (living: boolean) => void };
+  livingDraft: boolean | null;
+  setLivingDraft: (value: boolean | null) => void;
+}) {
   const name = personDisplayName(person);
+  const extra = useMemo(
+    () => (isAdmin && familyId ? <PersonProfileMenu person={person} familyId={familyId} /> : null),
+    [isAdmin, familyId, person]
+  );
+  useAppBarOverride({ title: name, extra });
   const years = formatNodeYears(person);
   const age = apiPersonAge(person);
   const ageKey = personAgeCopyKey(person);

@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { CaretLeftIcon } from '@phosphor-icons/react/CaretLeft';
 import { Link, useLocation } from 'react-router-dom';
+import { AppBarOverrideProvider, type AppBarOverride } from '@/components/app-bar-override';
 import { AppNav } from '@/components/AppNav';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { pathname, search } = useLocation();
   const me = useMe();
   const bar = appBarForPath(pathname, search);
-  const title = copy[bar.titleKey];
+  const [override, setOverrideState] = useState<AppBarOverride>({});
+  const setOverride = useCallback((next: AppBarOverride) => {
+    setOverrideState((prev) => (prev.title === next.title && prev.extra === next.extra ? prev : next));
+  }, []);
+  const title = override.title ?? copy[bar.titleKey];
   const homeChrome = pathname === '/home';
   const memoryDetailChrome = pathname === '/memories/new' || /^\/memories\/[^/]+/.test(pathname);
 
@@ -45,7 +50,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               <h1 className={`min-w-0 truncate ${bar.backTo ? 'text-h3 font-semibold' : 'text-h2 font-semibold'}`}>
                 {title}
               </h1>
-              {me.data?.display_name ? (
+              {override.extra ? <div className="ml-auto flex items-center">{override.extra}</div> : null}
+              {me.data?.display_name && !override.extra ? (
                 <span className="ml-auto hidden max-w-40 truncate text-caption text-muted-foreground lg:inline">
                   {truncateName(me.data.display_name)}
                 </span>
@@ -64,7 +70,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 : 'max-w-2xl gap-6 px-4 py-6 pb-[calc(var(--bottom-nav-height)+var(--safe-bottom)+1.5rem)] lg:max-w-[680px] lg:pb-8'
           )}
         >
-          {children}
+          <AppBarOverrideProvider value={setOverride}>{children}</AppBarOverrideProvider>
         </main>
 
         {memoryDetailChrome ? null : (

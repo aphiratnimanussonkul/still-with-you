@@ -838,6 +838,28 @@ export const handlers = [
     return jsonContract(personResponseSchema, person);
   }),
 
+  http.delete(`${api}/v1/people/:id`, ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const index = people.findIndex((row) => row.id === params.id);
+    if (index < 0) {
+      return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Person not found' } }, { status: 404 });
+    }
+    const person = people[index]!;
+    const caller = members.find((row) => row.family_id === person.family_id && row.account_id === account.id);
+    if (caller?.role !== 'admin') {
+      return HttpResponse.json({ error: { code: 'FORBIDDEN', message: 'admin required' } }, { status: 403 });
+    }
+    if (person.account_id) {
+      return HttpResponse.json(
+        { error: { code: ErrorCode.PERSON_LINKED, message: 'Person is linked' } },
+        { status: 409 }
+      );
+    }
+    people.splice(index, 1);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
   http.post(`${api}/v1/people/:id/invites`, async ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
