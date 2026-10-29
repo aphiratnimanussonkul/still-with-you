@@ -21,6 +21,15 @@ export function isEventEditConflict(error: unknown): error is ApiClientError {
   return error instanceof ApiClientError && error.code === ErrorCode.EVENT_EDIT_CONFLICT;
 }
 
+/**
+ * PATCH /v1/events 400 whose `error.field` is `version`.
+ * Backend #41 may use INVALID_INPUT, EVENT_VERSION_REQUIRED, or VALIDATION_ERROR —
+ * match the field, not the code. Treat as a stale app bundle, not a form error.
+ */
+export function isEventVersionFieldError(error: unknown): error is ApiClientError {
+  return error instanceof ApiClientError && error.status === 400 && error.field === 'version';
+}
+
 export function currentVersionFromConflict(error: unknown): number | undefined {
   if (!isEventEditConflict(error)) return undefined;
   const parsed = eventEditConflictDetailsSchema.safeParse(error.details);

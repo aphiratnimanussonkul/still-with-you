@@ -36,7 +36,7 @@ export default defineConfig(({ mode }) => {
         // PWA sw.js and MSW's mockServiceWorker.js cannot share the page scope.
         disable: useMsw,
         injectRegister: false,
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
         includeAssets: ['illustrations/error-offline.webp', 'favicon.svg'],
         manifest: {
           name: 'Still With You',

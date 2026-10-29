@@ -24,6 +24,7 @@ import {
   currentVersionFromConflict,
   formatConflictFields,
   isEventEditConflict,
+  isEventVersionFieldError,
   openLatestForConflict,
   saveEventEdit,
 } from '@/lib/event-edit';
@@ -162,6 +163,31 @@ describe('saveEventEdit', () => {
     vi.mocked(api.updateEvent).mockRejectedValue(boom);
     await expect(saveEventEdit(loaded, { title: 'x' })).rejects.toBe(boom);
     expect(api.getEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe('isEventVersionFieldError', () => {
+  it('matches PATCH 400 by field version, not by code', () => {
+    expect(
+      isEventVersionFieldError(new ApiClientError(ErrorCode.INVALID_INPUT, 'missing', 400, 'version'))
+    ).toBe(true);
+    expect(
+      isEventVersionFieldError(new ApiClientError('EVENT_VERSION_REQUIRED', 'required', 400, 'version'))
+    ).toBe(true);
+    expect(
+      isEventVersionFieldError(new ApiClientError('VALIDATION_ERROR', 'required', 400, 'version'))
+    ).toBe(true);
+    expect(
+      isEventVersionFieldError(new ApiClientError(ErrorCode.INVALID_INPUT, 'bad title', 400, 'title'))
+    ).toBe(false);
+    expect(
+      isEventVersionFieldError(new ApiClientError(ErrorCode.INVALID_INPUT, 'bad', 400))
+    ).toBe(false);
+    expect(
+      isEventVersionFieldError(
+        new ApiClientError(ErrorCode.EVENT_EDIT_CONFLICT, 'stale', 409, undefined, { current_version: 2 })
+      )
+    ).toBe(false);
   });
 });
 

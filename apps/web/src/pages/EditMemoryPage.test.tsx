@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorCode } from '@still-with-you/contracts';
 import { copy, interpolate, ownerDisplayName } from '@/copy';
 import { ApiClientError } from '@/lib/api-errors';
@@ -23,6 +23,13 @@ vi.mock('sonner', () => {
 
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
+import {
+  flushPwaDrafts,
+  memoryEditDraftKey,
+  readDraft,
+  setPwaUpdateHandler,
+  writeDraft,
+} from '@/lib/form-draft';
 import { EditMemoryPage } from '@/pages/EditMemoryPage';
 
 const loaded = mockEvents[0];
@@ -55,12 +62,19 @@ function renderPage() {
 
 describe('EditMemoryPage conflict', () => {
   beforeEach(() => {
+    sessionStorage.clear();
+    setPwaUpdateHandler(null);
     vi.mocked(api.getEvent).mockReset();
     vi.mocked(api.updateEvent).mockReset();
     vi.mocked(api.getMe).mockReset();
     vi.mocked(api.archiveEvent).mockReset();
     vi.mocked(api.getEvent).mockResolvedValue(loaded);
     vi.mocked(api.getMe).mockResolvedValue(mockAccount);
+  });
+
+  afterEach(() => {
+    setPwaUpdateHandler(null);
+    vi.unstubAllGlobals();
   });
 
   it('keeps in-progress title on 409 and only fetches latest after tapping เปิดฉบับล่าสุด', async () => {
@@ -122,6 +136,63 @@ describe('EditMemoryPage conflict', () => {
       expect(vi.mocked(api.getEvent).mock.calls.length).toBeGreaterThan(1);
     });
     expect((title as HTMLInputElement).value).toBe('ฉันพิมพ์ไว้แล้ว');
+  });
+
+  it('restores an in-progress title from sessionStorage after reload', async () => {
+    writeDraft(memoryEditDraftKey(loaded.id), { title: 'ฉันพิมพ์ไว้แล้ว' });
+    renderPage();
+    const title = await screen.findByLabelText(copy['memory.title_label']);
+    expect((title as HTMLInputElement).value).toBe('ฉันพิมพ์ไว้แล้ว');
+  });
+
+  it('writes the draft on flush so a PWA reload keeps it', async () => {
+    renderPage();
+    const title = await screen.findByLabelText(copy['memory.title_label']);
+    fireEvent.change(title, { target: { value: 'ยังไม่บันทึก' } });
+    flushPwaDrafts();
+    expect(readDraft(memoryEditDraftKey(loaded.id))).toEqual({ title: 'ยังไม่บันทึก' });
+  });
+
+  it.each(['INVALID_INPUT', 'EVENT_VERSION_REQUIRED', 'VALIDATION_ERROR'])(
+    'shows app.update copy on 400 field version (%s), not generic input error',
+    async (code) => {
+      const update = vi.fn(async () => undefined);
+      const reload = vi.fn();
+      vi.stubGlobal('location', { reload });
+      setPwaUpdateHandler(update);
+      vi.mocked(api.updateEvent).mockRejectedValueOnce(
+        new ApiClientError(code, 'version is required', 400, 'version')
+      );
+
+      renderPage();
+      const title = await screen.findByLabelText(copy['memory.title_label']);
+      fireEvent.change(title, { target: { value: 'ฉันพิมพ์ไว้แล้ว' } });
+      fireEvent.click(screen.getByRole('button', { name: copy['story.save'] }));
+
+      expect(await screen.findByText(copy['app.update.body'])).toBeTruthy();
+      expect(screen.queryByText(copy['error.INVALID_INPUT'])).toBeNull();
+      expect(screen.getByRole('button', { name: copy['app.update.action'] })).toBeTruthy();
+
+      fireEvent.click(screen.getByRole('button', { name: copy['app.update.action'] }));
+      expect(readDraft(memoryEditDraftKey(loaded.id))).toEqual({ title: 'ฉันพิมพ์ไว้แล้ว' });
+      expect(update).not.toHaveBeenCalled();
+      expect(reload).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it('still shows generic input error when 400 is not field version', async () => {
+    vi.mocked(api.updateEvent).mockRejectedValueOnce(
+      new ApiClientError(ErrorCode.INVALID_INPUT, 'invalid event', 400, 'title')
+    );
+
+    renderPage();
+    const title = await screen.findByLabelText(copy['memory.title_label']);
+    fireEvent.change(title, { target: { value: 'ฉันพิมพ์ไว้แล้ว' } });
+    fireEvent.click(screen.getByRole('button', { name: copy['story.save'] }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe(copy['error.INVALID_INPUT']);
+    expect(screen.queryByText(copy['app.update.body'])).toBeNull();
+    expect(screen.queryByRole('button', { name: copy['app.update.action'] })).toBeNull();
   });
 
   it('keeps the draft and shows load_failed plus retry when opening latest fails', async () => {
