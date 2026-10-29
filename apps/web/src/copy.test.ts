@@ -5,6 +5,7 @@ import {
   homeFocusCardMeta,
   interpolate,
   interpolateHeading,
+  ownerDisplayName,
   optionalBadgeText,
   optionalFieldLabel,
   personRelationLabel,
@@ -319,6 +320,34 @@ describe('copy v0.4', () => {
     expect(copy['memory.conflict.field.date']).toBe('วันที่');
     expect(copy['memory.conflict.field.people']).toBe('คนในความทรงจำ');
     expect(copy['memory.conflict.field.cover']).toBe('รูปปก');
+  });
+
+  it('uses Eddy steward-others pause copy and fills owner_display_name or มีคน', () => {
+    expect(copy['memory.pause.others.title']).toBe('พักความทรงจำของ{owner_display_name}ไว้');
+    expect(copy['memory.pause.others.body']).toBe(
+      'พอพักแล้ว ความทรงจำนี้และเรื่องเล่าข้างในจะเห็นได้แค่{owner_display_name} คุณจะมองไม่เห็นและเลิกพักเองไม่ได้ มีแค่{owner_display_name}ที่เลิกพักได้'
+    );
+    expect(copy['memory.pause.others.confirm']).toBe('พักไว้');
+    expect(copy['memory.pause.others.cancel']).toBe('ยังไม่พัก');
+    expect(copy['memory.pause.others.after']).toBe('พักความทรงจำของ{owner_display_name}ไว้แล้ว');
+    expect(ownerDisplayName('มาลี ใจดี')).toBe('มาลี ใจดี');
+    expect(ownerDisplayName(null)).toBe('มีคน');
+    expect(ownerDisplayName('   ')).toBe('มีคน');
+    expect(
+      interpolate(copy['memory.pause.others.after'], {
+        owner_display_name: ownerDisplayName('มาลี ใจดี'),
+      })
+    ).toBe('พักความทรงจำของมาลี ใจดีไว้แล้ว');
+    expect(
+      interpolate(copy['memory.pause.others.after'], {
+        owner_display_name: ownerDisplayName(null),
+      })
+    ).toBe('พักความทรงจำของมีคนไว้แล้ว');
+    expect(
+      interpolateHeading(copy['memory.pause.others.title'], {
+        owner_display_name: ownerDisplayName(null),
+      })
+    ).toBe('พักความทรงจำของมีคนไว้');
   });
 
   it('uses dedicated memory unavailable title and body, not error.generic.body as the key', () => {

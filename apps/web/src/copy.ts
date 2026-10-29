@@ -67,6 +67,12 @@ export const copy = {
     'ระหว่างพักไว้ คนอื่นจะเปิดดูหรือแก้เรื่องเล่าในความทรงจำนี้ไม่ได้ คุณนำกลับมาได้ทุกเมื่อ',
   'memory.pause.confirm.note': 'ถ้าต้องการลบถาวร ต้องพักไว้ครบ 7 วันก่อน',
   'memory.pause.success': 'พัก {ชื่อความทรงจำ} ไว้แล้ว',
+  'memory.pause.others.title': 'พักความทรงจำของ{owner_display_name}ไว้',
+  'memory.pause.others.body':
+    'พอพักแล้ว ความทรงจำนี้และเรื่องเล่าข้างในจะเห็นได้แค่{owner_display_name} คุณจะมองไม่เห็นและเลิกพักเองไม่ได้ มีแค่{owner_display_name}ที่เลิกพักได้',
+  'memory.pause.others.confirm': 'พักไว้',
+  'memory.pause.others.cancel': 'ยังไม่พัก',
+  'memory.pause.others.after': 'พักความทรงจำของ{owner_display_name}ไว้แล้ว',
   'memory.paused.badge': 'พักไว้',
   'memory.paused.banner':
     'ความทรงจำนี้ถูกพักไว้ คนอื่นมองไม่เห็น และตอนนี้เปิดดูได้อย่างเดียว',
@@ -535,6 +541,7 @@ const NAME_VAR_KEYS = new Set([
   'actor_display_name',
   'event_title',
   'family_name',
+  'owner_display_name',
 ]);
 
 export const DISPLAY_NAME_MAX = 20;
@@ -576,6 +583,12 @@ export function optionalBadgeText(value = copy['common.optional']): string {
 /** Page headings show the full name; CSS line-clamp handles overflow. */
 export function interpolateHeading(template: string, vars: Record<string, string>): string {
   return interpolate(template, vars, { truncateNames: false });
+}
+
+/** Fill `{owner_display_name}` from `creator_display_name`; null/blank → มีคน. */
+export function ownerDisplayName(name: string | null | undefined): string {
+  const trimmed = name?.trim();
+  return trimmed ? trimmed : 'มีคน';
 }
 
 /** Relation field: swap `{name}` for คุณ when no person is selected. */

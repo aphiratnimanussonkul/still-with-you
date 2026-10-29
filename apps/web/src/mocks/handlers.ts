@@ -31,6 +31,7 @@ import {
   updatePersonSchema,
   eventEditConflictErrorSchema,
   ErrorCode,
+  EVENT_DELETE_COOLING_DAYS,
 } from '@still-with-you/contracts';
 import { http, HttpResponse, passthrough } from 'msw';
 import type { z } from 'zod';
@@ -523,6 +524,26 @@ export const handlers = [
       return jsonContract(eventEditConflictErrorSchema, result.body, { status: result.status });
     }
     Object.assign(event, result.event);
+    return jsonContract(eventResponseSchema, event);
+  }),
+
+  http.post(`${api}/v1/events/:id/archive`, ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const event = events.find((item) => item.id === params.id);
+    if (!event) {
+      return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Event not found' } }, { status: 404 });
+    }
+    const archivedAt = new Date();
+    Object.assign(event, {
+      status: 'archived',
+      paused: true,
+      archived_at: archivedAt.toISOString(),
+      deletable_at: new Date(
+        archivedAt.getTime() + EVENT_DELETE_COOLING_DAYS * 24 * 60 * 60 * 1000
+      ).toISOString(),
+      updated_at: archivedAt.toISOString(),
+    });
     return jsonContract(eventResponseSchema, event);
   }),
 
