@@ -166,6 +166,13 @@ export const api = {
     });
   },
 
+  archiveEvent(eventId: string): Promise<EventResponse> {
+    return request(`/v1/events/${eventId}/archive`, eventResponseSchema, {
+      method: 'POST',
+      idempotent: true,
+    });
+  },
+
   createContribution(eventId: string, body: CreateContribution): Promise<ContributionResponse> {
     return request(`/v1/events/${eventId}/contributions`, contributionResponseSchema, {
       method: 'POST',

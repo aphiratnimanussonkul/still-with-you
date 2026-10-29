@@ -3,14 +3,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorCode } from '@still-with-you/contracts';
-import { copy } from '@/copy';
+import { copy, interpolate, ownerDisplayName } from '@/copy';
 import { ApiClientError } from '@/lib/api-errors';
-import { mockEvents } from '@/mocks/data';
+import { mockAccount, mockEvents } from '@/mocks/data';
 
 vi.mock('@/lib/api-client', () => ({
   api: {
     getEvent: vi.fn(),
     updateEvent: vi.fn(),
+    getMe: vi.fn(),
+    archiveEvent: vi.fn(),
   },
 }));
 
@@ -19,10 +21,17 @@ vi.mock('sonner', () => {
   return { toast };
 });
 
+import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import { EditMemoryPage } from '@/pages/EditMemoryPage';
 
 const loaded = mockEvents[0];
+const steward = {
+  ...mockAccount,
+  id: '55555555-5555-4555-8555-555555555555',
+  email: 'steward@example.com',
+  display_name: 'ผู้ดูแล',
+};
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -48,7 +57,10 @@ describe('EditMemoryPage conflict', () => {
   beforeEach(() => {
     vi.mocked(api.getEvent).mockReset();
     vi.mocked(api.updateEvent).mockReset();
+    vi.mocked(api.getMe).mockReset();
+    vi.mocked(api.archiveEvent).mockReset();
     vi.mocked(api.getEvent).mockResolvedValue(loaded);
+    vi.mocked(api.getMe).mockResolvedValue(mockAccount);
   });
 
   it('keeps in-progress title on 409 and only fetches latest after tapping เปิดฉบับล่าสุด', async () => {
@@ -148,10 +160,99 @@ describe('EditMemoryPage conflict', () => {
   });
 });
 
+describe('EditMemoryPage steward pause others', () => {
+  beforeEach(() => {
+    vi.mocked(api.getEvent).mockReset();
+    vi.mocked(api.updateEvent).mockReset();
+    vi.mocked(api.getMe).mockReset();
+    vi.mocked(api.archiveEvent).mockReset();
+    vi.mocked(api.getMe).mockResolvedValue(steward);
+    vi.mocked(toast.success).mockClear();
+    vi.mocked(api.archiveEvent).mockResolvedValue({
+      ...loaded,
+      status: 'archived',
+      paused: true,
+    });
+  });
+
+  it('pauses someone else\'s memory and toasts with creator_display_name', async () => {
+    const event = { ...loaded, creator_display_name: 'มาลี ใจดี' };
+    vi.mocked(api.getEvent).mockResolvedValue(event);
+    vi.mocked(api.archiveEvent).mockResolvedValue({
+      ...event,
+      status: 'archived',
+      paused: true,
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: copy['memory.pause.action'] }));
+    expect(
+      await screen.findByRole('heading', {
+        name: interpolate(copy['memory.pause.others.title'], {
+          owner_display_name: 'มาลี ใจดี',
+        }),
+      })
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        interpolate(copy['memory.pause.others.body'], { owner_display_name: 'มาลี ใจดี' })
+      )
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: copy['memory.pause.others.confirm'] }));
+    await waitFor(() => {
+      expect(api.archiveEvent).toHaveBeenCalledWith(loaded.id);
+    });
+    await waitFor(() => {
+      expect(vi.mocked(toast.success)).toHaveBeenCalledWith(
+        interpolate(copy['memory.pause.others.after'], { owner_display_name: 'มาลี ใจดี' })
+      );
+    });
+    expect(await screen.findByText('home-page')).toBeTruthy();
+  });
+
+  it('fills มีคน in the toast when creator_display_name is null', async () => {
+    const event = { ...loaded, creator_display_name: null };
+    vi.mocked(api.getEvent).mockResolvedValue(event);
+    vi.mocked(api.archiveEvent).mockResolvedValue({
+      ...event,
+      status: 'archived',
+      paused: true,
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: copy['memory.pause.action'] }));
+    expect(
+      await screen.findByRole('heading', {
+        name: interpolate(copy['memory.pause.others.title'], {
+          owner_display_name: ownerDisplayName(null),
+        }),
+      })
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: copy['memory.pause.others.confirm'] }));
+    await waitFor(() => {
+      expect(api.archiveEvent).toHaveBeenCalledWith(loaded.id);
+    });
+    await waitFor(() => {
+      expect(vi.mocked(toast.success)).toHaveBeenCalledWith(
+        interpolate(copy['memory.pause.others.after'], {
+          owner_display_name: ownerDisplayName(null),
+        })
+      );
+    });
+    expect(vi.mocked(toast.success).mock.calls.at(-1)?.[0]).toBe('พักความทรงจำของมีคนไว้แล้ว');
+    expect(await screen.findByText('home-page')).toBeTruthy();
+  });
+});
+
 describe('EditMemoryPage unavailable', () => {
   beforeEach(() => {
     vi.mocked(api.getEvent).mockReset();
     vi.mocked(api.updateEvent).mockReset();
+    vi.mocked(api.getMe).mockReset();
+    vi.mocked(api.archiveEvent).mockReset();
+    vi.mocked(api.getMe).mockResolvedValue(mockAccount);
   });
 
   it('shows MemoryUnavailableState title and home link on 404', async () => {
