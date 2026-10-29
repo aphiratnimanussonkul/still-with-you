@@ -19,6 +19,7 @@ import { messageForError } from '@/lib/api-errors';
 import { familyGraph, personDisplayName } from '@/lib/family-graph';
 import { readFamilyTab, writeFamilyTab, type FamilyViewTab } from '@/lib/family-tab';
 import { isOnlySelf, layoutFamilyTree, peopleByGeneration } from '@/lib/family-tree';
+import { isFamilySteward } from '@/lib/person-permissions';
 import { formatNodeYears } from '@/lib/person-years';
 import { queryKeys } from '@/lib/query-client';
 
@@ -128,10 +129,15 @@ function FamilyPeoplePanel({
 }) {
   const me = useMe();
   const [resetToken, setResetToken] = useState(0);
+  const members = useQuery({
+    queryKey: queryKeys.members(familyId),
+    queryFn: () => familyGraph.listMembers(familyId),
+  });
   const people = useQuery({
     queryKey: queryKeys.people(familyId),
     queryFn: () => familyGraph.listPeople(familyId),
   });
+  const isAdmin = isFamilySteward(members.data?.members, me.data?.id);
   const items = people.data?.people ?? [];
   const relationships = people.data?.relationships ?? [];
   const onlySelf = isOnlySelf(items, me.data?.id);
@@ -167,9 +173,11 @@ function FamilyPeoplePanel({
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-3 text-center">
             <p className="text-body text-muted-foreground">{copy['tree.only_self.body']}</p>
-            <Button asChild>
-              <Link to="/family/people/new">{copy['person.add.action']}</Link>
-            </Button>
+            {isAdmin ? (
+              <Button asChild>
+                <Link to="/family/people/new">{copy['person.add.action']}</Link>
+              </Button>
+            ) : null}
           </CardContent>
         </Card>
       ) : tab === 'tree' ? (
@@ -181,6 +189,7 @@ function FamilyPeoplePanel({
               people={items}
               relationships={relationships}
               accountId={me.data?.id}
+              canAdd={isAdmin}
               resetToken={resetToken}
             />
           }
@@ -205,9 +214,11 @@ function FamilyPeoplePanel({
 
       {onlySelf ? null : (
         <div className="flex gap-2">
-          <Button asChild className="flex-1">
-            <Link to="/family/people/new">{copy['person.add.action']}</Link>
-          </Button>
+          {isAdmin ? (
+            <Button asChild className="flex-1">
+              <Link to="/family/people/new">{copy['person.add.action']}</Link>
+            </Button>
+          ) : null}
           <Button type="button" variant="secondary" className="flex-1" onClick={() => setResetToken((value) => value + 1)}>
             {copy['tree.back_to_me']}
           </Button>

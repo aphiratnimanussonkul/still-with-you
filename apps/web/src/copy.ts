@@ -373,6 +373,7 @@ export const copy = {
   'tree.back_to_me': 'กลับมาที่ฉัน',
   'tree.unrelated.title': 'ยังไม่ได้ระบุความสัมพันธ์',
   'tree.unrelated.body': 'แตะที่คนเพื่อเพิ่มความสัมพันธ์ในผัง',
+  'tree.readonly.note': 'TODO: Eddy — tree.readonly.note',
   'tree.node.add': 'เพิ่มคนที่เกี่ยวกับ {ชื่อ}',
   'tree.node.add_parent': 'เพิ่มพ่อแม่',
   'tree.node.add_child': 'เพิ่มลูก',

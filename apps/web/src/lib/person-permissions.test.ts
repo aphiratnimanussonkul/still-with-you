@@ -29,6 +29,17 @@ describe('person permissions', () => {
     ).toBe(false);
   });
 
+  it('hides add-person for members who are not family stewards', () => {
+    expect(isFamilySteward(mockMembers, mockAccount.id)).toBe(true);
+    expect(
+      isFamilySteward(
+        mockMembers.map((member) => ({ ...member, role: 'member' as const })),
+        mockAccount.id
+      )
+    ).toBe(false);
+    expect(isFamilySteward(undefined, mockAccount.id)).toBe(false);
+  });
+
   it('hides the invite button unless the viewer is a steward of a living uninvited person', () => {
     const living = { ...mockPeople[1], invite_status: 'none' as const, account_id: null };
     expect(canInvitePerson(living, true)).toBe(true);

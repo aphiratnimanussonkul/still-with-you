@@ -673,9 +673,14 @@ export const handlers = [
     });
   }),
 
+  // POST /v1/families/{id}/people is family steward only (others 403 FORBIDDEN).
   http.post(`${api}/v1/families/:fid/people`, async ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
+    const caller = members.find((row) => row.family_id === params.fid && row.account_id === account.id);
+    if (caller?.role !== 'admin') {
+      return HttpResponse.json({ error: { code: 'FORBIDDEN', message: 'admin required' } }, { status: 403 });
+    }
     const parsed = createPersonSchema.safeParse(await request.json());
     if (!parsed.success) {
       return HttpResponse.json(
