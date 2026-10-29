@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
-import { EVENT_DELETE_COOLING_DAYS } from '@still-with-you/contracts';
-import { db, accounts, contributions, media } from './db/index.js';
+import { EVENT_DELETE_COOLING_DAYS, type EventResponse } from '@still-with-you/contracts';
+import { db, accounts, contributions, events, media } from './db/index.js';
 import { loadVariantKeys, signCoverImage, type SignedImageSet } from './media/variants.js';
 
 export const EVENT_DELETE_COOLING_MS = EVENT_DELETE_COOLING_DAYS * 24 * 60 * 60 * 1000;
@@ -25,23 +25,7 @@ export function isPastDeleteCooling(archivedAt: Date | null, now = new Date()): 
   return archivedAt.getTime() + EVENT_DELETE_COOLING_MS <= now.getTime();
 }
 
-type EventRow = {
-  id: string;
-  familyId: string;
-  creatorAccountId: string | null;
-  title: string | null;
-  description: string | null;
-  occurredFrom: string | null;
-  occurredTo: string | null;
-  datePrecision: string | null;
-  location: string | null;
-  status: 'active' | 'archived' | 'deleted';
-  archivedAt: Date | null;
-  deletedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-  version: number;
-};
+type EventRow = typeof events.$inferSelect;
 
 const EMPTY_COVER: SignedImageSet = {
   url: null,
@@ -55,7 +39,7 @@ export function toEventResponse(
   event: EventRow,
   cover: SignedImageSet | null = null,
   creatorDisplayName: string | null = null
-) {
+): EventResponse {
   const schedule = archiveSchedule(event.archivedAt);
   const image = cover ?? EMPTY_COVER;
   return {
