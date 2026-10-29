@@ -26,7 +26,7 @@ import {
 } from '../lib/db/index.js';
 import { findActiveMember, isFamilySteward } from '../lib/authz.js';
 import { decodeEventCursor, encodeEventCursor } from '../lib/cursor.js';
-import { presentEvents } from '../lib/event-response.js';
+import { presentEventRows } from '../lib/event-response.js';
 import {
   countVisibleMemoriesForPerson,
   personMemoryCountExpr,
@@ -442,9 +442,13 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const rows = await db
-      .select({ event: events })
+      .select({
+        event: events,
+        creatorDisplayName: accounts.displayName,
+      })
       .from(events)
       .innerJoin(eventPeople, eq(eventPeople.eventId, events.id))
+      .leftJoin(accounts, eq(accounts.id, events.creatorAccountId))
       .where(and(...filters))
       .orderBy(desc(events.createdAt), desc(events.id))
       .limit(query.limit + 1);
@@ -452,7 +456,7 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     const page = rows.slice(0, query.limit);
     const last = page[page.length - 1];
     return reply.send({
-      events: await presentEvents(page.map((row) => row.event)),
+      events: await presentEventRows(page),
       next_cursor:
         rows.length > query.limit && last ? encodeEventCursor(last.event.createdAt, last.event.id) : null,
     });

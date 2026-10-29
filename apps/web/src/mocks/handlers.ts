@@ -449,6 +449,7 @@ export const handlers = [
       id: crypto.randomUUID(),
       family_id: String(params.fid),
       creator_account_id: account.id,
+      creator_display_name: account.display_name,
       title: body.title,
       description: body.description ?? null,
       occurred_from: body.occurred_from ?? null,

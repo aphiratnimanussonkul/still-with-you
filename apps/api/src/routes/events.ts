@@ -9,9 +9,9 @@ import {
   errorMessages,
 } from '@still-with-you/contracts';
 import { and, eq, sql } from 'drizzle-orm';
-import { db, events, contributions, eventPeople, auditLog } from '../lib/db/index.js';
+import { db, events, contributions, eventPeople, auditLog, accounts } from '../lib/db/index.js';
 import { getActiveMember, canManageEvent } from '../lib/authz.js';
-import { archiveSchedule, presentEvent, presentEvents } from '../lib/event-response.js';
+import { archiveSchedule, presentEvent, presentEventRows } from '../lib/event-response.js';
 import { requireVisibleEvent, visibleEventCondition } from '../lib/event-visibility.js';
 import { assertPeopleInFamily } from '../lib/people.js';
 import { attachMediaToStory, hardDeleteStoryMedia } from '../lib/media/attach.js';
@@ -95,11 +95,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     await getActiveMember(fid, request.user!.id);
 
     const rows = await db
-      .select()
+      .select({
+        event: events,
+        creatorDisplayName: accounts.displayName,
+      })
       .from(events)
+      .leftJoin(accounts, eq(accounts.id, events.creatorAccountId))
       .where(and(eq(events.familyId, fid), visibleEventCondition(request.user!.id)));
 
-    return reply.send({ events: await presentEvents(rows) });
+    return reply.send({ events: await presentEventRows(rows) });
   });
 
   fastify.get<{ Params: { id: string } }>('/events/:id', async (request, reply) => {

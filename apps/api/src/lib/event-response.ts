@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
-import { EVENT_DELETE_COOLING_DAYS } from '@still-with-you/contracts';
-import { db, contributions, media } from './db/index.js';
+import { EVENT_DELETE_COOLING_DAYS, type EventResponse } from '@still-with-you/contracts';
+import { db, accounts, contributions, events, media } from './db/index.js';
 import { loadVariantKeys, signCoverImage, type SignedImageSet } from './media/variants.js';
 
 export const EVENT_DELETE_COOLING_MS = EVENT_DELETE_COOLING_DAYS * 24 * 60 * 60 * 1000;
@@ -25,23 +25,7 @@ export function isPastDeleteCooling(archivedAt: Date | null, now = new Date()): 
   return archivedAt.getTime() + EVENT_DELETE_COOLING_MS <= now.getTime();
 }
 
-type EventRow = {
-  id: string;
-  familyId: string;
-  creatorAccountId: string | null;
-  title: string | null;
-  description: string | null;
-  occurredFrom: string | null;
-  occurredTo: string | null;
-  datePrecision: string | null;
-  location: string | null;
-  status: 'active' | 'archived' | 'deleted';
-  archivedAt: Date | null;
-  deletedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-  version: number;
-};
+type EventRow = typeof events.$inferSelect;
 
 const EMPTY_COVER: SignedImageSet = {
   url: null,
@@ -51,13 +35,18 @@ const EMPTY_COVER: SignedImageSet = {
   full_url_expires_at: null,
 };
 
-export function toEventResponse(event: EventRow, cover: SignedImageSet | null = null) {
+export function toEventResponse(
+  event: EventRow,
+  cover: SignedImageSet | null = null,
+  creatorDisplayName: string | null = null
+): EventResponse {
   const schedule = archiveSchedule(event.archivedAt);
   const image = cover ?? EMPTY_COVER;
   return {
     id: event.id,
     family_id: event.familyId,
     creator_account_id: event.creatorAccountId,
+    creator_display_name: creatorDisplayName,
     title: event.title,
     description: event.description,
     occurred_from: event.occurredFrom,
@@ -151,12 +140,52 @@ export async function loadEventCoverUrls(
   return urls;
 }
 
-export async function presentEvents(eventRows: EventRow[], kind: EventCoverKind = 'detail') {
+async function loadCreatorDisplayNames(eventRows: EventRow[]): Promise<Map<string, string | null>> {
+  const names = new Map<string, string | null>();
+  const accountIds = [
+    ...new Set(eventRows.map((event) => event.creatorAccountId).filter((id): id is string => Boolean(id))),
+  ];
+  if (accountIds.length === 0) {
+    for (const event of eventRows) names.set(event.id, null);
+    return names;
+  }
+
+  const rows = await db
+    .select({ id: accounts.id, displayName: accounts.displayName })
+    .from(accounts)
+    .where(inArray(accounts.id, accountIds));
+  const byAccount = new Map(rows.map((row) => [row.id, row.displayName]));
+  for (const event of eventRows) {
+    names.set(event.id, event.creatorAccountId ? (byAccount.get(event.creatorAccountId) ?? null) : null);
+  }
+  return names;
+}
+
+export async function presentEvents(
+  eventRows: EventRow[],
+  kind: EventCoverKind = 'detail',
+  creatorDisplayNames?: ReadonlyMap<string, string | null>
+) {
   const covers = await loadEventCovers(
     eventRows.map((event) => event.id),
     kind
   );
-  return eventRows.map((event) => toEventResponse(event, covers.get(event.id) ?? null));
+  const names = creatorDisplayNames ?? (await loadCreatorDisplayNames(eventRows));
+  return eventRows.map((event) =>
+    toEventResponse(event, covers.get(event.id) ?? null, names.get(event.id) ?? null)
+  );
+}
+
+/** List presenters: pass rows already joined to `accounts.display_name`. */
+export async function presentEventRows(
+  rows: { event: EventRow; creatorDisplayName: string | null }[],
+  kind: EventCoverKind = 'detail'
+) {
+  return presentEvents(
+    rows.map((row) => row.event),
+    kind,
+    new Map(rows.map((row) => [row.event.id, row.creatorDisplayName]))
+  );
 }
 
 export async function presentEvent(event: EventRow) {
