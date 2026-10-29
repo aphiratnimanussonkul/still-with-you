@@ -341,7 +341,7 @@ describe('People v2 (living, death, inline relationship)', () => {
     const died = await server.inject({
       method: 'PATCH',
       url: `/v1/people/${id}`,
-      headers: await auth(memberToken),
+      headers: await auth(stewardToken),
       payload: {
         is_living: false,
         death_date: '2020',
@@ -361,7 +361,7 @@ describe('People v2 (living, death, inline relationship)', () => {
     const livingWithDeath = await server.inject({
       method: 'PATCH',
       url: `/v1/people/${id}`,
-      headers: await auth(memberToken),
+      headers: await auth(stewardToken),
       payload: { is_living: true },
     });
     expect(livingWithDeath.statusCode).toBe(400);
@@ -370,7 +370,7 @@ describe('People v2 (living, death, inline relationship)', () => {
     const cleared = await server.inject({
       method: 'PATCH',
       url: `/v1/people/${id}`,
-      headers: await auth(memberToken),
+      headers: await auth(stewardToken),
       payload: { is_living: true, death_date: null },
     });
     expect(cleared.statusCode).toBe(200);

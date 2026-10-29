@@ -3,7 +3,7 @@ import { mockAccount, mockMembers, mockPeople } from '@/mocks/data';
 import { canEditPerson, isFamilySteward } from '@/lib/person-permissions';
 
 describe('person permissions', () => {
-  it('allows the creator, linked self, and family steward', () => {
+  it('allows only the family steward to PATCH or DELETE a person', () => {
     expect(isFamilySteward(mockMembers, mockAccount.id)).toBe(true);
     expect(canEditPerson(mockPeople[0], mockAccount.id, mockMembers)).toBe(true);
     expect(
@@ -15,10 +15,17 @@ describe('person permissions', () => {
     ).toBe(false);
     expect(
       canEditPerson(
+        { ...mockPeople[0], created_by_account_id: mockAccount.id, account_id: null },
+        mockAccount.id,
+        [{ ...mockMembers[0], role: 'member' }]
+      )
+    ).toBe(false);
+    expect(
+      canEditPerson(
         { ...mockPeople[0], created_by_account_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', account_id: mockAccount.id },
         mockAccount.id,
         []
       )
-    ).toBe(true);
+    ).toBe(false);
   });
 });

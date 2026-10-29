@@ -5,13 +5,14 @@ export function isFamilySteward(members: FamilyMember[] | undefined, accountId: 
   return members?.some((member) => member.account_id === accountId && member.role === 'admin') ?? false;
 }
 
+/**
+ * PATCH /v1/people/{id} and DELETE /v1/people/{id} are family steward only
+ * (`family_members.role = 'admin'`). Creator and linked self are 403; missing/non-member are 404.
+ */
 export function canEditPerson(
-  person: FamilyPerson,
+  _person: FamilyPerson,
   accountId: string | undefined,
   members: FamilyMember[] | undefined
 ): boolean {
-  if (!accountId) return false;
-  if (person.created_by_account_id === accountId) return true;
-  if (person.account_id === accountId) return true;
   return isFamilySteward(members, accountId);
 }

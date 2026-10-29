@@ -70,24 +70,10 @@ async function requirePersonFamilyMember(person: typeof people.$inferSelect, acc
   return member;
 }
 
-function canEditPerson(
-  person: typeof people.$inferSelect,
-  member: { role: string; accountId: string },
-  accountId: string
-) {
-  return (
-    person.createdByAccountId === accountId ||
-    isFamilySteward(member.role) ||
-    person.accountId === accountId
-  );
-}
-
-function canDeletePerson(
-  person: typeof people.$inferSelect,
-  member: { role: string },
-  accountId: string
-) {
-  return person.createdByAccountId === accountId || isFamilySteward(member.role);
+function requireFamilySteward(member: { role: string }) {
+  if (!isFamilySteward(member.role)) {
+    throw new AppError(ErrorCode.FORBIDDEN, 'This action requires the family steward (admin) role', 403);
+  }
 }
 
 function toRelationshipResponse(row: typeof personRelationships.$inferSelect) {
@@ -220,12 +206,11 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     );
   });
 
+  // Steward only (`family_members.role = 'admin'`). Creator / linked self / member → 403; non-member → 404.
   fastify.patch<{ Params: { id: string } }>('/people/:id', async (request, reply) => {
     const person = await loadLivePerson(request.params.id);
     const member = await requirePersonFamilyMember(person, request.user!.id);
-    if (!canEditPerson(person, member, request.user!.id)) {
-      throw new AppError(ErrorCode.FORBIDDEN, 'You do not have permission to edit this person', 403);
-    }
+    requireFamilySteward(member);
 
     const body = updatePersonSchema.parse(request.body);
     const name = resolvePersonName(body, false);
@@ -286,12 +271,11 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     );
   });
 
+  // Steward only. Linked person (`account_id` set) → 409 PERSON_LINKED. Non-member → 404.
   fastify.delete<{ Params: { id: string } }>('/people/:id', async (request, reply) => {
     const person = await loadLivePerson(request.params.id);
     const member = await requirePersonFamilyMember(person, request.user!.id);
-    if (!canDeletePerson(person, member, request.user!.id)) {
-      throw new AppError(ErrorCode.FORBIDDEN, 'You do not have permission to delete this person', 403);
-    }
+    requireFamilySteward(member);
     if (person.accountId) {
       throw new AppError(ErrorCode.PERSON_LINKED, errorMessages[ErrorCode.PERSON_LINKED], 409);
     }
@@ -368,9 +352,7 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
       throw new AppError(ErrorCode.INVITE_INVALID, errorMessages[ErrorCode.INVITE_INVALID], 410);
     }
     const member = await requirePersonFamilyMember(person, request.user!.id);
-    if (!isFamilySteward(member.role)) {
-      throw new AppError(ErrorCode.FORBIDDEN, 'This action requires the family steward (admin) role', 403);
-    }
+    requireFamilySteward(member);
     if (person.accountId) {
       throw new AppError(
         ErrorCode.PERSON_ALREADY_LINKED,
