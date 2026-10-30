@@ -173,6 +173,7 @@ export const familyGraph = {
     });
   },
 
+  /** PATCH /v1/people/{id} — family steward only. Others 403; missing/non-member 404. */
   updatePerson(personId: string, body: UpdatePersonBody) {
     return request(`/v1/people/${personId}`, familyPersonSchema, {
       method: 'PATCH',

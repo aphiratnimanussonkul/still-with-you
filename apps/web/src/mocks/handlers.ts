@@ -794,6 +794,7 @@ export const handlers = [
     return jsonContract(personResponseSchema, person);
   }),
 
+  // PATCH /v1/people/{id} is family steward only on the API (others 403).
   http.patch(`${api}/v1/people/:id`, async ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
