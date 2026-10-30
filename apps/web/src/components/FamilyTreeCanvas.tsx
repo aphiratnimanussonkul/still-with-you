@@ -123,6 +123,8 @@ export function FamilyTreeCanvas({
     }));
   }
 
+  if (layout.nodes.length === 0) return null;
+
   return (
     <div className="flex flex-col gap-3">
       <div
@@ -243,29 +245,6 @@ export function FamilyTreeCanvas({
           })}
         </div>
       </div>
-
-      {layout.unrelated.length > 0 ? (
-        <section className="flex flex-col gap-2">
-          <h3 className="text-h3 font-semibold">{copy['tree.unrelated.title']}</h3>
-          <p className="text-caption text-muted-foreground">
-            {canAdd ? copy['tree.unrelated.body'] : copy['tree.readonly.note']}
-          </p>
-          <ul className="flex flex-wrap gap-3">
-            {layout.unrelated.map((person) => (
-              <li key={person.id}>
-                <button
-                  type="button"
-                  className="flex w-20 flex-col items-center gap-1"
-                  onClick={() => navigate(`/family/people/${person.id}`)}
-                >
-                  <PersonAvatar person={person} />
-                  <span className="line-clamp-2 text-center text-caption">{personNodeLabel(person)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
     </div>
   );
 }

@@ -227,6 +227,10 @@ describe('copy v0.4', () => {
     expect(copy['person.relationship.child']).toBe('เป็นลูกของ');
     expect(copy['person.relationship.spouse']).toBe('เป็นคู่ของ');
     expect(copy['tree.back_to_me']).toBe('กลับมาที่ฉัน');
+    expect(copy['tree.fallback_list.title']).toBe('แสดงเป็นรายชื่อแทน');
+    expect(copy['tree.fallback_list.body']).toBe(
+      'ตอนนี้ยังเปิดผังครอบครัวไม่ได้ เลยแสดงเป็นรายชื่อให้ก่อน'
+    );
     expect(copy['tree.node.add_parent']).toBe('เพิ่มพ่อแม่');
     expect(copy['error.INVALID_DEATH_DATE']).toBe(
       'วันที่จากไปต้องไม่ก่อนวันเกิด และไม่เกินวันนี้'

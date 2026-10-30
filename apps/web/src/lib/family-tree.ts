@@ -34,7 +34,6 @@ export type FamilyTreeLayout = {
   nodes: TreeNodeLayout[];
   couples: TreeCoupleLayout[];
   brackets: TreeChildBracket[];
-  unrelated: FamilyPerson[];
   failed: boolean;
   width: number;
   height: number;
@@ -45,6 +44,17 @@ type EdgeMaps = {
   childrenOf: Map<string, string[]>;
   parentsOf: Map<string, string[]>;
 };
+
+function emptyLayout(failed = false): FamilyTreeLayout {
+  return {
+    nodes: [],
+    couples: [],
+    brackets: [],
+    failed,
+    width: 0,
+    height: 0,
+  };
+}
 
 function pushMap(map: Map<string, string[]>, key: string, value: string) {
   const list = map.get(key) ?? [];
@@ -64,12 +74,13 @@ export function isOnlySelf(people: FamilyPerson[], accountId: string | undefined
   return !accountId || only.account_id === accountId;
 }
 
-function buildEdges(relationships: FamilyRelationship[]): EdgeMaps {
+function buildEdges(relationships: FamilyRelationship[], knownIds: Set<string>): EdgeMaps {
   const spouseOf = new Map<string, string>();
   const childrenOf = new Map<string, string[]>();
   const parentsOf = new Map<string, string[]>();
 
   for (const edge of relationships) {
+    if (!knownIds.has(edge.person_id) || !knownIds.has(edge.related_person_id)) continue;
     if (edge.type === 'spouse') {
       spouseOf.set(edge.person_id, edge.related_person_id);
       spouseOf.set(edge.related_person_id, edge.person_id);
@@ -155,67 +166,72 @@ function unitKey(id: string, spouseOf: Map<string, string>): string {
   return [id, partner].sort().join(':');
 }
 
-export function layoutFamilyTree(
+function comparePersonNames(byId: Map<string, FamilyPerson>, a: string, b: string): number {
+  const personA = byId.get(a);
+  const personB = byId.get(b);
+  if (!personA || !personB) return 0;
+  return personDisplayName(personA).localeCompare(personDisplayName(personB), 'th');
+}
+
+function computeFamilyTreeLayout(
   people: FamilyPerson[],
   relationships: FamilyRelationship[],
   accountId?: string
 ): FamilyTreeLayout {
-  const empty: FamilyTreeLayout = {
-    nodes: [],
-    couples: [],
-    brackets: [],
-    unrelated: [],
-    failed: false,
-    width: 0,
-    height: 0,
-  };
-  if (people.length === 0) return empty;
-
   const byId = new Map(people.map((person) => [person.id, person]));
-  const maps = buildEdges(relationships);
+  const knownIds = new Set(byId.keys());
+  const maps = buildEdges(relationships, knownIds);
   const linked = connectedIds(people, maps);
-  const unrelated = people
+  const connected = people.filter((person) => linked.has(person.id));
+  const unconnected = people
     .filter((person) => !linked.has(person.id))
     .sort((a, b) => personDisplayName(a).localeCompare(personDisplayName(b), 'th'));
-  const connected = people.filter((person) => linked.has(person.id));
-  if (connected.length === 0) {
-    return { ...empty, unrelated };
-  }
-
-  const connectedIdsList = connected.map((person) => person.id);
-  if (hasParentCycle(connectedIdsList, maps.parentsOf)) {
-    return { ...empty, unrelated: people, failed: true };
-  }
-
-  const generations = assignGenerations(connectedIdsList, maps);
-  if (!generations) {
-    return { ...empty, unrelated: people, failed: true };
-  }
 
   const unitsByGen = new Map<number, string[][]>();
-  const seenUnit = new Set<string>();
-  const sorted = [...connected].sort((a, b) => {
-    const genDiff = (generations.get(a.id) ?? 0) - (generations.get(b.id) ?? 0);
-    if (genDiff !== 0) return genDiff;
-    return personDisplayName(a).localeCompare(personDisplayName(b), 'th');
-  });
 
-  for (const person of sorted) {
-    const key = unitKey(person.id, maps.spouseOf);
-    if (seenUnit.has(key)) continue;
-    seenUnit.add(key);
-    const partnerId = maps.spouseOf.get(person.id);
-    const members = partnerId && byId.has(partnerId) ? [person.id, partnerId] : [person.id];
-    members.sort((a, b) => personDisplayName(byId.get(a)!).localeCompare(personDisplayName(byId.get(b)!), 'th'));
-    const generation = Math.min(...members.map((id) => generations.get(id) ?? 0));
-    const list = unitsByGen.get(generation) ?? [];
-    list.push(members);
-    unitsByGen.set(generation, list);
+  if (connected.length > 0) {
+    const connectedIdsList = connected.map((person) => person.id);
+    if (hasParentCycle(connectedIdsList, maps.parentsOf)) {
+      return emptyLayout(true);
+    }
+
+    const assigned = assignGenerations(connectedIdsList, maps);
+    if (!assigned) {
+      return emptyLayout(true);
+    }
+
+    const seenUnit = new Set<string>();
+    const sorted = [...connected].sort((a, b) => {
+      const genDiff = (assigned.get(a.id) ?? 0) - (assigned.get(b.id) ?? 0);
+      if (genDiff !== 0) return genDiff;
+      return personDisplayName(a).localeCompare(personDisplayName(b), 'th');
+    });
+
+    for (const person of sorted) {
+      const key = unitKey(person.id, maps.spouseOf);
+      if (seenUnit.has(key)) continue;
+      seenUnit.add(key);
+      const partnerId = maps.spouseOf.get(person.id);
+      const partner = partnerId ? byId.get(partnerId) : undefined;
+      const members = partner ? [person.id, partner.id] : [person.id];
+      members.sort((a, b) => comparePersonNames(byId, a, b));
+      const generation = Math.min(...members.map((id) => assigned.get(id) ?? 0));
+      const list = unitsByGen.get(generation) ?? [];
+      list.push(members);
+      unitsByGen.set(generation, list);
+    }
+  }
+
+  if (unconnected.length > 0) {
+    const generation = unitsByGen.size > 0 ? Math.max(...unitsByGen.keys()) + 1 : 0;
+    unitsByGen.set(
+      generation,
+      unconnected.map((person) => [person.id])
+    );
   }
 
   const nodes: TreeNodeLayout[] = [];
   const couples: TreeCoupleLayout[] = [];
-  const unitCenter = new Map<string, number>();
   let maxRight = 0;
   const gens = [...unitsByGen.keys()].sort((a, b) => a - b);
 
@@ -229,8 +245,9 @@ export function layoutFamilyTree(
           ? TREE_NODE_WIDTH * 2 + TREE_COUPLE_GAP
           : TREE_NODE_WIDTH;
       const start = x;
-      members.forEach((id, index) => {
-        const person = byId.get(id)!;
+      for (const [index, id] of members.entries()) {
+        const person = byId.get(id);
+        if (!person) continue;
         const nodeX = start + index * (TREE_NODE_WIDTH + TREE_COUPLE_GAP);
         nodes.push({
           id,
@@ -240,7 +257,7 @@ export function layoutFamilyTree(
           generation,
           isMe: Boolean(accountId && person.account_id === accountId),
         });
-      });
+      }
       if (members.length === 2) {
         couples.push({
           a: members[0],
@@ -250,7 +267,6 @@ export function layoutFamilyTree(
           x2: start + TREE_NODE_WIDTH + TREE_COUPLE_GAP,
         });
       }
-      unitCenter.set(members.slice().sort().join(':'), start + width / 2);
       x += width + TREE_GAP_X;
     }
     maxRight = Math.max(maxRight, x - TREE_GAP_X);
@@ -278,18 +294,33 @@ export function layoutFamilyTree(
     nodes,
     couples,
     brackets,
-    unrelated,
     failed: false,
     width: Math.max(maxRight, TREE_NODE_WIDTH),
     height: (maxGen + 1) * (TREE_NODE_HEIGHT + TREE_GAP_Y),
   };
 }
 
+export function layoutFamilyTree(
+  people: FamilyPerson[],
+  relationships: FamilyRelationship[],
+  accountId?: string
+): FamilyTreeLayout {
+  if (people.length === 0) return emptyLayout();
+  try {
+    const layout = computeFamilyTreeLayout(people, relationships, accountId);
+    if (layout.nodes.length === 0) return emptyLayout(true);
+    return layout;
+  } catch {
+    return emptyLayout(true);
+  }
+}
+
 export function peopleByGeneration(
   people: FamilyPerson[],
   relationships: FamilyRelationship[]
 ): { generation: number | null; person: FamilyPerson }[] {
-  const maps = buildEdges(relationships);
+  const knownIds = new Set(people.map((person) => person.id));
+  const maps = buildEdges(relationships, knownIds);
   const linked = connectedIds(people, maps);
   const connected = people.filter((person) => linked.has(person.id));
   const generations = assignGenerations(
