@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   createPersonResponseSchema,
@@ -94,6 +97,21 @@ describe('family-graph vs live API handlers', () => {
         death_date_precision: null,
       }).death_date_precision
     ).toBeNull();
+  });
+
+  it('POST /v1/families/{id}/people is steward-only 403 FORBIDDEN', () => {
+    const source = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), '../mocks/handlers.ts'),
+      'utf8'
+    );
+    const start = source.indexOf('http.post(`${api}/v1/families/:fid/people`');
+    const end = source.indexOf('http.get(`${api}/v1/people/:id`');
+    const postPeople = source.slice(start, end);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    expect(postPeople).toContain("caller?.role !== 'admin'");
+    expect(postPeople).toContain("code: 'FORBIDDEN'");
+    expect(postPeople).toContain('status: 403');
   });
 
   it('parses POST /people as 201 {person, relationship|null}', () => {

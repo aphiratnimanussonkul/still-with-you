@@ -20,6 +20,7 @@ describe('copy v0.4', () => {
       .filter(([, value]) => value.startsWith('TODO:'))
       .map(([key]) => key);
     expect(leftovers).toEqual([
+      'tree.readonly.note',
       'person.family_name.label',
       'person.gender.label',
       'person.birth.label',
@@ -28,10 +29,9 @@ describe('copy v0.4', () => {
       'person.relationship.label',
       'person.relationship.related',
       'person.invite.share',
-      'person.edit.title',
       'person.edit.action',
-      'person.delete.action',
-      'person.delete.confirm.primary',
+      'person.edit.photo.change',
+      'person.edit.photo.remove',
     ]);
   });
 
@@ -41,12 +41,39 @@ describe('copy v0.4', () => {
     expect(copy['person.age']).toBe('อายุ {age} ปี');
     expect(copy['person.age.exact']).toBe('อายุ {n} ปี');
     expect(copy['person.invite.action']).toBe('ชวน {name} เข้าครอบครัว');
-    expect(copy['person.delete.confirm.title']).toBe('ลบ {name} ออกจากผังไหม');
-    expect(copy['person.delete.confirm.body']).toBe(
-      '{name} จะหายไปจากผังพร้อมคำตอบเรื่องที่รู้เกี่ยวกับ{name} และกู้คืนไม่ได้ ส่วนความทรงจำและเรื่องเล่าที่มี {name} จะยังอยู่'
+    expect(copy['person.menu.edit']).toBe('แก้ข้อมูล');
+    expect(copy['person.edit.title']).toBe('แก้ข้อมูลของ{name}');
+    expect(copy['person.edit.relation_note']).toBe(
+      'ถ้าอยากแก้ความสัมพันธ์ ไปแก้ที่หน้าผังครอบครัวได้เลย'
     );
-    expect(copy['person.delete.linked']).toBe(
-      '{name} เป็นสมาชิกครอบครัวแล้ว ถ้าจะลบออกจากผัง ต้องเอาออกจากสมาชิกก่อน'
+    expect(copy['person.edit.save_failed']).toBe(
+      'ขอโทษด้วย ตอนนี้ยังบันทึกไม่ได้ ที่แก้ไว้ยังอยู่ครบ ลองอีกครั้งได้เลย'
+    );
+    expect(copy['person.edit.media_not_ready']).toBe('รูปยังส่งไม่เสร็จ รอแป๊บ แล้วจึงบันทึกอีกที');
+    expect(copy['person.edit.forbidden.title']).toBe('ตอนนี้แก้ข้อมูลไม่ได้');
+    expect(copy['person.edit.forbidden']).toBe('ตอนนี้มีแค่ผู้ดูแลครอบครัวที่แก้ข้อมูลคนในผังได้');
+    expect(copy['person.error.ok']).toBe('เข้าใจแล้ว');
+    expect(copy['person.delete.action']).toBe('ลบออกจากผัง');
+    expect(copy['person.delete.confirm.title']).toBe('ลบ{name}ออกจากผังไหม');
+    expect(copy['person.delete.confirm.body']).toBe(
+      '{name}จะหายไปจากผังพร้อมคำตอบเรื่องที่รู้เกี่ยวกับ{name} และกู้คืนไม่ได้ ส่วนความทรงจำและเรื่องเล่าที่มี{name}จะยังอยู่'
+    );
+    expect(copy['person.delete.confirm.memories']).toBe(
+      'ชื่อ{ชื่อ}ในความทรงจำที่เล่าไว้แล้วยังอยู่เหมือนเดิม'
+    );
+    expect(copy['person.delete.confirm.primary']).toBe('ลบออกจากผัง');
+    expect(copy['person.delete.confirm.secondary']).toBe('ยังไม่ลบ');
+    expect(interpolate(copy['person.edit.title'], { name: 'ยายสมศรี' })).toBe('แก้ข้อมูลของยายสมศรี');
+    expect(interpolate(copy['person.delete.confirm.title'], { name: 'ยายสมศรี' })).toBe(
+      'ลบยายสมศรีออกจากผังไหม'
+    );
+    expect(interpolateHeading(copy['person.delete.confirm.memories'], { ชื่อ: 'ยายสมศรี' })).toBe(
+      'ชื่อยายสมศรีในความทรงจำที่เล่าไว้แล้วยังอยู่เหมือนเดิม'
+    );
+    expect(copy['person.delete.linked.title']).toBe('ลบออกจากผังไม่ได้');
+    expect(copy['person.delete.linked']).toBe('{ชื่อ}เข้ามาเป็นสมาชิกแล้ว เลยลบออกจากผังไม่ได้');
+    expect(interpolateHeading(copy['person.delete.linked'], { ชื่อ: 'ยายสมศรี' })).toBe(
+      'ยายสมศรีเข้ามาเป็นสมาชิกแล้ว เลยลบออกจากผังไม่ได้'
     );
     expect(copy['person.unjoined']).toBe('ยังไม่ได้เข้าร่วม');
     expect(copy['person.gender.male']).toBe('ชาย');

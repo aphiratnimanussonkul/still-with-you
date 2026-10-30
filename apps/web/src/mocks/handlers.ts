@@ -673,9 +673,14 @@ export const handlers = [
     });
   }),
 
+  // POST /v1/families/{id}/people is family steward only (others 403 FORBIDDEN).
   http.post(`${api}/v1/families/:fid/people`, async ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;
+    const caller = members.find((row) => row.family_id === params.fid && row.account_id === account.id);
+    if (caller?.role !== 'admin') {
+      return HttpResponse.json({ error: { code: 'FORBIDDEN', message: 'admin required' } }, { status: 403 });
+    }
     const parsed = createPersonSchema.safeParse(await request.json());
     if (!parsed.success) {
       return HttpResponse.json(
@@ -836,6 +841,28 @@ export const handlers = [
     if (body.bio !== undefined) person.bio = body.bio;
     if (body.avatar_media_id !== undefined) person.avatar_media_id = body.avatar_media_id;
     return jsonContract(personResponseSchema, person);
+  }),
+
+  http.delete(`${api}/v1/people/:id`, ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const index = people.findIndex((row) => row.id === params.id);
+    if (index < 0) {
+      return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Person not found' } }, { status: 404 });
+    }
+    const person = people[index]!;
+    const caller = members.find((row) => row.family_id === person.family_id && row.account_id === account.id);
+    if (caller?.role !== 'admin') {
+      return HttpResponse.json({ error: { code: 'FORBIDDEN', message: 'admin required' } }, { status: 403 });
+    }
+    if (person.account_id) {
+      return HttpResponse.json(
+        { error: { code: ErrorCode.PERSON_LINKED, message: 'Person is linked' } },
+        { status: 409 }
+      );
+    }
+    people.splice(index, 1);
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.post(`${api}/v1/people/:id/invites`, async ({ request, params }) => {

@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { PersonInviteCard } from '@/components/PersonInviteCard';
 import { PersonPhotoField } from '@/components/PersonPhotoField';
 import { QueryLoading } from '@/components/QueryLoading';
@@ -21,6 +21,7 @@ import {
   type RelationshipKind,
 } from '@/lib/family-graph';
 import { findMyPerson } from '@/lib/family-tree';
+import { isFamilySteward } from '@/lib/person-permissions';
 import { livingDeathWriteFields } from '@/lib/person-years';
 import { queryKeys } from '@/lib/query-client';
 import { cn } from '@/lib/utils';
@@ -55,16 +56,19 @@ export function AddPersonPage() {
   if (!familyId) {
     return <p className="text-body text-muted-foreground">{copy['family.empty.body']}</p>;
   }
-  if (people.isPending) return <QueryLoading />;
+  if (people.isPending || members.isPending || me.isPending) return <QueryLoading />;
   if (people.isError) {
     return <p className="text-body text-destructive">{messageForError(people.error)}</p>;
+  }
+  if (!isFamilySteward(members.data?.members, me.data?.id)) {
+    return <Navigate to="/family" replace />;
   }
 
   return (
     <AddPersonForm
       familyId={familyId}
       people={people.data?.people ?? []}
-      isAdmin={members.data?.members.some((member) => member.account_id === me.data?.id && member.role === 'admin') ?? false}
+      isAdmin
       accountId={me.data?.id}
     />
   );

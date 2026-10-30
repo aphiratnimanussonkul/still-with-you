@@ -210,6 +210,10 @@ export const familyGraph = {
     return request(`/v1/relationships/${relationshipId}`, z.void(), { method: 'DELETE' });
   },
 
+  deletePerson(personId: string) {
+    return request(`/v1/people/${personId}`, z.void(), { method: 'DELETE' });
+  },
+
   listContributions(eventId: string) {
     return request(`/v1/events/${eventId}/contributions`, contributionListSchema);
   },

@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { copy } from '@/copy';
-import { mockAccount, mockFamilies, mockPeople, mockRelationships } from '@/mocks/data';
+import { mockAccount, mockFamilies, mockMembers, mockPeople, mockRelationships } from '@/mocks/data';
 
 vi.mock('@/lib/api-client', () => ({
   api: {
@@ -58,6 +58,7 @@ function renderPage(path = '/family') {
 describe('FamilyPage', () => {
   beforeEach(() => {
     sessionStorage.clear();
+    vi.mocked(familyGraph.listMembers).mockResolvedValue({ members: mockMembers });
   });
 
   it('shows the tree, Buddhist years, and only the add / back-to-me toolbar', async () => {
@@ -125,6 +126,35 @@ describe('FamilyPage', () => {
     expect(screen.getByText(copy['tree.only_self.body'])).toBeTruthy();
     expect(screen.getByRole('link', { name: copy['person.add.action'] })).toBeTruthy();
     expect(screen.queryByRole('button', { name: copy['tree.back_to_me'] })).toBeNull();
+  });
+
+  it('hides add-person entry points when the viewer is not an admin', async () => {
+    const unrelated = {
+      ...mockPeople[2],
+      id: '99999999-9999-4999-8999-999999999999',
+      display_name: 'โอ๊ต',
+      name: 'โอ๊ต',
+      relation_label: null,
+      account_id: null,
+    };
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({
+      people: [...mockPeople, unrelated],
+      relationships: mockRelationships,
+    });
+    vi.mocked(familyGraph.listMembers).mockResolvedValue({
+      members: mockMembers.map((member) => ({ ...member, role: 'member' as const })),
+    });
+
+    renderPage();
+    expect(await screen.findByText('ยาย')).toBeTruthy();
+    expect(screen.getByText('โอ๊ต')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: copy['person.add.action'] })).toBeNull();
+    expect(screen.queryByLabelText(copy['tree.node.add'].replace('{ชื่อ}', 'ยาย'))).toBeNull();
+    expect(screen.queryByText(copy['tree.node.add_parent'])).toBeNull();
+    expect(screen.getByRole('button', { name: copy['tree.back_to_me'] })).toBeTruthy();
+    expect(screen.getByText(copy['tree.readonly.note'])).toBeTruthy();
+    expect(screen.queryByText(copy['tree.unrelated.body'])).toBeNull();
   });
 
   it('keeps retry when the people list fails', async () => {
