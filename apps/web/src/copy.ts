@@ -370,6 +370,8 @@ export const copy = {
   'tree.only_self.title': 'เริ่มเพิ่มคนในครอบครัว',
   'tree.only_self.body': 'เพิ่มพ่อแม่ ลูก หรือคู่ของคุณ เพื่อเริ่มต้นผัง',
   'tree.fallback': 'แสดงผังไม่ได้ จึงแสดงเป็นรายชื่อแทน',
+  'tree.fallback_list.title': 'แสดงเป็นรายชื่อแทน',
+  'tree.fallback_list.body': 'ตอนนี้ยังเปิดผังครอบครัวไม่ได้ เลยแสดงเป็นรายชื่อให้ก่อน',
   'tree.back_to_me': 'กลับมาที่ฉัน',
   'tree.unrelated.title': 'ยังไม่ได้ระบุความสัมพันธ์',
   'tree.unrelated.body': 'แตะที่คนเพื่อเพิ่มความสัมพันธ์ในผัง',
