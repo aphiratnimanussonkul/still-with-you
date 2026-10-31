@@ -105,7 +105,7 @@ export const people = pgTable(
     idFamilyKey: uniqueIndex('people_id_family_id_key').on(table.id, table.familyId),
     familyAccountLive: uniqueIndex('people_family_account_live')
       .on(table.familyId, table.accountId)
-      .where(sql`account_id is not null and deleted_at is null`),
+      .where(sql`deleted_at is null and account_id is not null`),
   })
 );
 

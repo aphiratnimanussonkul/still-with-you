@@ -2,6 +2,8 @@ import { FastifyPluginAsync } from 'fastify';
 import {
   AppError,
   ErrorCode,
+  PERSON_SELF_EDITABLE_FIELDS,
+  claimPersonSchema,
   createPersonSchema,
   createRelationshipSchema,
   errorMessages,
@@ -35,14 +37,18 @@ import {
 import { loadVariantKeys } from '../lib/media/variants.js';
 import { inviteExpiresAt, mintInviteToken, publicInviteUrl } from '../lib/invites.js';
 import {
+  accountAlreadyLinkedError,
   attachAvatar,
+  findLiveLinkedPerson,
   insertPersonRelationship,
   inviteStatusFor,
+  isFamilyAccountLiveViolation,
   mapRelationshipKind,
   parseBirthFields,
   parseDeathFields,
   resolvePersonName,
   toPersonResponse,
+  uniqueViolationConstraint,
 } from '../lib/people.js';
 
 async function requireFamilyMember(familyId: string, accountId: string) {
@@ -54,12 +60,42 @@ async function requireFamilyMember(familyId: string, accountId: string) {
   return member;
 }
 
-async function loadLivePerson(id: string) {
+async function loadPersonById(id: string) {
   const [person] = await db.select().from(people).where(eq(people.id, id)).limit(1);
-  if (!person || person.deletedAt) {
+  if (!person) {
     throw new AppError(ErrorCode.NOT_FOUND, 'Person not found', 404);
   }
   return person;
+}
+
+async function loadLivePerson(id: string) {
+  const person = await loadPersonById(id);
+  if (person.deletedAt) {
+    throw new AppError(ErrorCode.NOT_FOUND, 'Person not found', 404);
+  }
+  return person;
+}
+
+function assertSelfEditableFields(body: unknown) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return;
+  }
+  const allowed = new Set<string>(PERSON_SELF_EDITABLE_FIELDS);
+  for (const key of Object.keys(body as Record<string, unknown>)) {
+    if (!allowed.has(key)) {
+      throw new AppError(ErrorCode.FORBIDDEN, errorMessages[ErrorCode.FORBIDDEN], 403, key);
+    }
+  }
+}
+
+async function presentPerson(person: typeof people.$inferSelect, viewerAccountId: string) {
+  const [pending] = await db
+    .select({ id: invites.id })
+    .from(invites)
+    .where(and(eq(invites.personId, person.id), eq(invites.status, 'pending')))
+    .limit(1);
+  const memoryCount = await countVisibleMemoriesForPerson(person.id, person.familyId, viewerAccountId);
+  return toPersonResponse(person, inviteStatusFor(person, pending?.id ?? null), undefined, memoryCount);
 }
 
 async function requirePersonFamilyMember(person: typeof people.$inferSelect, accountId: string) {
@@ -197,22 +233,22 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { id: string } }>('/people/:id', async (request, reply) => {
     const person = await loadLivePerson(request.params.id);
     await requirePersonFamilyMember(person, request.user!.id);
-    const [pending] = await db
-      .select({ id: invites.id })
-      .from(invites)
-      .where(and(eq(invites.personId, person.id), eq(invites.status, 'pending')))
-      .limit(1);
-    const memoryCount = await countVisibleMemoriesForPerson(person.id, person.familyId, request.user!.id);
-    return reply.send(
-      await toPersonResponse(person, inviteStatusFor(person, pending?.id ?? null), undefined, memoryCount)
-    );
+    return reply.send(await presentPerson(person, request.user!.id));
   });
 
-  // Steward only (`family_members.role = 'admin'`). Non-steward members → 403; non-member → 404.
+  // Admin: any field. Linked account (people.account_id = caller): PERSON_SELF_EDITABLE_FIELDS only.
+  // Other members → 403; non-member → 404.
   fastify.patch<{ Params: { id: string } }>('/people/:id', async (request, reply) => {
     const person = await loadLivePerson(request.params.id);
     const member = await requirePersonFamilyMember(person, request.user!.id);
-    requireFamilySteward(member);
+    const isAdmin = isFamilySteward(member.role);
+    const isSelf = person.accountId === request.user!.id;
+    if (!isAdmin) {
+      if (!isSelf) {
+        throw new AppError(ErrorCode.FORBIDDEN, errorMessages[ErrorCode.FORBIDDEN], 403);
+      }
+      assertSelfEditableFields(request.body);
+    }
 
     const body = updatePersonSchema.parse(request.body);
     const name = resolvePersonName(body, false);
@@ -258,19 +294,97 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
       return row;
     });
 
-    const [pending] = await db
-      .select({ id: invites.id })
-      .from(invites)
-      .where(and(eq(invites.personId, person.id), eq(invites.status, 'pending')))
-      .limit(1);
-    const memoryCount = await countVisibleMemoriesForPerson(
-      updated.id,
-      updated.familyId,
-      request.user!.id
-    );
-    return reply.send(
-      await toPersonResponse(updated, inviteStatusFor(updated, pending?.id ?? null), undefined, memoryCount)
-    );
+    return reply.send(await presentPerson(updated, request.user!.id));
+  });
+
+  // Admin of the person's family. Links people.account_id to the CALLER (never another account).
+  fastify.post<{ Params: { id: string } }>('/people/:id/claim', async (request, reply) => {
+    claimPersonSchema.parse(request.body ?? {});
+    const person = await loadPersonById(request.params.id);
+    const member = await requirePersonFamilyMember(person, request.user!.id);
+    requireFamilySteward(member);
+
+    if (person.deletedAt) {
+      throw new AppError(ErrorCode.PERSON_DELETED, errorMessages[ErrorCode.PERSON_DELETED], 422);
+    }
+    if (!person.isLiving) {
+      throw new AppError(ErrorCode.PERSON_DECEASED, errorMessages[ErrorCode.PERSON_DECEASED], 422);
+    }
+    if (person.accountId) {
+      throw new AppError(
+        ErrorCode.PERSON_ALREADY_CLAIMED,
+        errorMessages[ErrorCode.PERSON_ALREADY_CLAIMED],
+        409
+      );
+    }
+
+    const callerId = request.user!.id;
+    const existing = await findLiveLinkedPerson(db, person.familyId, callerId);
+    if (existing && existing.id !== person.id) {
+      throw accountAlreadyLinkedError(existing);
+    }
+
+    try {
+      const updated = await db.transaction(async (tx) => {
+        const linked = await findLiveLinkedPerson(tx, person.familyId, callerId);
+        if (linked && linked.id !== person.id) {
+          throw accountAlreadyLinkedError(linked);
+        }
+
+        const [row] = await tx
+          .update(people)
+          .set({ accountId: callerId, updatedAt: new Date() })
+          .where(and(eq(people.id, person.id), isNull(people.accountId)))
+          .returning();
+
+        if (!row) {
+          throw new AppError(
+            ErrorCode.PERSON_ALREADY_CLAIMED,
+            errorMessages[ErrorCode.PERSON_ALREADY_CLAIMED],
+            409
+          );
+        }
+        return row;
+      });
+
+      return reply.send(await presentPerson(updated, callerId));
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      const constraint = uniqueViolationConstraint(error);
+      if (constraint && isFamilyAccountLiveViolation(constraint)) {
+        const linked = await findLiveLinkedPerson(db, person.familyId, callerId);
+        if (linked && linked.id !== person.id) {
+          throw accountAlreadyLinkedError(linked);
+        }
+        throw new AppError(
+          ErrorCode.ACCOUNT_ALREADY_LINKED,
+          errorMessages[ErrorCode.ACCOUNT_ALREADY_LINKED],
+          409
+        );
+      }
+      throw error;
+    }
+  });
+
+  // Unlink people.account_id. Linked account or family admin; otherwise 403.
+  fastify.delete<{ Params: { id: string } }>('/people/:id/claim', async (request, reply) => {
+    const person = await loadLivePerson(request.params.id);
+    const member = await requirePersonFamilyMember(person, request.user!.id);
+    const isAdmin = isFamilySteward(member.role);
+    const isOwner = person.accountId === request.user!.id;
+    if (!isAdmin && !isOwner) {
+      throw new AppError(ErrorCode.FORBIDDEN, errorMessages[ErrorCode.FORBIDDEN], 403);
+    }
+
+    const [updated] = await db
+      .update(people)
+      .set({ accountId: null, updatedAt: new Date() })
+      .where(eq(people.id, person.id))
+      .returning();
+
+    return reply.send(await presentPerson(updated, request.user!.id));
   });
 
   // Steward only. Linked person (`account_id` set) → 409 PERSON_LINKED. Non-member → 404.

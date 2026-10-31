@@ -23,6 +23,8 @@ export const ErrorCode = {
   // 422 Unprocessable
   TOO_MANY_FOCUS: 'TOO_MANY_FOCUS',
   TOO_MANY_PARENTS: 'TOO_MANY_PARENTS',
+  PERSON_DELETED: 'PERSON_DELETED',
+  PERSON_DECEASED: 'PERSON_DECEASED',
 
   // 401 Unauthorized
   UNAUTHENTICATED: 'UNAUTHENTICATED',
@@ -38,6 +40,8 @@ export const ErrorCode = {
   RELATIONSHIP_EXISTS: 'RELATIONSHIP_EXISTS',
   PERSON_LINKED: 'PERSON_LINKED',
   PERSON_ALREADY_LINKED: 'PERSON_ALREADY_LINKED',
+  PERSON_ALREADY_CLAIMED: 'PERSON_ALREADY_CLAIMED',
+  ACCOUNT_ALREADY_LINKED: 'ACCOUNT_ALREADY_LINKED',
 
   // 410 Gone
   INVITE_INVALID: 'INVITE_INVALID',
@@ -106,6 +110,8 @@ export const errorMessages: Record<ErrorCode, string> = {
   TOO_MANY_PHOTOS: 'Too many photos attached',
   TOO_MANY_FOCUS: 'Too many focus people',
   TOO_MANY_PARENTS: 'A person cannot have more than two parents',
+  PERSON_DELETED: 'This person has been deleted',
+  PERSON_DECEASED: 'A deceased person cannot be claimed',
   INVALID_INPUT: 'Invalid input provided',
   ANSWER_REQUIRED: 'Answer text is required',
   NAME_REQUIRED: 'Display name is required',
@@ -123,6 +129,8 @@ export const errorMessages: Record<ErrorCode, string> = {
   RELATIONSHIP_EXISTS: 'This relationship already exists',
   PERSON_LINKED: 'A linked person cannot be deleted',
   PERSON_ALREADY_LINKED: 'This person is already linked to an account',
+  PERSON_ALREADY_CLAIMED: 'This person is already claimed by an account',
+  ACCOUNT_ALREADY_LINKED: 'This account is already linked to another person in the family',
   INVITE_INVALID: 'This invite is no longer valid',
   NOT_FOUND: 'Resource not found',
   EVENT_NOT_ACTIVE: 'Event must be active for this operation',

@@ -507,3 +507,54 @@ export function inviteStatusFor(
   if (pendingInviteId) return 'pending';
   return 'none';
 }
+
+export const PEOPLE_FAMILY_ACCOUNT_CONSTRAINT = 'people_family_account_live';
+
+export function uniqueViolationConstraint(error: unknown): string | null {
+  let current: unknown = error;
+  for (let i = 0; i < 4 && current && typeof current === 'object'; i++) {
+    const row = current as {
+      code?: string;
+      constraint_name?: string;
+      constraint?: string;
+      message?: string;
+      cause?: unknown;
+    };
+    if (row.code === '23505') {
+      return String(row.constraint_name || row.constraint || row.message || '');
+    }
+    current = row.cause;
+  }
+  return null;
+}
+
+export async function findLiveLinkedPerson(
+  client: QueryClient,
+  familyId: string,
+  accountId: string
+) {
+  const [row] = await client
+    .select()
+    .from(people)
+    .where(
+      and(eq(people.familyId, familyId), eq(people.accountId, accountId), isNull(people.deletedAt))
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+export function accountAlreadyLinkedError(person: Pick<PersonRow, 'id' | 'displayName'>): AppError {
+  return new AppError(
+    ErrorCode.ACCOUNT_ALREADY_LINKED,
+    errorMessages[ErrorCode.ACCOUNT_ALREADY_LINKED],
+    409,
+    undefined,
+    { person_id: person.id, display_name: person.displayName }
+  );
+}
+
+export function isFamilyAccountLiveViolation(constraint: string): boolean {
+  return (
+    constraint.includes(PEOPLE_FAMILY_ACCOUNT_CONSTRAINT) || constraint.includes('people_family_account')
+  );
+}

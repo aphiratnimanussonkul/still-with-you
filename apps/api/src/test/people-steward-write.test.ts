@@ -99,11 +99,14 @@ describe('PATCH/DELETE /v1/people/{id} steward-only', () => {
     });
     expect(accepted.statusCode).toBe(200);
 
-    for (const token of [creatorToken, linkedToken, memberToken]) {
+    // Linked account may self-edit allowed fields (bio). Creator/member cannot.
+    for (const token of [creatorToken, memberToken]) {
       const patched = await patchAs(token);
       expect(patched.statusCode).toBe(403);
       expect(JSON.parse(patched.body).error.code).toBe('FORBIDDEN');
+    }
 
+    for (const token of [creatorToken, linkedToken, memberToken]) {
       const deleted = await deleteAs(token);
       expect(deleted.statusCode).toBe(403);
       expect(JSON.parse(deleted.body).error.code).toBe('FORBIDDEN');
