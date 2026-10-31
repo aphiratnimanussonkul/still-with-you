@@ -3,7 +3,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { copy } from '@/copy';
-import { mockAccount, mockFamilies, mockPeople, mockRelationships } from '@/mocks/data';
+import type { FamilyPerson } from '@/lib/family-graph';
+import { mockAccount, mockFamilies, mockMembers, mockPeople, mockRelationships } from '@/mocks/data';
+
+const { actualLayoutFamilyTree } = vi.hoisted(() => ({
+  actualLayoutFamilyTree: {
+    current: null as null | typeof import('@/lib/family-tree').layoutFamilyTree,
+  },
+}));
 
 vi.mock('@/lib/api-client', () => ({
   api: {
@@ -26,6 +33,17 @@ vi.mock('@/lib/family-graph', async () => {
   };
 });
 
+vi.mock('@/lib/family-tree', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/family-tree')>();
+  actualLayoutFamilyTree.current = actual.layoutFamilyTree;
+  return {
+    ...actual,
+    layoutFamilyTree: vi.fn((...args: Parameters<typeof actual.layoutFamilyTree>) =>
+      actual.layoutFamilyTree(...args)
+    ),
+  };
+});
+
 vi.mock('@/hooks/use-me', () => ({
   useMe: () => ({
     data: { id: mockAccount.id, display_name: mockAccount.display_name },
@@ -38,7 +56,31 @@ vi.mock('@/components/Illustration', () => ({
 
 import { api } from '@/lib/api-client';
 import { familyGraph } from '@/lib/family-graph';
+import { layoutFamilyTree } from '@/lib/family-tree';
 import { FamilyPage } from '@/pages/FamilyPage';
+
+function productionPerson(id: string, name: string): FamilyPerson {
+  return {
+    id,
+    family_id: mockFamilies[0].id,
+    display_name: name,
+    name,
+    relation_label: null,
+    account_id: null,
+    is_living: true,
+    birth_date: null,
+    birth_date_precision: 'day',
+    death_date: null,
+    death_date_precision: null,
+    age: null,
+    avatar_url: null,
+    avatar_url_expires_at: null,
+    avatar_placeholder: null,
+    full_url: null,
+    full_url_expires_at: null,
+    memory_count: 0,
+  };
+}
 
 function renderPage(path = '/family') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -58,6 +100,8 @@ function renderPage(path = '/family') {
 describe('FamilyPage', () => {
   beforeEach(() => {
     sessionStorage.clear();
+    vi.mocked(familyGraph.listMembers).mockResolvedValue({ members: mockMembers });
+    vi.mocked(layoutFamilyTree).mockImplementation((...args) => actualLayoutFamilyTree.current!(...args));
   });
 
   it('shows the tree, Buddhist years, and only the add / back-to-me toolbar', async () => {
@@ -127,13 +171,91 @@ describe('FamilyPage', () => {
     expect(screen.queryByRole('button', { name: copy['tree.back_to_me'] })).toBeNull();
   });
 
+  it('renders people with no relationships as tree nodes', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({
+      people: [
+        productionPerson('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'สมศรี'),
+        productionPerson('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2', 'สมชาย'),
+      ],
+      relationships: [],
+    });
+
+    renderPage();
+    expect(await screen.findByText('สมศรี')).toBeTruthy();
+    expect(screen.getByText('สมชาย')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'สมศรี' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'สมชาย' })).toBeTruthy();
+    expect(screen.queryByText(copy['tree.fallback_list.title'])).toBeNull();
+  });
+
+  it('shows the empty state when the family has no people', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({
+      people: [],
+      relationships: [],
+    });
+
+    renderPage();
+    expect(await screen.findByText(copy['tree.only_self.title'])).toBeTruthy();
+    expect(screen.getByText(copy['tree.only_self.body'])).toBeTruthy();
+    expect(screen.queryByText(copy['tree.fallback_list.title'])).toBeNull();
+  });
+
+  it('shows the fallback list when tree layout throws', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({
+      people: mockPeople,
+      relationships: mockRelationships,
+    });
+    vi.mocked(layoutFamilyTree).mockImplementation(() => {
+      throw new Error('forced layout throw');
+    });
+
+    renderPage();
+    expect(await screen.findByText(copy['tree.fallback_list.title'])).toBeTruthy();
+    expect(screen.getByText(copy['tree.fallback_list.body'])).toBeTruthy();
+    expect(screen.getByText('ยายสมศรี')).toBeTruthy();
+    expect(screen.getByText('ปู่สมชาย')).toBeTruthy();
+    expect(screen.getByText('Atta')).toBeTruthy();
+  });
+
+  it('hides add-person entry points when the viewer is not an admin', async () => {
+    const unrelated = {
+      ...mockPeople[2],
+      id: '99999999-9999-4999-8999-999999999999',
+      display_name: 'โอ๊ต',
+      name: 'โอ๊ต',
+      relation_label: null,
+      account_id: null,
+    };
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({
+      people: [...mockPeople, unrelated],
+      relationships: mockRelationships,
+    });
+    vi.mocked(familyGraph.listMembers).mockResolvedValue({
+      members: mockMembers.map((member) => ({ ...member, role: 'member' as const })),
+    });
+
+    renderPage();
+    expect(await screen.findByText('ยาย')).toBeTruthy();
+    expect(screen.getByText('โอ๊ต')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: copy['person.add.action'] })).toBeNull();
+    expect(screen.queryByLabelText(copy['tree.node.add'].replace('{ชื่อ}', 'ยาย'))).toBeNull();
+    expect(screen.queryByText(copy['tree.node.add_parent'])).toBeNull();
+    expect(screen.getByRole('button', { name: copy['tree.back_to_me'] })).toBeTruthy();
+    expect(screen.queryByText(copy['tree.unrelated.body'])).toBeNull();
+    expect(screen.queryByText(copy['tree.readonly.note'])).toBeNull();
+  });
+
   it('keeps retry when the people list fails', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
     vi.mocked(familyGraph.listPeople).mockRejectedValue(new Error('boom'));
 
     renderPage();
     expect(await screen.findByText(copy['error.generic'])).toBeTruthy();
-    expect(screen.getByRole('button', { name: copy['family.focus.load_error.action'] })).toBeTruthy();
+    expect(screen.getByRole('button', { name: copy['common.retry'] })).toBeTruthy();
     await waitFor(() => expect(screen.queryByText('ยายสมศรี')).toBeNull());
   });
 });

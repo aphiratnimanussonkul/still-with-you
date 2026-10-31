@@ -1,8 +1,10 @@
 import { useCallback, useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useBeforeUnload, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { PhotoAttach, type PhotoAttachState } from '@/components/PhotoAttach';
+import { useBeforeUnload, useBlocker, useNavigate, useParams } from 'react-router-dom';
+import { useAppBarOverride } from '@/components/app-bar-override';
+import { PersonPhotoField } from '@/components/PersonPhotoField';
 import { QueryLoading } from '@/components/QueryLoading';
+import { Alert } from '@/components/ui/alert';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,198 +16,120 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { copy, interpolate, personRelationLabel } from '@/copy';
+import { copy, interpolate, interpolateHeading } from '@/copy';
 import { useMe } from '@/hooks/use-me';
 import { useSelectedFamily } from '@/hooks/use-selected-family';
-import { fieldForError, messageForError } from '@/lib/api-errors';
-import {
-  familyGraph,
-  personDisplayName,
-  type CreatePerson,
-  type FamilyPerson,
-  type FamilyRelationship,
-} from '@/lib/family-graph';
-import {
-  formatBirthInput,
-  isFutureBirthDate,
-  parseBirthInput,
-  type BirthDatePrecision,
-} from '@/lib/person-age';
-import { PERSON_GENDER_OPTIONS, genderFromRadio, genderToRadio, type PersonGender } from '@/lib/person-gender';
-import { canEditPerson } from '@/lib/person-permissions';
-import {
-  relationshipUiType,
-  relationshipWriteBody,
-  type RelationshipUiType,
-} from '@/lib/person-relationship';
+import { ApiClientError, fieldForError, messageForError } from '@/lib/api-errors';
+import { familyGraph, personDisplayName, type FamilyPerson } from '@/lib/family-graph';
+import { personEditIsDirty, personEditPatch } from '@/lib/person-edit';
+import { isFamilySteward } from '@/lib/person-permissions';
 import { queryKeys } from '@/lib/query-client';
 
 const BIO_MAX = 2000;
 
-const selectClassName =
-  'flex h-12 min-h-12 w-full rounded-md border border-input bg-card px-3 py-2 text-body text-foreground';
-
-function relationshipTypeCopy(uiType: RelationshipUiType): string {
-  if (uiType === 'parent') return copy['person.relationship.parent'];
-  if (uiType === 'spouse') return copy['person.relationship.spouse'];
-  return copy['relation.type.child'];
-}
-
-function personWriteBody(input: {
-  display_name: string;
-  family_name: string;
-  relation_label: string;
-  gender: PersonGender;
-  birth: string;
-  birthMode: BirthDatePrecision;
-  bio: string;
-  avatar_media_id?: string;
-}): CreatePerson | { field: 'display_name' | 'birth_date'; message: string } {
-  const display_name = input.display_name.trim();
-  if (!display_name) {
-    return { field: 'display_name', message: copy['person.name.required'] };
-  }
-  const parsedBirth = parseBirthInput(input.birth, input.birthMode);
-  if (parsedBirth === 'invalid') {
-    return { field: 'birth_date', message: copy['error.INVALID_BIRTH_DATE'] };
-  }
-  if (
-    parsedBirth &&
-    isFutureBirthDate(parsedBirth.birth_date, parsedBirth.birth_date_precision)
-  ) {
-    return { field: 'birth_date', message: copy['error.INVALID_BIRTH_DATE'] };
-  }
-  const family_name = input.family_name.trim();
-  const relation_label = input.relation_label.trim();
-  const bio = input.bio.trim();
-  return {
-    display_name,
-    gender: input.gender,
-    ...(family_name ? { family_name } : {}),
-    ...(relation_label ? { relation_label } : {}),
-    ...(parsedBirth
-      ? { birth_date: parsedBirth.birth_date, birth_date_precision: parsedBirth.birth_date_precision }
-      : {}),
-    ...(bio ? { bio } : {}),
-    ...(input.avatar_media_id ? { avatar_media_id: input.avatar_media_id } : {}),
-  };
-}
-
 export function PersonFormPage() {
-  const { personId } = useParams();
-  const [params] = useSearchParams();
-  const isEdit = Boolean(personId);
-  const relatedPrefill = params.get('related') ?? '';
+  const { personId = '' } = useParams();
   const { familyId } = useSelectedFamily();
   const me = useMe();
-  const people = useQuery({
-    queryKey: queryKeys.people(familyId ?? ''),
-    queryFn: () => familyGraph.listPeople(familyId!),
-    enabled: Boolean(familyId),
+  const person = useQuery({
+    queryKey: queryKeys.person(personId),
+    queryFn: () => familyGraph.getPerson(personId),
+    enabled: Boolean(personId),
   });
+  const stewardFamilyId = person.data?.family_id ?? familyId;
   const members = useQuery({
-    queryKey: queryKeys.members(familyId ?? ''),
-    queryFn: () => familyGraph.listMembers(familyId!),
-    enabled: Boolean(familyId) && isEdit,
+    queryKey: queryKeys.members(stewardFamilyId ?? ''),
+    queryFn: () => familyGraph.listMembers(stewardFamilyId!),
+    enabled: Boolean(stewardFamilyId),
   });
 
   if (!familyId) {
     return <p className="text-body text-muted-foreground">{copy['family.empty.body']}</p>;
   }
-  if (people.isPending || (isEdit && members.isPending)) return <QueryLoading />;
-  if (people.isError) {
-    return <p className="text-body text-destructive">{messageForError(people.error)}</p>;
+  if (person.isPending || members.isPending || me.isPending) return <QueryLoading />;
+  if (person.isError) {
+    const status = person.error instanceof ApiClientError ? person.error.status : 0;
+    if (status === 403) return <EditPersonForbidden personId={personId} />;
+    return <p className="text-body text-destructive">{messageForError(person.error)}</p>;
   }
-
-  const person = isEdit ? people.data?.people.find((row) => row.id === personId) : undefined;
-  if (isEdit && !person) {
+  if (!person.data) {
     return <p className="text-body text-destructive">{copy['error.NOT_FOUND']}</p>;
-  }
-  if (person && !canEditPerson(person, me.data?.id, members.data?.members)) {
-    return <p className="text-body text-destructive">{copy['forbidden.title']}</p>;
   }
 
   return (
-    <PersonForm
-      familyId={familyId}
-      person={person}
-      people={people.data?.people ?? []}
-      relationships={people.data?.relationships ?? []}
-      relatedPrefill={relatedPrefill}
+    <EditPersonForm
+      familyId={person.data.family_id}
+      person={person.data}
+      initiallyForbidden={!isFamilySteward(members.data?.members, me.data?.id)}
     />
   );
 }
 
-function PersonForm({
+function EditPersonForbidden({ personId }: { personId: string }) {
+  const navigate = useNavigate();
+  return <EditPersonForbiddenDialog open onDismiss={() => navigate(`/family/people/${personId}`)} />;
+}
+
+function EditPersonForbiddenDialog({ open, onDismiss }: { open: boolean; onDismiss: () => void }) {
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onDismiss();
+      }}
+    >
+      <AlertDialogContent className="rounded-xl">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{copy['person.edit.forbidden.title']}</AlertDialogTitle>
+          <AlertDialogDescription>{copy['person.edit.forbidden']}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="flex flex-col gap-2 sm:flex-col">
+          <AlertDialogAction className="w-full" onClick={onDismiss}>
+            {copy['person.error.ok']}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function EditPersonForm({
   familyId,
   person,
-  people,
-  relationships,
-  relatedPrefill,
+  initiallyForbidden = false,
 }: {
   familyId: string;
-  person?: FamilyPerson;
-  people: FamilyPerson[];
-  relationships: FamilyRelationship[];
-  relatedPrefill: string;
+  person: FamilyPerson;
+  initiallyForbidden?: boolean;
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const initialName = person ? personDisplayName(person) : '';
-  const [displayName, setDisplayName] = useState(initialName);
-  const [familyName, setFamilyName] = useState(person?.family_name ?? '');
-  const [relationLabel, setRelationLabel] = useState(person?.relation_label ?? '');
-  const [gender, setGender] = useState<PersonGender>(person?.gender ?? null);
-  const initialBirthMode: BirthDatePrecision = person?.birth_date_precision ?? 'day';
-  const [birthMode, setBirthMode] = useState<BirthDatePrecision>(initialBirthMode);
-  const [birth, setBirth] = useState(formatBirthInput(person?.birth_date, person?.birth_date_precision));
-  const [bio, setBio] = useState(person?.bio ?? '');
-  const [relatedPersonId, setRelatedPersonId] = useState(relatedPrefill);
-  const [relationshipType, setRelationshipType] = useState<RelationshipUiType | ''>('');
-  const [photos, setPhotos] = useState<PhotoAttachState>({ mediaIds: [], isBusy: false });
-  const [fieldErrors, setFieldErrors] = useState<{ display_name?: string; birth_date?: string }>({});
-  const [formError, setFormError] = useState<string | null>(null);
-  const [allowLeave, setAllowLeave] = useState(false);
+  const name = personDisplayName(person);
+  useAppBarOverride({ title: interpolateHeading(copy['person.edit.title'], { name }) });
 
-  const ownRelationships = person
-    ? relationships.filter((row) => row.person_id === person.id || row.related_person_id === person.id)
-    : [];
-  const otherPeople = people.filter((row) => row.id !== person?.id);
-  const relatedPerson = otherPeople.find((row) => row.id === relatedPersonId);
+  const [displayName, setDisplayName] = useState(personDisplayName(person));
+  const [nickname, setNickname] = useState(person.relation_label ?? '');
+  const [living, setLiving] = useState(person.is_living !== false);
+  const [bio, setBio] = useState(person.bio ?? '');
+  const [photoId, setPhotoId] = useState<string | null>(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [existingUrl, setExistingUrl] = useState(person.avatar_url);
+  const [fieldErrors, setFieldErrors] = useState<{ display_name?: string; avatar_media_id?: string }>({});
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [mediaNotReady, setMediaNotReady] = useState(false);
+  const [allowLeave, setAllowLeave] = useState(initiallyForbidden);
+  const [forbidden, setForbidden] = useState(initiallyForbidden);
 
-  const dirty = useMemo(() => {
-    if (photos.mediaIds.length > 0 || photos.isBusy) return true;
-    if (displayName !== initialName) return true;
-    if (familyName !== (person?.family_name ?? '')) return true;
-    if (relationLabel !== (person?.relation_label ?? '')) return true;
-    if (gender !== (person?.gender ?? null)) return true;
-    if (birthMode !== initialBirthMode) return true;
-    if (birth !== formatBirthInput(person?.birth_date, person?.birth_date_precision)) return true;
-    if (bio !== (person?.bio ?? '')) return true;
-    if (relatedPersonId !== relatedPrefill) return true;
-    if (relationshipType) return true;
-    return false;
-  }, [
-    photos,
-    displayName,
-    initialName,
-    familyName,
-    relationLabel,
-    gender,
-    birthMode,
-    initialBirthMode,
-    birth,
-    bio,
-    relatedPersonId,
-    relatedPrefill,
-    relationshipType,
-    person,
-  ]);
+  const draft = useMemo(
+    () => ({ displayName, nickname, living, bio, photoId, photoRemoved }),
+    [displayName, nickname, living, bio, photoId, photoRemoved]
+  );
+  const dirty = personEditIsDirty(person, draft) || photoBusy;
 
   useBeforeUnload(
     useCallback(
@@ -221,280 +145,169 @@ function PersonForm({
   const blocker = useBlocker(dirty && !allowLeave);
 
   const save = useMutation({
-    mutationFn: async () => {
-      const body = personWriteBody({
-        display_name: displayName,
-        family_name: familyName,
-        relation_label: relationLabel,
-        gender,
-        birth,
-        birthMode,
-        bio,
-        avatar_media_id: photos.mediaIds[0],
-      });
-      if ('field' in body) {
-        throw Object.assign(new Error(body.message), { field: body.field, clientField: true, message: body.message });
+    mutationFn: () => {
+      if (!displayName.trim()) {
+        throw Object.assign(new Error(copy['person.name.required']), {
+          field: 'display_name',
+          clientField: true,
+        });
       }
-      const savedPerson = person
-        ? await familyGraph.updatePerson(person.id, body)
-        : (await familyGraph.createPerson(familyId, body)).person;
-      if (relationshipType && relatedPersonId) {
-        await familyGraph.createRelationship(
-          familyId,
-          relationshipWriteBody(savedPerson.id, relatedPersonId, relationshipType)
-        );
-      }
-      return savedPerson;
+      return familyGraph.updatePerson(person.id, personEditPatch(person, draft));
     },
-    onSuccess: async (savedPerson) => {
+    onSuccess: async () => {
       setAllowLeave(true);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.people(familyId) });
-      navigate(`/family/people/${savedPerson.id}`);
+      setSaveFailed(false);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.person(person.id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.people(familyId) }),
+      ]);
+      navigate(`/family/people/${person.id}`);
     },
     onError: (error) => {
       if (error && typeof error === 'object' && 'clientField' in error) {
-        const fieldError = error as unknown as { field: 'display_name' | 'birth_date'; message: string };
-        setFieldErrors({ [fieldError.field]: fieldError.message });
-        setFormError(null);
+        setFieldErrors({ display_name: copy['person.name.required'] });
+        setSaveFailed(false);
         return;
       }
       const field = fieldForError(error);
-      const message = messageForError(error);
-      if (field === 'display_name' || field === 'birth_date') {
-        setFieldErrors({ [field]: message });
-        setFormError(null);
+      if (field === 'display_name') {
+        setFieldErrors({ display_name: messageForError(error) });
+        setSaveFailed(false);
         return;
       }
-      setFormError(message);
-    },
-  });
-
-  const removeRelationship = useMutation({
-    mutationFn: (relationshipId: string) => familyGraph.deleteRelationship(relationshipId),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.people(familyId) });
+      if (error instanceof ApiClientError && error.code === 'MEDIA_NOT_READY') {
+        setFieldErrors({});
+        setMediaNotReady(true);
+        setSaveFailed(false);
+        return;
+      }
+      if (error instanceof ApiClientError && error.status === 403) {
+        setAllowLeave(true);
+        setForbidden(true);
+        setSaveFailed(false);
+        void queryClient.invalidateQueries({ queryKey: queryKeys.members(familyId) });
+        return;
+      }
+      setFieldErrors({});
+      setSaveFailed(true);
     },
   });
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (photos.isBusy) return;
+    if (photoBusy || !dirty || forbidden) return;
     setFieldErrors({});
-    setFormError(null);
+    setSaveFailed(false);
+    setMediaNotReady(false);
     save.mutate();
   }
 
+  const footerLabel = saveFailed ? copy['common.retry'] : copy['person.save'];
+  const goToProfile = () => navigate(`/family/people/${person.id}`);
+
   return (
     <>
-      <form className="flex flex-col gap-6 pb-24" onSubmit={onSubmit}>
-        <PhotoAttach
-          familyId={familyId}
-          label={copy['person.add.photo.label']}
-          onStateChange={setPhotos}
-        />
+      <form className="flex min-h-0 flex-1 flex-col" onSubmit={onSubmit}>
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
+          {saveFailed ? <Alert>{copy['person.edit.save_failed']}</Alert> : null}
+          {mediaNotReady ? <Alert>{copy['person.edit.media_not_ready']}</Alert> : null}
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="person-display-name">{copy['person.name.label']}</Label>
-          <Input
-            id="person-display-name"
-            value={displayName}
-            aria-invalid={Boolean(fieldErrors.display_name)}
-            onChange={(event) => setDisplayName(event.target.value)}
+          <PersonPhotoField
+            familyId={familyId}
+            layout="edit"
+            existingUrl={photoRemoved ? null : existingUrl}
+            fieldError={fieldErrors.avatar_media_id}
+            onReady={(mediaId, busy) => {
+              setPhotoBusy(busy);
+              if (mediaId) {
+                setPhotoId(mediaId);
+                setPhotoRemoved(false);
+                setExistingUrl(null);
+              }
+            }}
+            onRemove={() => {
+              setPhotoId(null);
+              setPhotoRemoved(true);
+              setExistingUrl(null);
+            }}
           />
-          {fieldErrors.display_name ? (
-            <p className="text-caption text-destructive">{fieldErrors.display_name}</p>
-          ) : null}
-        </div>
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="person-family-name">{copy['person.family_name.label']}</Label>
-          <Input
-            id="person-family-name"
-            value={familyName}
-            onChange={(event) => setFamilyName(event.target.value)}
-          />
-        </div>
-
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-label font-medium">{copy['person.gender.label']}</legend>
-          <RadioGroup
-            className="flex flex-col gap-1"
-            value={genderToRadio(gender)}
-            onValueChange={(value) => setGender(genderFromRadio(value))}
-          >
-            {PERSON_GENDER_OPTIONS.map((option) => (
-              <label
-                key={option.value}
-                htmlFor={`person-gender-${option.value}`}
-                className="flex min-h-11 items-center gap-3 text-body"
-              >
-                <RadioGroupItem id={`person-gender-${option.value}`} value={option.value} />
-                {copy[option.labelKey]}
-              </label>
-            ))}
-          </RadioGroup>
-        </fieldset>
-
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="person-birth-date">{copy['person.birth.label']}</Label>
-          {birthMode === 'year' ? (
-            <div className="flex items-center gap-2">
-              <span className="text-body text-muted-foreground">พ.ศ.</span>
-              <Input
-                id="person-birth-date"
-                inputMode="numeric"
-                value={birth}
-                aria-invalid={Boolean(fieldErrors.birth_date)}
-                onChange={(event) => setBirth(event.target.value)}
-              />
-            </div>
-          ) : (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="person-name">{copy['person.name.label']}</Label>
             <Input
-              id="person-birth-date"
-              type="date"
-              value={birth}
-              aria-invalid={Boolean(fieldErrors.birth_date)}
-              onChange={(event) => setBirth(event.target.value)}
+              id="person-name"
+              value={displayName}
+              aria-invalid={Boolean(fieldErrors.display_name)}
+              onChange={(event) => setDisplayName(event.target.value)}
             />
-          )}
+            {fieldErrors.display_name ? (
+              <p className="text-caption text-destructive">{fieldErrors.display_name}</p>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="person-nickname">{copy['person.nickname.label']}</Label>
+            <Input
+              id="person-nickname"
+              value={nickname}
+              placeholder={copy['person.relation_label.placeholder']}
+              onChange={(event) => setNickname(event.target.value)}
+            />
+          </div>
+
+          <p className="text-label font-medium text-foreground/70">{copy['person.edit.relation_note']}</p>
+
           <div className="flex min-h-11 items-center gap-3">
-            <Switch
-              id="person-birth-year-only"
-              checked={birthMode === 'year'}
-              onCheckedChange={(checked) => {
-                setBirthMode(checked ? 'year' : 'day');
-                setBirth('');
-              }}
+            <Checkbox
+              id="person-living"
+              checked={living}
+              onCheckedChange={(value) => setLiving(value === true)}
             />
-            <Label htmlFor="person-birth-year-only" className="text-body font-normal">
-              {copy['person.birth.mode.year']}
+            <Label htmlFor="person-living" className="text-body font-normal">
+              {copy['person.living.label']}
             </Label>
           </div>
-          <p className="text-caption text-muted-foreground">{copy['person.birth.hint']}</p>
-          {fieldErrors.birth_date ? (
-            <p className="text-caption text-destructive">{fieldErrors.birth_date}</p>
-          ) : null}
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="person-bio">{copy['person.bio.label']}</Label>
+            <Textarea
+              id="person-bio"
+              value={bio}
+              maxLength={BIO_MAX}
+              onChange={(event) => setBio(event.target.value)}
+            />
+            <p className="text-caption text-muted-foreground">
+              {interpolate(copy['person.bio.counter'], { count: String(bio.length) })}
+            </p>
+          </div>
         </div>
 
-        {ownRelationships.length > 0 ? (
-          <ul className="flex flex-col gap-2">
-            {ownRelationships.map((row) => {
-              const otherId = row.person_id === person?.id ? row.related_person_id : row.person_id;
-              const other = people.find((item) => item.id === otherId);
-              const uiType = person ? relationshipUiType(row, person.id) : 'parent';
-              const typeLabel = relationshipTypeCopy(uiType);
-              return (
-                <li key={row.id} className="flex min-h-11 items-center justify-between gap-3">
-                  <p className="text-body">
-                    {typeLabel}
-                    {other ? ` · ${personDisplayName(other)}` : ''}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    aria-label={copy['a11y.close']}
-                    disabled={removeRelationship.isPending}
-                    onClick={() => removeRelationship.mutate(row.id)}
-                  >
-                    {copy['a11y.close']}
-                  </Button>
-                </li>
-              );
-            })}
-          </ul>
-        ) : null}
-
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="person-related">
-            {personRelationLabel(relatedPerson ? personDisplayName(relatedPerson) : null)}
-          </Label>
-          <select
-            id="person-related"
-            className={selectClassName}
-            value={relatedPersonId}
-            onChange={(event) => setRelatedPersonId(event.target.value)}
+        <div className="sticky z-30 -mx-4 border-t border-border bg-background px-4 py-4 bottom-[calc(var(--bottom-nav-height)+var(--safe-bottom))] lg:bottom-0">
+          <Button
+            className="w-full"
+            type="submit"
+            size="lg"
+            disabled={save.isPending || photoBusy || (!dirty && !saveFailed)}
+            aria-busy={save.isPending}
           >
-            <option value="">{copy['person.relation.type.placeholder']}</option>
-            {otherPeople.map((row) => (
-              <option key={row.id} value={row.id}>
-                {personDisplayName(row)}
-              </option>
-            ))}
-          </select>
-          {relatedPersonId ? (
-            <RadioGroup
-              className="flex flex-col gap-1"
-              value={relationshipType}
-              onValueChange={(value) => setRelationshipType(value as RelationshipUiType)}
-            >
-              <label htmlFor="person-rel-parent" className="flex min-h-11 items-center gap-3 text-body">
-                <RadioGroupItem id="person-rel-parent" value="parent" />
-                {copy['person.relationship.parent']}
-              </label>
-              <label htmlFor="person-rel-spouse" className="flex min-h-11 items-center gap-3 text-body">
-                <RadioGroupItem id="person-rel-spouse" value="spouse" />
-                {copy['person.relationship.spouse']}
-              </label>
-              <label htmlFor="person-rel-child" className="flex min-h-11 items-center gap-3 text-body">
-                <RadioGroupItem id="person-rel-child" value="child" />
-                {copy['relation.type.child']}
-              </label>
-            </RadioGroup>
-          ) : null}
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="person-relation-label">{copy['person.relation_label.label']}</Label>
-          <Input
-            id="person-relation-label"
-            value={relationLabel}
-            placeholder={copy['person.relation_label.placeholder']}
-            onChange={(event) => setRelationLabel(event.target.value)}
-          />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="person-bio">{copy['person.bio.label']}</Label>
-          <Textarea
-            id="person-bio"
-            value={bio}
-            maxLength={BIO_MAX}
-            onChange={(event) => setBio(event.target.value)}
-          />
-          <p className="text-caption text-muted-foreground">
-            {interpolate(copy['person.bio.counter'], { count: String(bio.length) })}
-          </p>
-        </div>
-
-        {photos.isBusy ? (
-          <p className="text-caption text-muted-foreground">{copy['photo.upload.wait']}</p>
-        ) : null}
-        {formError ? <p className="text-caption text-destructive">{formError}</p> : null}
-        {removeRelationship.isError ? (
-          <p className="text-caption text-destructive">{messageForError(removeRelationship.error)}</p>
-        ) : null}
-
-        <div className="sticky z-30 -mx-4 border-t border-border bg-card px-4 py-3 bottom-[calc(var(--bottom-nav-height)+var(--safe-bottom))] lg:bottom-0">
-          <Button className="w-full" type="submit" disabled={save.isPending || photos.isBusy}>
-            {copy['person.save']}
+            {footerLabel}
           </Button>
         </div>
       </form>
 
       <AlertDialog open={blocker.state === 'blocked'} onOpenChange={(open) => !open && blocker.reset?.()}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-xl">
           <AlertDialogHeader>
             <AlertDialogTitle>{copy['person.add.discard.title']}</AlertDialogTitle>
             <AlertDialogDescription>{copy['person.add.discard.body']}</AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel variant="default" onClick={() => blocker.reset?.()}>
+          <AlertDialogFooter className="flex flex-col gap-2 sm:flex-col">
+            <AlertDialogCancel variant="default" className="w-full" onClick={() => blocker.reset?.()}>
               {copy['person.add.discard.keep']}
             </AlertDialogCancel>
             <AlertDialogAction
               variant="outline"
-              className="border-destructive text-destructive hover:bg-destructive/10"
+              className="w-full border-destructive text-destructive hover:bg-destructive/10"
               onClick={() => {
                 setAllowLeave(true);
                 blocker.proceed?.();
@@ -505,6 +318,8 @@ function PersonForm({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EditPersonForbiddenDialog open={forbidden} onDismiss={goToProfile} />
     </>
   );
 }

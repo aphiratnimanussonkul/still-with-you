@@ -228,6 +228,83 @@ describe('POST/DELETE relationships steward-only and parent cap', () => {
     expect(spouse.statusCode).toBe(201);
   });
 
+  it('serializes concurrent parent creates so a child has at most 2 live parents', async () => {
+    const child = await createPerson(stewardToken, 'ลูกล็อก');
+    const parents = await Promise.all([
+      createPerson(stewardToken, 'พ่อล็อก1'),
+      createPerson(stewardToken, 'พ่อล็อก2'),
+      createPerson(stewardToken, 'พ่อล็อก3'),
+      createPerson(stewardToken, 'พ่อล็อก4'),
+    ]);
+
+    const stewardHeaders = await auth(stewardToken);
+    const results = await Promise.all(
+      parents.map((parent) =>
+        server.inject({
+          method: 'POST',
+          url: `/v1/families/${familyId}/relationships`,
+          headers: stewardHeaders,
+          payload: { person_id: parent.id, related_person_id: child.id, type: 'parent' },
+        })
+      )
+    );
+
+    const created = results.filter((res) => res.statusCode === 201);
+    const rejected = results.filter((res) => res.statusCode === 422);
+    expect(created).toHaveLength(2);
+    expect(rejected).toHaveLength(2);
+    expect(rejected.every((res) => JSON.parse(res.body).error.code === 'TOO_MANY_PARENTS')).toBe(true);
+
+    const listed = await server.inject({
+      method: 'GET',
+      url: `/v1/families/${familyId}/people`,
+      headers: await auth(memberToken),
+    });
+    const edges = JSON.parse(listed.body).relationships as Array<{
+      related_person_id: string;
+      type: string;
+    }>;
+    expect(edges.filter((row) => row.related_person_id === child.id && row.type === 'parent')).toHaveLength(
+      2
+    );
+  });
+
+  it('serializes concurrent inline parent_of creates so a child has at most 2 live parents', async () => {
+    const child = await createPerson(stewardToken, 'ลูกอินไลน์');
+
+    const stewardHeaders = await auth(stewardToken);
+    const results = await Promise.all(
+      ['พ่ออิน1', 'พ่ออิน2', 'พ่ออิน3', 'พ่ออิน4'].map((name) =>
+        server.inject({
+          method: 'POST',
+          url: `/v1/families/${familyId}/people`,
+          headers: stewardHeaders,
+          payload: { name, relationship: { kind: 'parent_of', person_id: child.id } },
+        })
+      )
+    );
+
+    const created = results.filter((res) => res.statusCode === 201);
+    const rejected = results.filter((res) => res.statusCode === 422);
+    expect(created).toHaveLength(2);
+    expect(rejected).toHaveLength(2);
+    expect(rejected.every((res) => JSON.parse(res.body).error.code === 'TOO_MANY_PARENTS')).toBe(true);
+
+    const listed = await server.inject({
+      method: 'GET',
+      url: `/v1/families/${familyId}/people`,
+      headers: await auth(memberToken),
+    });
+    const body = JSON.parse(listed.body) as {
+      people: Array<{ name: string }>;
+      relationships: Array<{ related_person_id: string; type: string }>;
+    };
+    expect(
+      body.relationships.filter((row) => row.related_person_id === child.id && row.type === 'parent')
+    ).toHaveLength(2);
+    expect(body.people.filter((row) => row.name.startsWith('พ่ออิน'))).toHaveLength(2);
+  });
+
   it('still lists existing over-limit parent edges on GET', async () => {
     const child = await createPerson(stewardToken, 'ลูกเกิน');
     const parents = await Promise.all([

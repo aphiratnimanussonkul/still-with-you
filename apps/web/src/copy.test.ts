@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   copy,
+  type CopyKey,
   familyItemMeta,
   homeFocusCardMeta,
   interpolate,
@@ -15,24 +19,36 @@ import {
 } from '@/copy';
 
 describe('copy v0.4', () => {
-  it('has no remaining TODO placeholders except draft people-CRUD keys', () => {
+  it('has no remaining TODO placeholders', () => {
     const leftovers = Object.entries(copy)
       .filter(([, value]) => value.startsWith('TODO:'))
       .map(([key]) => key);
-    expect(leftovers).toEqual([
-      'person.family_name.label',
-      'person.gender.label',
-      'person.birth.label',
-      'person.bio.label',
-      'person.avatar.label',
-      'person.relationship.label',
-      'person.relationship.related',
-      'person.invite.share',
-      'person.edit.title',
-      'person.edit.action',
-      'person.delete.action',
-      'person.delete.confirm.primary',
-    ]);
+    expect(leftovers).toEqual([]);
+  });
+
+  it('has Thai copy for every key used on person profile and edit', () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const files = [
+      'pages/PersonFormPage.tsx',
+      'pages/PersonPage.tsx',
+      'components/PersonPhotoField.tsx',
+      'components/PersonProfileMenu.tsx',
+    ];
+    const used = new Set<string>();
+    for (const file of files) {
+      const src = readFileSync(resolve(here, file), 'utf8');
+      for (const match of src.matchAll(/copy\['([^']+)'\]/g)) {
+        used.add(match[1]);
+      }
+    }
+    const missing: string[] = [];
+    const raw: string[] = [];
+    for (const key of used) {
+      const value = copy[key as CopyKey];
+      if (value == null) missing.push(key);
+      else if (value.startsWith('TODO:') || value === key) raw.push(key);
+    }
+    expect({ missing, raw }).toEqual({ missing: [], raw: [] });
   });
 
   it('uses Eddy draft people-CRUD copy', () => {
@@ -41,12 +57,53 @@ describe('copy v0.4', () => {
     expect(copy['person.age']).toBe('อายุ {age} ปี');
     expect(copy['person.age.exact']).toBe('อายุ {n} ปี');
     expect(copy['person.invite.action']).toBe('ชวน {name} เข้าครอบครัว');
-    expect(copy['person.delete.confirm.title']).toBe('ลบ {name} ออกจากผังไหม');
-    expect(copy['person.delete.confirm.body']).toBe(
-      '{name} จะหายไปจากผังพร้อมคำตอบเรื่องที่รู้เกี่ยวกับ{name} และกู้คืนไม่ได้ ส่วนความทรงจำและเรื่องเล่าที่มี {name} จะยังอยู่'
+    expect(copy['person.menu.edit']).toBe('แก้ข้อมูล');
+    expect(copy['person.edit.action']).toBe('แก้ข้อมูล');
+    expect(copy['person.edit.photo.change']).toBe('เปลี่ยนรูป');
+    expect(copy['person.edit.photo.remove']).toBe('เอารูปออก');
+    expect(copy['person.avatar.label']).toBe('รูปโปรไฟล์ (ไม่บังคับ)');
+    expect(copy['person.bio.label']).toBe('ข้อมูลส่วนตัว (ไม่บังคับ)');
+    expect(copy['person.family_name.label']).toBe('นามสกุล (ไม่บังคับ)');
+    expect(copy['person.gender.label']).toBe('เพศ (ไม่บังคับ)');
+    expect(copy['person.birth.label']).toBe('วันเกิด (ไม่บังคับ)');
+    expect(copy['person.relationship.label']).toBe('ความสัมพันธ์ในผัง (ไม่บังคับ)');
+    expect(copy['person.relationship.related']).toBe('คนที่เกี่ยวข้อง');
+    expect(copy['person.invite.share']).toBe('ส่งลิงก์ชวน');
+    expect(copy['tree.readonly.note']).toBe(
+      'ผู้ดูแลครอบครัวเป็นคนจัดผัง ถ้าเห็นอะไรไม่ตรง ลองบอกผู้ดูแลดู'
     );
-    expect(copy['person.delete.linked']).toBe(
-      '{name} เป็นสมาชิกครอบครัวแล้ว ถ้าจะลบออกจากผัง ต้องเอาออกจากสมาชิกก่อน'
+    expect(copy['person.edit.title']).toBe('แก้ข้อมูลของ{name}');
+    expect(copy['person.edit.relation_note']).toBe(
+      'ถ้าอยากแก้ความสัมพันธ์ ไปแก้ที่หน้าผังครอบครัวได้เลย'
+    );
+    expect(copy['person.edit.save_failed']).toBe(
+      'ขอโทษด้วย ตอนนี้ยังบันทึกไม่ได้ ที่แก้ไว้ยังอยู่ครบ ลองอีกครั้งได้เลย'
+    );
+    expect(copy['person.edit.media_not_ready']).toBe('รูปยังส่งไม่เสร็จ รอแป๊บ แล้วจึงบันทึกอีกที');
+    expect(copy['person.edit.forbidden.title']).toBe('ตอนนี้แก้ข้อมูลไม่ได้');
+    expect(copy['person.edit.forbidden']).toBe('ตอนนี้มีแค่ผู้ดูแลครอบครัวที่แก้ข้อมูลคนในผังได้');
+    expect(copy['person.error.ok']).toBe('เข้าใจแล้ว');
+    expect(copy['person.delete.action']).toBe('ลบออกจากผัง');
+    expect(copy['person.delete.confirm.title']).toBe('ลบ{name}ออกจากผังไหม');
+    expect(copy['person.delete.confirm.body']).toBe(
+      '{name}จะหายไปจากผังพร้อมคำตอบเรื่องที่รู้เกี่ยวกับ{name} และกู้คืนไม่ได้ ส่วนความทรงจำและเรื่องเล่าที่มี{name}จะยังอยู่'
+    );
+    expect(copy['person.delete.confirm.memories']).toBe(
+      'ชื่อ{ชื่อ}ในความทรงจำที่เล่าไว้แล้วยังอยู่เหมือนเดิม'
+    );
+    expect(copy['person.delete.confirm.primary']).toBe('ลบออกจากผัง');
+    expect(copy['person.delete.confirm.secondary']).toBe('ยังไม่ลบ');
+    expect(interpolate(copy['person.edit.title'], { name: 'ยายสมศรี' })).toBe('แก้ข้อมูลของยายสมศรี');
+    expect(interpolate(copy['person.delete.confirm.title'], { name: 'ยายสมศรี' })).toBe(
+      'ลบยายสมศรีออกจากผังไหม'
+    );
+    expect(interpolateHeading(copy['person.delete.confirm.memories'], { ชื่อ: 'ยายสมศรี' })).toBe(
+      'ชื่อยายสมศรีในความทรงจำที่เล่าไว้แล้วยังอยู่เหมือนเดิม'
+    );
+    expect(copy['person.delete.linked.title']).toBe('ลบออกจากผังไม่ได้');
+    expect(copy['person.delete.linked']).toBe('{ชื่อ}เข้ามาเป็นสมาชิกแล้ว เลยลบออกจากผังไม่ได้');
+    expect(interpolateHeading(copy['person.delete.linked'], { ชื่อ: 'ยายสมศรี' })).toBe(
+      'ยายสมศรีเข้ามาเป็นสมาชิกแล้ว เลยลบออกจากผังไม่ได้'
     );
     expect(copy['person.unjoined']).toBe('ยังไม่ได้เข้าร่วม');
     expect(copy['person.gender.male']).toBe('ชาย');
@@ -87,7 +144,7 @@ describe('copy v0.4', () => {
     expect(copy['person.relation.type.placeholder']).toBe('เลือกความสัมพันธ์');
     expect(copy['person.living.label']).toBe('ยังมีชีวิตอยู่');
     expect(copy['person.add.saved_toast']).toBe('เพิ่ม {name} ในผังแล้ว');
-    expect(copy['person.events.empty']).toBe('ยังไม่มีใครเล่าเรื่องที่มี {name}');
+    expect(copy['person.events.empty']).toBe('ยังไม่มีใครเล่าเรื่องที่มี{name}');
     expect(copy['common.retry']).toBe('ลองอีกครั้ง');
     expect(copy['error.NAME_REQUIRED']).toBe('ใส่ชื่อก่อนบันทึก');
     expect(copy['person.relation_label.label']).toBe('ชื่อที่ครอบครัวเรียก (ไม่บังคับ)');
@@ -121,7 +178,7 @@ describe('copy v0.4', () => {
     );
     expect(copy['person.memories.with_name']).toBe('ความทรงจำที่มี {name}');
     expect(copy['person.memories.empty']).toBe('ยังไม่มีความทรงจำที่มี {name}');
-    expect(copy['person.events.empty']).toBe('ยังไม่มีใครเล่าเรื่องที่มี {name}');
+    expect(copy['person.events.empty']).toBe('ยังไม่มีใครเล่าเรื่องที่มี{name}');
     expect(copy['error.RATE_LIMITED.invite']).toBe('ลองหลายครั้งเกินไป รอสักครู่แล้วลองอีกครั้ง');
   });
 
@@ -203,6 +260,10 @@ describe('copy v0.4', () => {
     expect(copy['person.relationship.child']).toBe('เป็นลูกของ');
     expect(copy['person.relationship.spouse']).toBe('เป็นคู่ของ');
     expect(copy['tree.back_to_me']).toBe('กลับมาที่ฉัน');
+    expect(copy['tree.fallback_list.title']).toBe('แสดงเป็นรายชื่อแทน');
+    expect(copy['tree.fallback_list.body']).toBe(
+      'ตอนนี้ยังเปิดผังครอบครัวไม่ได้ เลยแสดงเป็นรายชื่อให้ก่อน'
+    );
     expect(copy['tree.node.add_parent']).toBe('เพิ่มพ่อแม่');
     expect(copy['error.INVALID_DEATH_DATE']).toBe(
       'วันที่จากไปต้องไม่ก่อนวันเกิด และไม่เกินวันนี้'

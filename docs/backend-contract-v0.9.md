@@ -3,7 +3,8 @@
 **Updated:** Oct 27, 2026  
 **Status:** Canonical spec.  
 **Supersedes:** [v0.8](./backend-contract-v0.8.md). **[v0.6](./backend-contract-v0.6.md) is cancelled** (never deployed; do not use `/quick-question` or `/persons/{id}/answers`).  
-**Changes from v0.8:** archived events (`status = 'archived'`) are visible to and restorable by `events.creator_account_id` only. Stewards, other members, and contributors (including of their own stories) get **404 NOT_FOUND**. `memory_count`, home `recent_memories`, `GET /v1/people/{id}/events`, event detail, contributions, and media signed URLs follow that rule. Notifications that link to an archived event keep the row but return `payload.event_title: null` (nullable; no other event content) for anyone who cannot see the event. Matching RLS SELECT policies are in `20261027160000_archived_event_visibility.sql` (file-only; the API still uses a privileged role that bypasses RLS). Optional optimistic concurrency on `PATCH /v1/events/{id}` via `events.version`. GET already returned `version`. When the client sends `version`, the update is compare-and-swap; mismatch is **409 `EVENT_EDIT_CONFLICT`** with `details.current_version` (no editor name). Omitting `version` still increments it. `version` will become required in a later PR. Event responses include `creator_display_name` (`string | null`): current `accounts.display_name` of `creator_account_id` (same source as contribution `owner_display_name`); `null` if unresolved. Not added to 409 details. Migration `20261027140000_events_version.sql` is file-only until applied. Worker-generated image variants (sharp) replace Supabase Storage transforms. `MEDIA_IMAGE_TRANSFORMS` is removed. New `avatar_placeholder` / `cover_placeholder` / `full_url`, plus a sibling `*_expires_at` (ISO 8601) for every signed URL. Card cover is 256×256 (was 128). Migration `20261027120000_media_variants.sql` is file-only until applied. `POST /v1/families/{id}/people` (with or without inline relationship), `POST /v1/families/{id}/relationships`, and `DELETE /v1/relationships/{id}` are family steward only. Creating a third live parent is **422 `TOO_MANY_PARENTS`**. No relationship PATCH.  
+**Changes from v0.8:** archived events (`status = 'archived'`) are visible to and restorable by `events.creator_account_id` only. Stewards, other members, and contributors (including of their own stories) get **404 NOT_FOUND**. `memory_count`, home `recent_memories`, `GET /v1/people/{id}/events`, event detail, contributions, and media signed URLs follow that rule. Notifications that link to an archived event keep the row but return `payload.event_title: null` (nullable; no other event content) for anyone who cannot see the event. Matching RLS SELECT policies are in `20261027160000_archived_event_visibility.sql` (file-only; the API still uses a privileged role that bypasses RLS). Optional optimistic concurrency on `PATCH /v1/events/{id}` via `events.version`. GET already returned `version`. When the client sends `version`, the update is compare-and-swap; mismatch is **409 `EVENT_EDIT_CONFLICT`** with `details.current_version` (no editor name). Omitting `version` still increments it. `version` will become required in a later PR. Event responses include `creator_display_name` (`string | null`): current `accounts.display_name` of `creator_account_id` (same source as contribution `owner_display_name`); `null` if unresolved. Not added to 409 details. Migration `20261027140000_events_version.sql` is file-only until applied. Worker-generated image variants (sharp) replace Supabase Storage transforms. `MEDIA_IMAGE_TRANSFORMS` is removed. New `avatar_placeholder` / `cover_placeholder` / `full_url`, plus a sibling `*_expires_at` (ISO 8601) for every signed URL. Card cover is 256×256 (was 128). Migration `20261027120000_media_variants.sql` is file-only until applied. `POST /v1/families/{id}/people` (with or without inline relationship), `PATCH` / `DELETE /v1/people/{id}`, `POST /v1/families/{id}/relationships`, and `DELETE /v1/relationships/{id}` are family steward (`family_members.role = 'admin'`) only. Non-steward members → **403 FORBIDDEN**. Non-member / missing still **404**. Steward deleting a linked person still **409 `PERSON_LINKED`**. No `version` on people. Creating a third live parent is **422 `TOO_MANY_PARENTS`**. No relationship PATCH.  
+
 **Changes from v0.7 (carried in v0.8):** family-tree people profile (gender, birth date + precision, computed age, bio, avatar); `person_relationships`; person PATCH/DELETE; steward person invites; GET people returns `{ people, relationships }`; public invite preview; invite create `url`; people events list; in-app notifications (`contribution_added`, `invite_accepted`)  
 **Requirements v1.2 (AC-19..AC-27):** family steward, `archived_at` / `deletable_at`, 7-day permanent delete, `canManageEvent`, owner-only stories  
 **References:** Domain Model v0.4 (Kret), Requirements v1.1 / v1.2, Kret media contract v0.5, Kret focus + quick questions spec, Kret family-tree decisions (locked 22 Oct 2026)
@@ -18,7 +19,8 @@ These override earlier drafts of this revision. Implementers must follow this ta
 | Self-link | **400 `INVALID_RELATIONSHIP`**. There is **no** `SELF_RELATIONSHIP` code. |
 | Parent cycle | **400 `INVALID_RELATIONSHIP`** (same code as self-link). A person cannot be a parent of their own ancestor. |
 | Duplicate relationship | **409 `RELATIONSHIP_EXISTS`**. |
-| Parent cap | Creating a `parent` edge that would give the child (`related_person_id`) more than **2** live parents → **422 `TOO_MANY_PARENTS`**. Checked on create only (`POST /v1/families/{id}/relationships` and inline `parent_of`/`child_of` on `POST /v1/families/{id}/people`). Existing over-limit rows stay and **GET still lists them**. No relationship PATCH. |
+| Parent cap | Creating a `parent` edge that would give the child (`related_person_id`) more than **2** live parents → **422 `TOO_MANY_PARENTS`**. Checked on create only (`POST /v1/families/{id}/relationships` and inline `parent_of`/`child_of` on `POST /v1/families/{id}/people`). Both paths take `pg_advisory_xact_lock` keyed on the child person id inside the transaction before counting parents, so concurrent creates cannot exceed 2. Existing over-limit rows stay and **GET still lists them**. No relationship PATCH. |
+| Person writes | `POST /v1/families/{id}/people`, `PATCH /v1/people/{id}`, and `DELETE /v1/people/{id}` are family steward (`family_members.role = 'admin'`) only. Non-steward members → **403 FORBIDDEN**. Non-member / missing → **404**. Steward deleting a linked person → **409 `PERSON_LINKED`**. |
 | Relationship writes | `POST /v1/families/{id}/people` (with or without inline relationship), `POST /v1/families/{id}/relationships`, and `DELETE /v1/relationships/{id}` are family steward (`family_members.role = 'admin'`) only. Edge creator and other members → **403 FORBIDDEN**. Non-member / missing → **404**. |
 | Age | Not stored. API returns a computed integer `age` in `Asia/Bangkok` (or `null` when there is no `birth_date`). Year-precision age is labelled approximate **in the web only**; the API still returns that integer. |
 | Invites | `POST /v1/people/{id}/invites` (steward only). Do **not** add `person_id` to family invite bodies. Create **201** includes `url = {first WEB_ORIGIN}/invites/{token}`. Store only a hash of the token; return the url once. `GET /v1/invites/{token}` is public (secret token, never id). `POST /v1/invites/{token}/accept` body `{}`, login required, single use, 7-day expiry; **200** `{ family_id, person_id }`. Expired, used, revoked, or unknown → **410 `INVITE_INVALID`**. Already-linked person → **409 `PERSON_ALREADY_LINKED`**. |
@@ -413,8 +415,8 @@ v0.6 paths **`/quick-question`** and **`/persons/{id}/answers`** are not impleme
 | GET | `/v1/families/{id}/people` | `{ people: […], relationships: […] }` (v0.8 adds `relationships`) |
 | POST | `/v1/families/{id}/people` | Create person (`{ person, relationship }`) (steward only) |
 | GET | `/v1/people/{id}` | One person (member of that family) |
-| PATCH | `/v1/people/{id}` | Update person |
-| DELETE | `/v1/people/{id}` | Soft-delete person |
+| PATCH | `/v1/people/{id}` | Update person (steward only) |
+| DELETE | `/v1/people/{id}` | Soft-delete person (steward only) |
 | POST | `/v1/people/{id}/invites` | Steward person invite. **201** includes `url` |
 | GET | `/v1/people/{id}/events` | Events linked to this person (`?cursor=`). Family members only |
 | POST | `/v1/families/{id}/relationships` | Create `parent` or `spouse` (steward only) |
@@ -600,7 +602,7 @@ Permanent delete errors (AC-19):
 
 ### 4.3b People (family tree — NEW in v0.8)
 
-Only a **family steward** (`family_members.role = 'admin'`) may create a person (`POST /v1/families/{id}/people`, with or without an inline relationship). Other members → **403 FORBIDDEN**. Non-member / missing family → **404 NOT_FOUND**. The **creator** (`created_by_account_id`) or a **steward** may edit or soft-delete. A **linked account** (`people.account_id` = caller) may edit their own profile (not delete it). Soft-deleted people are omitted from list/get (person link is not navigable). Stories and memories that mention them are kept and still show the name. Live `person_facts` for that person are removed. `focus_people` rows for that person are removed. Stored `person_relationships` rows that include that person are removed.
+Only a **family steward** (`family_members.role = 'admin'`) may create, edit, or soft-delete a person (`POST /v1/families/{id}/people` with or without an inline relationship, `PATCH /v1/people/{id}`, `DELETE /v1/people/{id}`). Other members → **403 FORBIDDEN**. Non-member / missing family → **404 NOT_FOUND**. Steward deleting a linked person (`account_id` set) → **409 `PERSON_LINKED`**. Soft-deleted people are omitted from list/get (person link is not navigable). Stories and memories that mention them are kept and still show the name. Live `person_facts` for that person are removed. `focus_people` rows for that person are removed. Stored `person_relationships` rows that include that person are removed.
 
 `relation_label` remains an optional display string (e.g. ยาย). It is **not** a graph edge.
 
@@ -663,8 +665,8 @@ Only a **family steward** (`family_members.role = 'admin'`) may create a person 
 | POST | `/v1/families/{id}/people` | Family steward (`role = 'admin'`) | Create, with or without inline relationship. **201** `{ "person": …, "relationship": … \| null }`. Member → **403 FORBIDDEN**. Non-member / missing family → **404** |
 | GET | `/v1/people/{id}` | Member of that family | Same person object. Missing, other family, or soft-deleted → **404 NOT_FOUND** |
 | GET | `/v1/people/{id}/events?cursor=` | Member of that family | Events linked via `event_people`. Active for all members; archived only for `creator_account_id` (same as `GET /v1/families/{id}/events`). `{ events, next_cursor }`. Missing / other family / soft-deleted person → **404 NOT_FOUND** |
-| PATCH | `/v1/people/{id}` | Creator, steward, or linked account | Partial update. **200** person |
-| DELETE | `/v1/people/{id}` | Creator or steward | Soft-delete (`deleted_at = now()`). **204**. Linked person (`account_id` not null) → **409 PERSON_LINKED** |
+| PATCH | `/v1/people/{id}` | Family steward (`role = 'admin'`) | Partial update. **200** person. Non-steward members → **403 FORBIDDEN**. Non-member / missing → **404**. No `version` |
+| DELETE | `/v1/people/{id}` | Family steward (`role = 'admin'`) | Soft-delete (`deleted_at = now()`). **204**. Non-steward members → **403 FORBIDDEN**. Non-member / missing → **404**. Linked person (`account_id` not null) → **409 PERSON_LINKED** (steward) |
 
 ```json
 // POST /v1/families/{id}/people
@@ -684,7 +686,7 @@ Only a **family steward** (`family_members.role = 'admin'`) may create a person 
   "relationship": { "kind": "parent_of", "person_id": "…" }
 }
 
-// PATCH /v1/people/{id} — all fields optional
+// PATCH /v1/people/{id} — all fields optional. Steward only; no version.
 {
   "display_name": "ยายสมศรี",
   "family_name": "นิมานัส",
@@ -721,7 +723,7 @@ Validation:
 
 Stored types are **`parent`** and **`spouse`** only. Children = reverse of `parent`. Siblings = other children of the same parent. Grandparents = parents of parents. Do not store those as rows. There is **no** relationship PATCH.
 
-A child (`related_person_id` on a `parent` edge) may have at most **2** live parents. Live = the parent person is not soft-deleted. Creating a third → **422 `TOO_MANY_PARENTS`**. The check runs only on create. Existing over-limit rows are left as-is and **GET still returns them**.
+A child (`related_person_id` on a `parent` edge) may have at most **2** live parents. Live = the parent person is not soft-deleted. Creating a third → **422 `TOO_MANY_PARENTS`**. The check runs only on create. Both create paths take `pg_advisory_xact_lock` keyed on the child person id inside the transaction **before** counting that child's parents. Existing over-limit rows are left as-is and **GET still returns them**.
 
 | Method | Path | Permission | Notes |
 |--------|------|------------|-------|
@@ -1159,7 +1161,7 @@ Canonical paths (no `/quick-question`, no `/persons/{id}/answers`):
 | 422 | `TOO_MANY_FOCUS` | More than 10 focus people for this account in this family |
 | 422 | `TOO_MANY_PARENTS` | Creating a `parent` edge (including inline `parent_of` / `child_of`) that would give the child more than 2 live parents |
 | 401 | `UNAUTHENTICATED` | Token expired or invalid |
-| 403 | `FORBIDDEN` | Action not permitted (including role change, `POST /v1/families/{id}/people`, `POST /v1/families/{id}/relationships`, and `DELETE /v1/relationships/{id}`, when caller is not a steward). Permanent delete: caller is neither creator nor steward (no dates) |
+| 403 | `FORBIDDEN` | Action not permitted (including role change, `POST /v1/families/{id}/people`, `PATCH`/`DELETE /v1/people/{id}`, `POST /v1/families/{id}/relationships`, and `DELETE /v1/relationships/{id}`, when caller is not a steward). Permanent delete: caller is neither creator nor steward (no dates) |
 | 403 | `NOT_YET_DELETABLE` | Caller can manage the event, but the transactional claim failed (not archived, cooling not elapsed, or concurrent restore). `error.details` has `archived_at` and `deletable_at` |
 | 404 | `NOT_FOUND` | Resource doesn't exist or user can't see it. Unknown registered-prefix path uses `message: "Route not found"` |
 | 409 | `LAST_ADMIN` | Cannot remove/demote last admin when other members exist |
@@ -1209,8 +1211,8 @@ All requests must be from an active FamilyMember, except `GET /v1/invites/{token
 | Edit/trash/purge contribution on active event | own only | **cannot edit/delete others'** (AC-24) | own only | own only |
 | **Invite / change role / remove** | if steward | ✅; last-admin → 409 | N/A | 403 |
 | Create person | ❌ **403** (unless steward) | ✅ steward only | ❌ **403** | ❌ **403** |
-| Edit person | creator, steward, or linked self | ✅ steward | linked self | ❌ |
-| Soft-delete person | creator or steward; **409 PERSON_LINKED** if `account_id` set | ✅ same | ❌ (linked self cannot delete) | ❌ |
+| Edit person | ❌ **403** (unless steward) | ✅ steward only | ❌ **403** | ❌ **403** |
+| Soft-delete person | ❌ **403** (unless steward); steward **409 PERSON_LINKED** if `account_id` set | ✅ steward only | ❌ **403** | ❌ **403** |
 | Create relationship | ❌ **403** (unless steward) | ✅ steward only | ❌ **403** | ❌ **403** |
 | Delete relationship | ❌ **403** (unless steward; edge creator included) | ✅ steward only | ❌ **403** | ❌ **403** |
 | Invite onto a person | if steward | ✅ `POST /v1/people/{id}/invites` | N/A | 403 |
@@ -1277,6 +1279,7 @@ JWKS_URI=${SUPABASE_URL}/auth/v1/.well-known/jwks.json
 - Successful event PATCH still increments `version` when the client omits it (backward compatible). **`version` will become required in a later PR.**
 - `POST /v1/families/{id}/people` (with or without inline relationship), `POST /v1/families/{id}/relationships`, and `DELETE /v1/relationships/{id}` are family steward (`family_members.role = 'admin'`) only. Edge creator and other members → **403 FORBIDDEN**. Non-member / missing still **404**. No relationship PATCH.
 - Steward can still edit/archive **active** events they did not create; they cannot see, restore, or permanently delete someone else's **archived** event
+- `PATCH` / `DELETE /v1/people/{id}` are family steward (`family_members.role = 'admin'`) only. Non-steward members → **403 FORBIDDEN**. Non-member / missing still **404**. Steward deleting a linked person still **409 `PERSON_LINKED`**. No `version` / optimistic concurrency on people.
 - Home `recent_memories` remains active-only (archived excluded for everyone). `focus[].memory_count` no longer counts other people's archived events for stewards
 - `avatar_url` is the 300×300 cover **file**, not a Storage transform
 - Home `cover_url` is **256×256** (replaces 128)

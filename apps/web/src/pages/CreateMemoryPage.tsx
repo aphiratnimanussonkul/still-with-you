@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { copy, interpolate, optionalFieldLabel } from '@/copy';
+import { useMe } from '@/hooks/use-me';
 import { useSelectedFamily } from '@/hooks/use-selected-family';
 import { api } from '@/lib/api-client';
 import { ApiClientError, fieldForError, messageForError } from '@/lib/api-errors';
@@ -52,6 +53,7 @@ import {
   type MemoryCreateDraft,
 } from '@/lib/form-draft';
 import { nameInitial } from '@/lib/initials';
+import { isFamilySteward } from '@/lib/person-permissions';
 import { queryKeys } from '@/lib/query-client';
 import { cn } from '@/lib/utils';
 
@@ -91,6 +93,7 @@ export function CreateMemoryPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { familiesQuery, familyId } = useSelectedFamily();
+  const me = useMe();
   const restoredCreate = readDraft<MemoryCreateDraft>(MEMORY_CREATE_DRAFT_KEY);
   const [title, setTitle] = useState(restoredCreate?.title ?? '');
   const [story, setStory] = useState(restoredCreate?.story ?? '');
@@ -112,6 +115,12 @@ export function CreateMemoryPage() {
     queryFn: () => familyGraph.listPeople(familyId!),
     enabled: Boolean(familyId),
   });
+  const members = useQuery({
+    queryKey: queryKeys.members(familyId ?? ''),
+    queryFn: () => familyGraph.listMembers(familyId!),
+    enabled: Boolean(familyId),
+  });
+  const canAddPerson = isFamilySteward(members.data?.members, me.data?.id);
 
   const peopleById = useMemo(() => {
     const map = new Map<string, FamilyPerson>();
@@ -438,14 +447,16 @@ export function CreateMemoryPage() {
             {people.isSuccess && filteredPeople.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-6 text-center">
                 <p className="text-body text-muted-foreground">{copy['memory.people.search.empty']}</p>
-                <Button variant="outline" asChild>
-                  <Link to="/family/people/new">
-                    <Icon as={PlusIcon} size={16} />
-                    {peopleQuery.trim()
-                      ? interpolate(copy['memory.people.search.add'], { name: peopleQuery.trim() })
-                      : copy['memory.people.search.add_empty']}
-                  </Link>
-                </Button>
+                {canAddPerson ? (
+                  <Button variant="outline" asChild>
+                    <Link to="/family/people/new">
+                      <Icon as={PlusIcon} size={16} />
+                      {peopleQuery.trim()
+                        ? interpolate(copy['memory.people.search.add'], { name: peopleQuery.trim() })
+                        : copy['memory.people.search.add_empty']}
+                    </Link>
+                  </Button>
+                ) : null}
               </div>
             ) : null}
             {people.isSuccess && filteredPeople.length > 0 ? (

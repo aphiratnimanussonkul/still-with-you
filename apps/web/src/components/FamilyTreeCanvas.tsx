@@ -17,6 +17,7 @@ type FamilyTreeCanvasProps = {
   people: FamilyPerson[];
   relationships: FamilyRelationship[];
   accountId?: string;
+  canAdd?: boolean;
   resetToken: number;
 };
 
@@ -36,6 +37,7 @@ export function FamilyTreeCanvas({
   people,
   relationships,
   accountId,
+  canAdd = false,
   resetToken,
 }: FamilyTreeCanvasProps) {
   const navigate = useNavigate();
@@ -120,6 +122,8 @@ export function FamilyTreeCanvas({
       scale: Math.min(2.4, Math.max(0.55, current.scale * delta)),
     }));
   }
+
+  if (layout.nodes.length === 0) return null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -206,60 +210,41 @@ export function FamilyTreeCanvas({
                     </span>
                   ) : null}
                 </button>
-                <div className="relative">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="secondary"
-                    className="size-8 min-h-8 min-w-8"
-                    aria-label={interpolate(copy['tree.node.add'], { ชื่อ: personNodeLabel(node.person) })}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setMenuFor(open ? null : node.id);
-                    }}
-                  >
-                    <Icon as={PlusIcon} size={16} />
-                  </Button>
-                  {open ? (
-                    <div className="absolute left-1/2 z-10 mt-1 w-36 -translate-x-1/2 rounded-xl border border-border bg-card p-1 shadow-e2">
-                      <button type="button" className="flex min-h-11 w-full items-center px-3 text-left text-body" onClick={() => goAdd('parent_of', node.id)}>
-                        {copy['tree.node.add_parent']}
-                      </button>
-                      <button type="button" className="flex min-h-11 w-full items-center px-3 text-left text-body" onClick={() => goAdd('child_of', node.id)}>
-                        {copy['tree.node.add_child']}
-                      </button>
-                      <button type="button" className="flex min-h-11 w-full items-center px-3 text-left text-body" onClick={() => goAdd('spouse_of', node.id)}>
-                        {copy['tree.node.add_spouse']}
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
+                {canAdd ? (
+                  <div className="relative">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="secondary"
+                      className="size-8 min-h-8 min-w-8"
+                      aria-label={interpolate(copy['tree.node.add'], { ชื่อ: personNodeLabel(node.person) })}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setMenuFor(open ? null : node.id);
+                      }}
+                    >
+                      <Icon as={PlusIcon} size={16} />
+                    </Button>
+                    {open ? (
+                      <div className="absolute left-1/2 z-10 mt-1 w-36 -translate-x-1/2 rounded-xl border border-border bg-card p-1 shadow-e2">
+                        <button type="button" className="flex min-h-11 w-full items-center px-3 text-left text-body" onClick={() => goAdd('parent_of', node.id)}>
+                          {copy['tree.node.add_parent']}
+                        </button>
+                        <button type="button" className="flex min-h-11 w-full items-center px-3 text-left text-body" onClick={() => goAdd('child_of', node.id)}>
+                          {copy['tree.node.add_child']}
+                        </button>
+                        <button type="button" className="flex min-h-11 w-full items-center px-3 text-left text-body" onClick={() => goAdd('spouse_of', node.id)}>
+                          {copy['tree.node.add_spouse']}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             );
           })}
         </div>
       </div>
-
-      {layout.unrelated.length > 0 ? (
-        <section className="flex flex-col gap-2">
-          <h3 className="text-h3 font-semibold">{copy['tree.unrelated.title']}</h3>
-          <p className="text-caption text-muted-foreground">{copy['tree.unrelated.body']}</p>
-          <ul className="flex flex-wrap gap-3">
-            {layout.unrelated.map((person) => (
-              <li key={person.id}>
-                <button
-                  type="button"
-                  className="flex w-20 flex-col items-center gap-1"
-                  onClick={() => navigate(`/family/people/${person.id}`)}
-                >
-                  <PersonAvatar person={person} />
-                  <span className="line-clamp-2 text-center text-caption">{personNodeLabel(person)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
     </div>
   );
 }

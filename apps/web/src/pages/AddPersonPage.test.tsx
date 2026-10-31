@@ -43,15 +43,16 @@ import { api } from '@/lib/api-client';
 import { familyGraph } from '@/lib/family-graph';
 import { AddPersonPage } from '@/pages/AddPersonPage';
 
-function renderAt(path: string) {
+function renderAt(path: string, members = mockMembers) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
   vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
-  vi.mocked(familyGraph.listMembers).mockResolvedValue({ members: mockMembers });
+  vi.mocked(familyGraph.listMembers).mockResolvedValue({ members });
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
+          <Route path="/family" element={<p>family-page</p>} />
           <Route path="/family/people/new" element={<AddPersonPage />} />
         </Routes>
       </MemoryRouter>
@@ -274,5 +275,14 @@ describe('AddPersonPage', () => {
     expect(picker?.getAttribute('aria-invalid')).toBe('true');
     expect(screen.getByText(copy['error.INVALID_INPUT'])).toBeTruthy();
     expect(document.getElementById('person-related-error')).toBeTruthy();
+  });
+
+  it('sends a non-admin away from add-person to the family tree', async () => {
+    renderAt(
+      '/family/people/new',
+      mockMembers.map((member) => ({ ...member, role: 'member' as const }))
+    );
+    expect(await screen.findByText('family-page')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: copy['person.add.submit'] })).toBeNull();
   });
 });

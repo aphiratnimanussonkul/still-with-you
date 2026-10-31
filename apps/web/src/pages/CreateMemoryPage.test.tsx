@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PhotoAttachState } from '@/components/PhotoAttach';
 import { copy, interpolate, optionalFieldLabel } from '@/copy';
 import { ApiClientError } from '@/lib/api-errors';
-import { mockEvents, mockFamilies, mockPeople } from '@/mocks/data';
+import { mockAccount, mockEvents, mockFamilies, mockMembers, mockPeople } from '@/mocks/data';
 
 const createEvent = vi.fn();
 let latestOnStateChange: ((state: PhotoAttachState) => void) | undefined;
@@ -24,9 +24,16 @@ vi.mock('@/lib/family-graph', async () => {
     familyGraph: {
       ...actual.familyGraph,
       listPeople: vi.fn(),
+      listMembers: vi.fn(),
     },
   };
 });
+
+vi.mock('@/hooks/use-me', () => ({
+  useMe: () => ({
+    data: { id: mockAccount.id, display_name: mockAccount.display_name },
+  }),
+}));
 
 vi.mock('sonner', () => {
   const toast = Object.assign(vi.fn(), { success: vi.fn() });
@@ -90,6 +97,7 @@ beforeEach(() => {
   latestOnStateChange = undefined;
   vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
   vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
+  vi.mocked(familyGraph.listMembers).mockResolvedValue({ members: mockMembers });
 });
 
 describe('CreateMemoryPage', () => {
@@ -249,6 +257,21 @@ describe('CreateMemoryPage', () => {
         .getByRole('link', { name: interpolate(copy['memory.people.search.add'], { name: 'ป้าแดง' }) })
         .getAttribute('href')
     ).toBe('/family/people/new');
+  });
+
+  it('hides the people-search add-person link when the viewer is not an admin', async () => {
+    vi.mocked(familyGraph.listMembers).mockResolvedValue({
+      members: mockMembers.map((member) => ({ ...member, role: 'member' as const })),
+    });
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: copy['home.focus.invite.action'] }));
+    fireEvent.change(await screen.findByLabelText(copy['memory.search.placeholder']), {
+      target: { value: 'ป้าแดง' },
+    });
+    expect(await screen.findByText(copy['memory.people.search.empty'])).toBeTruthy();
+    expect(
+      screen.queryByRole('link', { name: interpolate(copy['memory.people.search.add'], { name: 'ป้าแดง' }) })
+    ).toBeNull();
   });
 
   it('uses add_empty when the people search query is blank', async () => {

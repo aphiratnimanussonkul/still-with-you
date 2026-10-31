@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   createPersonResponseSchema,
@@ -96,6 +99,21 @@ describe('family-graph vs live API handlers', () => {
     ).toBeNull();
   });
 
+  it('POST /v1/families/{id}/people is steward-only 403 FORBIDDEN', () => {
+    const source = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), '../mocks/handlers.ts'),
+      'utf8'
+    );
+    const start = source.indexOf('http.post(`${api}/v1/families/:fid/people`');
+    const end = source.indexOf('http.get(`${api}/v1/people/:id`');
+    const postPeople = source.slice(start, end);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    expect(postPeople).toContain("caller?.role !== 'admin'");
+    expect(postPeople).toContain("code: 'FORBIDDEN'");
+    expect(postPeople).toContain('status: 403');
+  });
+
   it('parses POST /people as 201 {person, relationship|null}', () => {
     const wrapped = createPersonResponseSchema.parse({
       person: apiPerson,
@@ -150,6 +168,24 @@ describe('family-graph vs live API handlers', () => {
       ],
     });
     expect(members.members[0]?.role).toBe('admin');
+  });
+
+  it('parses GET /members without display_name when left_at is null and status is active', () => {
+    const members = familyMembersSchema.parse({
+      members: [
+        {
+          account_id: accountId,
+          family_id: familyId,
+          role: 'admin',
+          joined_at: '2026-10-02T00:00:00+00:00',
+          left_at: null,
+          status: 'active',
+        },
+      ],
+    });
+    expect(members.members[0]?.role).toBe('admin');
+    expect(members.members[0]?.status).toBe('active');
+    expect(members.members[0]?.left_at).toBeNull();
   });
 
   it('parses GET /invites without status and POST /invites without created_at', () => {

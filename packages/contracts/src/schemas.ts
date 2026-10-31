@@ -417,6 +417,7 @@ export const createPersonSchema = z.object({
   relationship: inlineRelationshipSchema.optional(),
 });
 
+/** PATCH /v1/people/{id} body. Steward (`family_members.role = 'admin'`) only; others 403. */
 export const updatePersonSchema = z.object({
   display_name: optionalNameSchema,
   name: optionalNameSchema,
@@ -605,6 +606,7 @@ export type UpdateContribution = z.infer<typeof updateContributionSchema>;
 export type ContributionResponse = z.infer<typeof contributionResponseSchema>;
 export type ContributionListResponse = z.infer<typeof contributionListResponseSchema>;
 export type CreatePerson = z.infer<typeof createPersonSchema>;
+/** PATCH /v1/people/{id} body. Steward-only write; no version/optimistic concurrency. */
 export type UpdatePerson = z.infer<typeof updatePersonSchema>;
 export type CreateRelationship = z.infer<typeof createRelationshipSchema>;
 export type PersonResponse = z.infer<typeof personResponseSchema>;

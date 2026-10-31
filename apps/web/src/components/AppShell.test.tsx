@@ -73,6 +73,12 @@ describe('AppShell', () => {
     ).toBe(true);
   });
 
+  it('pads the shared detail top bar 16px from the edges', () => {
+    renderAt('/memories/abc');
+    const heading = screen.getByRole('heading', { name: copy['memory.list.title'] });
+    expect(heading.parentElement?.className).toContain('px-4');
+  });
+
   it('shows a back control on memory detail and not on the list', () => {
     const { unmount } = renderAt('/memories');
     expect(screen.queryByLabelText(copy['a11y.back'])).toBeNull();

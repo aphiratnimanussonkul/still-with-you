@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PlusIcon } from '@phosphor-icons/react/Plus';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FamilySwitcher } from '@/components/FamilySwitcher';
 import { FamilyTreeCanvas } from '@/components/FamilyTreeCanvas';
 import { Illustration } from '@/components/Illustration';
+import { PersonListRow } from '@/components/PersonListRow';
 import { QueryLoading } from '@/components/QueryLoading';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,11 +17,20 @@ import { useMe } from '@/hooks/use-me';
 import { useSelectedFamily } from '@/hooks/use-selected-family';
 import { api } from '@/lib/api-client';
 import { messageForError } from '@/lib/api-errors';
-import { familyGraph, personDisplayName } from '@/lib/family-graph';
+import { familyGraph } from '@/lib/family-graph';
 import { readFamilyTab, writeFamilyTab, type FamilyViewTab } from '@/lib/family-tab';
-import { isOnlySelf, layoutFamilyTree, peopleByGeneration } from '@/lib/family-tree';
-import { formatNodeYears } from '@/lib/person-years';
+import { isOnlySelf, layoutFamilyTree, peopleByGeneration, type FamilyTreeLayout } from '@/lib/family-tree';
+import { isFamilySteward } from '@/lib/person-permissions';
 import { queryKeys } from '@/lib/query-client';
+
+const FAILED_LAYOUT: FamilyTreeLayout = {
+  nodes: [],
+  couples: [],
+  brackets: [],
+  failed: true,
+  width: 0,
+  height: 0,
+};
 
 export function FamilyPage() {
   const queryClient = useQueryClient();
@@ -77,7 +87,7 @@ export function FamilyPage() {
               {copy['family.tab.list']}
             </Button>
           </div>
-          <FamilyPeoplePanel familyId={familyId} tab={tab} onFallback={() => setView('list')} />
+          <FamilyPeoplePanel familyId={familyId} tab={tab} />
         </>
       ) : null}
 
@@ -120,30 +130,32 @@ export function FamilyPage() {
 function FamilyPeoplePanel({
   familyId,
   tab,
-  onFallback,
 }: {
   familyId: string;
   tab: FamilyViewTab;
-  onFallback: () => void;
 }) {
   const me = useMe();
   const [resetToken, setResetToken] = useState(0);
+  const members = useQuery({
+    queryKey: queryKeys.members(familyId),
+    queryFn: () => familyGraph.listMembers(familyId),
+  });
   const people = useQuery({
     queryKey: queryKeys.people(familyId),
     queryFn: () => familyGraph.listPeople(familyId),
   });
+  const isAdmin = isFamilySteward(members.data?.members, me.data?.id);
   const items = people.data?.people ?? [];
   const relationships = people.data?.relationships ?? [];
   const onlySelf = isOnlySelf(items, me.data?.id);
   const listed = peopleByGeneration(items, relationships);
-  const layout = useMemo(
-    () => layoutFamilyTree(items, relationships, me.data?.id),
-    [items, relationships, me.data?.id]
-  );
-
-  useEffect(() => {
-    if (layout.failed && tab === 'tree' && !onlySelf) onFallback();
-  }, [layout.failed, tab, onlySelf, onFallback]);
+  const layout = useMemo(() => {
+    try {
+      return layoutFamilyTree(items, relationships, me.data?.id);
+    } catch {
+      return FAILED_LAYOUT;
+    }
+  }, [items, relationships, me.data?.id]);
 
   if (people.isPending) return <QueryLoading />;
   if (people.isError) {
@@ -151,7 +163,7 @@ function FamilyPeoplePanel({
       <div className="flex flex-col gap-2">
         <p className="text-body text-destructive">{messageForError(people.error)}</p>
         <Button type="button" variant="ghost" size="sm" onClick={() => void people.refetch()}>
-          {copy['family.focus.load_error.action']}
+          {copy['common.retry']}
         </Button>
       </div>
     );
@@ -167,37 +179,30 @@ function FamilyPeoplePanel({
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-3 text-center">
             <p className="text-body text-muted-foreground">{copy['tree.only_self.body']}</p>
-            <Button asChild>
-              <Link to="/family/people/new">{copy['person.add.action']}</Link>
-            </Button>
+            {isAdmin ? (
+              <Button asChild>
+                <Link to="/family/people/new">{copy['person.add.action']}</Link>
+              </Button>
+            ) : null}
           </CardContent>
         </Card>
       ) : tab === 'tree' ? (
-        <TreeOrFallback
-          failed={layout.failed}
-          onFallback={onFallback}
-          canvas={
-            <FamilyTreeCanvas
-              people={items}
-              relationships={relationships}
-              accountId={me.data?.id}
-              resetToken={resetToken}
-            />
-          }
-        />
+        layout.failed ? (
+          <TreeFallbackList listed={listed} />
+        ) : (
+          <FamilyTreeCanvas
+            people={items}
+            relationships={relationships}
+            accountId={me.data?.id}
+            canAdd={isAdmin}
+            resetToken={resetToken}
+          />
+        )
       ) : (
         <ol className="flex flex-col gap-3">
           {listed.map(({ person, generation }) => (
             <li key={person.id}>
-              <Link
-                to={`/family/people/${person.id}`}
-                className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-card px-4 py-3"
-              >
-                <span className="text-body font-medium">{personDisplayName(person)}</span>
-                <span className="text-caption text-muted-foreground">
-                  {formatNodeYears(person) ?? (generation == null ? copy['tree.unrelated.title'] : '')}
-                </span>
-              </Link>
+              <PersonListRow person={person} generation={generation} />
             </li>
           ))}
         </ol>
@@ -205,9 +210,11 @@ function FamilyPeoplePanel({
 
       {onlySelf ? null : (
         <div className="flex gap-2">
-          <Button asChild className="flex-1">
-            <Link to="/family/people/new">{copy['person.add.action']}</Link>
-          </Button>
+          {isAdmin ? (
+            <Button asChild className="flex-1">
+              <Link to="/family/people/new">{copy['person.add.action']}</Link>
+            </Button>
+          ) : null}
           <Button type="button" variant="secondary" className="flex-1" onClick={() => setResetToken((value) => value + 1)}>
             {copy['tree.back_to_me']}
           </Button>
@@ -217,24 +224,24 @@ function FamilyPeoplePanel({
   );
 }
 
-function TreeOrFallback({
-  failed,
-  onFallback,
-  canvas,
+function TreeFallbackList({
+  listed,
 }: {
-  failed: boolean;
-  onFallback: () => void;
-  canvas: ReactNode;
+  listed: ReturnType<typeof peopleByGeneration>;
 }) {
-  if (failed) {
-    return (
-      <div className="flex flex-col gap-3">
-        <p className="text-body text-muted-foreground">{copy['tree.fallback']}</p>
-        <Button type="button" variant="secondary" onClick={onFallback}>
-          {copy['family.tab.list']}
-        </Button>
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
+        <h2 className="text-h3 font-semibold">{copy['tree.fallback_list.title']}</h2>
+        <p className="text-body text-muted-foreground">{copy['tree.fallback_list.body']}</p>
       </div>
-    );
-  }
-  return canvas;
+      <ol className="flex flex-col gap-3">
+        {listed.map(({ person, generation }) => (
+          <li key={person.id}>
+            <PersonListRow person={person} generation={generation} />
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
 }

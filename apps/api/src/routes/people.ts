@@ -76,26 +76,6 @@ function requireFamilySteward(member: { role: string }) {
   }
 }
 
-function canEditPerson(
-  person: typeof people.$inferSelect,
-  member: { role: string; accountId: string },
-  accountId: string
-) {
-  return (
-    person.createdByAccountId === accountId ||
-    isFamilySteward(member.role) ||
-    person.accountId === accountId
-  );
-}
-
-function canDeletePerson(
-  person: typeof people.$inferSelect,
-  member: { role: string },
-  accountId: string
-) {
-  return person.createdByAccountId === accountId || isFamilySteward(member.role);
-}
-
 function toRelationshipResponse(row: typeof personRelationships.$inferSelect) {
   return {
     id: row.id,
@@ -228,12 +208,11 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     );
   });
 
+  // Steward only (`family_members.role = 'admin'`). Non-steward members → 403; non-member → 404.
   fastify.patch<{ Params: { id: string } }>('/people/:id', async (request, reply) => {
     const person = await loadLivePerson(request.params.id);
     const member = await requirePersonFamilyMember(person, request.user!.id);
-    if (!canEditPerson(person, member, request.user!.id)) {
-      throw new AppError(ErrorCode.FORBIDDEN, 'You do not have permission to edit this person', 403);
-    }
+    requireFamilySteward(member);
 
     const body = updatePersonSchema.parse(request.body);
     const name = resolvePersonName(body, false);
@@ -294,12 +273,11 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
     );
   });
 
+  // Steward only. Linked person (`account_id` set) → 409 PERSON_LINKED. Non-member → 404.
   fastify.delete<{ Params: { id: string } }>('/people/:id', async (request, reply) => {
     const person = await loadLivePerson(request.params.id);
     const member = await requirePersonFamilyMember(person, request.user!.id);
-    if (!canDeletePerson(person, member, request.user!.id)) {
-      throw new AppError(ErrorCode.FORBIDDEN, 'You do not have permission to delete this person', 403);
-    }
+    requireFamilySteward(member);
     if (person.accountId) {
       throw new AppError(ErrorCode.PERSON_LINKED, errorMessages[ErrorCode.PERSON_LINKED], 409);
     }
@@ -338,12 +316,14 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
       relatedPersonId = body.person_id;
     }
 
-    const created = await insertPersonRelationship(db, {
-      familyId: request.params.fid,
-      personId,
-      relatedPersonId,
-      type: body.type,
-      createdByAccountId: request.user!.id,
+    const created = await db.transaction(async (tx) => {
+      return insertPersonRelationship(tx, {
+        familyId: request.params.fid,
+        personId,
+        relatedPersonId,
+        type: body.type,
+        createdByAccountId: request.user!.id,
+      });
     });
 
     return reply.status(201).send(toRelationshipResponse(created));

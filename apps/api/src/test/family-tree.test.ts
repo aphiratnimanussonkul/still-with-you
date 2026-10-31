@@ -138,7 +138,7 @@ describe('Family tree (contract v0.8)', () => {
   });
 
   describe('permission matrix', () => {
-    it('lets only the steward create a person; creator, steward, or linked account may still edit', async () => {
+    it('lets only the family steward create or PATCH a person; other members 403', async () => {
       const memberCreate = await createPerson(memberToken, { name: 'ห้าม' });
       expect(memberCreate.statusCode).toBe(403);
       expect(JSON.parse(memberCreate.body).error.code).toBe('FORBIDDEN');
@@ -147,13 +147,14 @@ describe('Family tree (contract v0.8)', () => {
       expect(created.statusCode).toBe(201);
       const id = createdPerson(created).id;
 
-      const creatorPatch = await server.inject({
+      const memberPatch = await server.inject({
         method: 'PATCH',
         url: `/v1/people/${id}`,
         headers: await auth(memberToken),
-        payload: { bio: 'ผู้สร้าง' },
+        payload: { bio: 'ห้าม' },
       });
-      expect(creatorPatch.statusCode).toBe(403);
+      expect(memberPatch.statusCode).toBe(403);
+      expect(JSON.parse(memberPatch.body).error.code).toBe('FORBIDDEN');
 
       const stewardPatch = await server.inject({
         method: 'PATCH',
@@ -193,13 +194,13 @@ describe('Family tree (contract v0.8)', () => {
         method: 'PATCH',
         url: `/v1/people/${id}`,
         headers: await auth(otherToken),
-        payload: { bio: 'โปรไฟล์ตัวเอง' },
+        payload: { bio: 'ห้าม' },
       });
-      expect(linkedPatch.statusCode).toBe(200);
-      expect(JSON.parse(linkedPatch.body).invite_status).toBe('linked');
+      expect(linkedPatch.statusCode).toBe(403);
+      expect(JSON.parse(linkedPatch.body).error.code).toBe('FORBIDDEN');
     });
 
-    it('lets creator or steward soft-delete; linked self cannot; other member 403', async () => {
+    it('lets only the family steward soft-delete a person; other members 403', async () => {
       const created = await createPerson(stewardToken, { name: 'ลบได้' });
       const id = createdPerson(created).id;
 
@@ -209,6 +210,14 @@ describe('Family tree (contract v0.8)', () => {
         headers: await auth(otherToken),
       });
       expect(otherDelete.statusCode).toBe(403);
+
+      const memberDelete = await server.inject({
+        method: 'DELETE',
+        url: `/v1/people/${id}`,
+        headers: await auth(memberToken),
+      });
+      expect(memberDelete.statusCode).toBe(403);
+      expect(JSON.parse(memberDelete.body).error.code).toBe('FORBIDDEN');
 
       const deleted = await server.inject({
         method: 'DELETE',

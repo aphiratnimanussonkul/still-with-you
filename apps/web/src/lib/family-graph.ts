@@ -18,12 +18,19 @@ import {
 import { z } from 'zod';
 import { request } from '@/lib/api-client';
 
+/**
+ * GET /v1/families/{id}/members. Live rows include `display_name` and omit `left_at`.
+ * Contract / some payloads send `left_at` (null when active) and may omit `display_name`
+ * or include `status: 'active'`. All of those must parse so steward checks can run.
+ */
 export const familyMemberSchema = z.object({
   account_id: z.string().uuid(),
   family_id: z.string().uuid(),
   role: z.enum(['member', 'admin']),
-  display_name: z.string(),
-  joined_at: z.string().datetime(),
+  display_name: z.string().optional(),
+  joined_at: z.string().datetime({ offset: true }),
+  left_at: z.string().datetime({ offset: true }).nullable().optional(),
+  status: z.enum(['active', 'left', 'inactive']).optional(),
 });
 
 export const familyMembersSchema = z.object({
@@ -174,6 +181,7 @@ export const familyGraph = {
     });
   },
 
+  /** PATCH /v1/people/{id} — family steward only. Others 403; missing/non-member 404. */
   updatePerson(personId: string, body: UpdatePersonBody) {
     return request(`/v1/people/${personId}`, familyPersonSchema, {
       method: 'PATCH',
@@ -210,6 +218,10 @@ export const familyGraph = {
   /** DELETE /v1/relationships/{id} — family steward only. Edge creator who is not steward → 403. */
   deleteRelationship(relationshipId: string) {
     return request(`/v1/relationships/${relationshipId}`, z.void(), { method: 'DELETE' });
+  },
+
+  deletePerson(personId: string) {
+    return request(`/v1/people/${personId}`, z.void(), { method: 'DELETE' });
   },
 
   listContributions(eventId: string) {
