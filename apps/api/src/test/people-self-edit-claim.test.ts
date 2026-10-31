@@ -282,6 +282,45 @@ describe('PATCH /v1/people/{id} self-edit and POST/DELETE /v1/people/{id}/claim'
       expect(JSON.parse(claimed.body).error.code).toBe('PERSON_DECEASED');
     });
 
+    it('lets the same admin claim one person in each of two families', async () => {
+      const first = await claimPerson(personId, stewardToken);
+      expect(first.statusCode).toBe(200);
+      expect(JSON.parse(first.body).account_id).toBe(steward.id);
+
+      const otherFamily = await server.inject({
+        method: 'POST',
+        url: '/v1/families',
+        headers: await auth(stewardToken),
+        payload: { name: 'บ้านที่สอง' },
+      });
+      expect(otherFamily.statusCode).toBe(201);
+      const otherFamilyId = JSON.parse(otherFamily.body).id as string;
+
+      const created = await server.inject({
+        method: 'POST',
+        url: `/v1/families/${otherFamilyId}/people`,
+        headers: await auth(stewardToken),
+        payload: { name: 'ยายบ้านสอง' },
+      });
+      expect(created.statusCode).toBe(201);
+      const otherPersonId = JSON.parse(created.body).person.id as string;
+
+      const second = await claimPerson(otherPersonId, stewardToken);
+      expect(second.statusCode).toBe(200);
+      const body = personResponseSchema.parse(JSON.parse(second.body));
+      expect(body).toMatchObject({
+        id: otherPersonId,
+        family_id: otherFamilyId,
+        account_id: steward.id,
+        invite_status: 'linked',
+      });
+
+      const [firstRow] = await db.select().from(people).where(eq(people.id, personId));
+      const [secondRow] = await db.select().from(people).where(eq(people.id, otherPersonId));
+      expect(firstRow.accountId).toBe(steward.id);
+      expect(secondRow.accountId).toBe(steward.id);
+    });
+
     it('returns 403 FORBIDDEN when a non-admin claims', async () => {
       const claimed = await claimPerson(personId, memberToken);
       expect(claimed.statusCode).toBe(403);

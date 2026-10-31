@@ -42,7 +42,7 @@ import {
   findLiveLinkedPerson,
   insertPersonRelationship,
   inviteStatusFor,
-  mapPeopleClaimUniqueViolation,
+  isFamilyAccountLiveViolation,
   mapRelationshipKind,
   parseBirthFields,
   parseDeathFields,
@@ -353,15 +353,16 @@ const peopleRoutes: FastifyPluginAsync = async (fastify) => {
         throw error;
       }
       const constraint = uniqueViolationConstraint(error);
-      if (constraint) {
-        const mapped = mapPeopleClaimUniqueViolation(constraint);
-        if (mapped.code === ErrorCode.ACCOUNT_ALREADY_LINKED) {
-          const linked = await findLiveLinkedPerson(db, person.familyId, callerId);
-          if (linked && linked.id !== person.id) {
-            throw accountAlreadyLinkedError(linked);
-          }
+      if (constraint && isFamilyAccountLiveViolation(constraint)) {
+        const linked = await findLiveLinkedPerson(db, person.familyId, callerId);
+        if (linked && linked.id !== person.id) {
+          throw accountAlreadyLinkedError(linked);
         }
-        throw mapped;
+        throw new AppError(
+          ErrorCode.ACCOUNT_ALREADY_LINKED,
+          errorMessages[ErrorCode.ACCOUNT_ALREADY_LINKED],
+          409
+        );
       }
       throw error;
     }

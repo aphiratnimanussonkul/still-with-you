@@ -508,7 +508,6 @@ export function inviteStatusFor(
   return 'none';
 }
 
-export const PEOPLE_ACCOUNT_ID_CONSTRAINT = 'people_account_id_key';
 export const PEOPLE_FAMILY_ACCOUNT_CONSTRAINT = 'people_family_account_live';
 
 export function uniqueViolationConstraint(error: unknown): string | null {
@@ -554,24 +553,8 @@ export function accountAlreadyLinkedError(person: Pick<PersonRow, 'id' | 'displa
   );
 }
 
-export function mapPeopleClaimUniqueViolation(constraint: string): AppError {
-  if (constraint.includes(PEOPLE_FAMILY_ACCOUNT_CONSTRAINT) || constraint.includes('people_family_account')) {
-    return new AppError(
-      ErrorCode.ACCOUNT_ALREADY_LINKED,
-      errorMessages[ErrorCode.ACCOUNT_ALREADY_LINKED],
-      409
-    );
-  }
-  if (constraint.includes(PEOPLE_ACCOUNT_ID_CONSTRAINT) || constraint.includes('people_account_id')) {
-    return new AppError(
-      ErrorCode.PERSON_ALREADY_CLAIMED,
-      errorMessages[ErrorCode.PERSON_ALREADY_CLAIMED],
-      409
-    );
-  }
-  return new AppError(
-    ErrorCode.PERSON_ALREADY_CLAIMED,
-    errorMessages[ErrorCode.PERSON_ALREADY_CLAIMED],
-    409
+export function isFamilyAccountLiveViolation(constraint: string): boolean {
+  return (
+    constraint.includes(PEOPLE_FAMILY_ACCOUNT_CONSTRAINT) || constraint.includes('people_family_account')
   );
 }
