@@ -26,7 +26,7 @@ vi.mock('@/lib/family-graph', async () => {
 });
 
 vi.mock('@/hooks/use-me', () => ({
-  useMe: () => ({ data: mockAccount }),
+  useMe: () => ({ data: mockAccount, isPending: false }),
 }));
 
 vi.mock('@/components/PersonPhotoField', () => ({

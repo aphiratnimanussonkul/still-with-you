@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { DotsThreeIcon } from '@phosphor-icons/react/DotsThree';
 import { InfoIcon } from '@phosphor-icons/react/Info';
 import { PencilSimpleIcon } from '@phosphor-icons/react/PencilSimple';
 import { XIcon } from '@phosphor-icons/react/X';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { DetailMoreButton } from '@/components/DetailMoreButton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +15,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import {
   Sheet,
@@ -73,18 +72,13 @@ export function PersonProfileMenu({
 
   return (
     <>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        aria-label={copy['a11y.more']}
+      <DetailMoreButton
+        label={copy['a11y.more']}
         onClick={() => {
           setDeleteError(null);
           setOpen(true);
         }}
-      >
-        <Icon as={DotsThreeIcon} size={24} />
-      </Button>
+      />
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" showCloseButton={false} className="rounded-t-3xl px-6 pb-6 pt-4">

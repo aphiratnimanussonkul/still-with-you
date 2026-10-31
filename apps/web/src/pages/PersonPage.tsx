@@ -25,11 +25,6 @@ export function PersonPage() {
   const { familyId } = useSelectedFamily();
   const queryClient = useQueryClient();
   const me = useMe();
-  const members = useQuery({
-    queryKey: queryKeys.members(familyId ?? ''),
-    queryFn: () => familyGraph.listMembers(familyId!),
-    enabled: Boolean(familyId),
-  });
   const people = useQuery({
     queryKey: queryKeys.people(familyId ?? ''),
     queryFn: () => familyGraph.listPeople(familyId!),
@@ -39,6 +34,14 @@ export function PersonPage() {
     queryKey: queryKeys.person(personId ?? ''),
     queryFn: () => familyGraph.getPerson(personId!),
     enabled: Boolean(personId),
+  });
+  const personFamilyId =
+    personQuery.data?.family_id ?? people.data?.people.find((row) => row.id === personId)?.family_id;
+  const stewardFamilyId = personFamilyId ?? familyId;
+  const members = useQuery({
+    queryKey: queryKeys.members(stewardFamilyId ?? ''),
+    queryFn: () => familyGraph.listMembers(stewardFamilyId!),
+    enabled: Boolean(stewardFamilyId),
   });
   const focus = useQuery({
     queryKey: queryKeys.focus(familyId ?? ''),
@@ -79,7 +82,7 @@ export function PersonPage() {
     },
   });
 
-  if (people.isPending || personQuery.isPending || (familyId && members.isPending)) {
+  if (people.isPending || personQuery.isPending || me.isPending || (stewardFamilyId && members.isPending)) {
     return <QueryLoading />;
   }
   const person = personQuery.data ?? people.data?.people.find((row) => row.id === personId);

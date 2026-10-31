@@ -40,10 +40,11 @@ export function PersonFormPage() {
     queryFn: () => familyGraph.getPerson(personId),
     enabled: Boolean(personId),
   });
+  const stewardFamilyId = person.data?.family_id ?? familyId;
   const members = useQuery({
-    queryKey: queryKeys.members(familyId ?? ''),
-    queryFn: () => familyGraph.listMembers(familyId!),
-    enabled: Boolean(familyId),
+    queryKey: queryKeys.members(stewardFamilyId ?? ''),
+    queryFn: () => familyGraph.listMembers(stewardFamilyId!),
+    enabled: Boolean(stewardFamilyId),
   });
 
   if (!familyId) {
@@ -61,7 +62,7 @@ export function PersonFormPage() {
 
   return (
     <EditPersonForm
-      familyId={familyId}
+      familyId={person.data.family_id}
       person={person.data}
       initiallyForbidden={!isFamilySteward(members.data?.members, me.data?.id)}
     />

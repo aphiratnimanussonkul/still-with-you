@@ -1,9 +1,20 @@
 import { isPersonLiving, type FamilyMember, type FamilyPerson } from '@/lib/family-graph';
 
+/** Active membership: no `left_at`, and `status` is absent or `active`. */
+export function isActiveMembership(member: Pick<FamilyMember, 'left_at' | 'status'>): boolean {
+  if (member.left_at) return false;
+  return member.status == null || member.status === 'active';
+}
+
 /** Family steward (`family_members.role = 'admin'`). Gates add-person UI and POST /v1/families/{id}/people. */
 export function isFamilySteward(members: FamilyMember[] | undefined, accountId: string | undefined): boolean {
   if (!accountId) return false;
-  return members?.some((member) => member.account_id === accountId && member.role === 'admin') ?? false;
+  return (
+    members?.some(
+      (member) =>
+        member.account_id === accountId && member.role === 'admin' && isActiveMembership(member)
+    ) ?? false
+  );
 }
 
 /** Profile invite: steward + living + not pending/linked. Hidden for non-admins. */
