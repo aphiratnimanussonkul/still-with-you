@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { mockAccount, mockMembers, mockPeople } from '@/mocks/data';
+import { mockAccount, mockFamilies, mockMembers, mockPeople } from '@/mocks/data';
+import { familyMembersSchema } from '@/lib/family-graph';
 import { canEditPerson, canInvitePerson, isFamilySteward } from '@/lib/person-permissions';
 
 describe('person permissions', () => {
@@ -26,6 +27,31 @@ describe('person permissions', () => {
         mockAccount.id,
         []
       )
+    ).toBe(false);
+  });
+
+  it('reads an active admin role from a contract-shaped membership payload', () => {
+    const parsed = familyMembersSchema.parse({
+      members: [
+        {
+          account_id: mockAccount.id,
+          family_id: mockFamilies[0].id,
+          role: 'admin',
+          joined_at: '2026-10-02T00:00:00+00:00',
+          left_at: null,
+          status: 'active',
+        },
+      ],
+    });
+    expect(isFamilySteward(parsed.members, mockAccount.id)).toBe(true);
+    expect(
+      isFamilySteward(
+        [{ ...mockMembers[0], role: 'admin', left_at: '2026-10-20T00:00:00.000Z' }],
+        mockAccount.id
+      )
+    ).toBe(false);
+    expect(
+      isFamilySteward([{ ...mockMembers[0], role: 'admin', status: 'left' }], mockAccount.id)
     ).toBe(false);
   });
 

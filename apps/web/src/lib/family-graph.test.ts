@@ -170,6 +170,24 @@ describe('family-graph vs live API handlers', () => {
     expect(members.members[0]?.role).toBe('admin');
   });
 
+  it('parses GET /members without display_name when left_at is null and status is active', () => {
+    const members = familyMembersSchema.parse({
+      members: [
+        {
+          account_id: accountId,
+          family_id: familyId,
+          role: 'admin',
+          joined_at: '2026-10-02T00:00:00+00:00',
+          left_at: null,
+          status: 'active',
+        },
+      ],
+    });
+    expect(members.members[0]?.role).toBe('admin');
+    expect(members.members[0]?.status).toBe('active');
+    expect(members.members[0]?.left_at).toBeNull();
+  });
+
   it('parses GET /invites without status and POST /invites without created_at', () => {
     const listed = familyInvitesSchema.parse({
       invites: [

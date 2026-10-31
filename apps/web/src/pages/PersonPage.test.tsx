@@ -30,7 +30,7 @@ vi.mock('@/lib/family-graph', async () => {
 });
 
 vi.mock('@/hooks/use-me', () => ({
-  useMe: () => ({ data: mockAccount }),
+  useMe: () => ({ data: mockAccount, isPending: false }),
 }));
 
 vi.mock('@/lib/home-api', () => ({
@@ -82,7 +82,9 @@ function renderPerson(id = mockPeople[0].id) {
 function mockPage(person = mockPeople[0], members = mockMembers) {
   vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
   vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
-  vi.mocked(familyGraph.listMembers).mockResolvedValue({ members });
+  vi.mocked(familyGraph.listMembers).mockImplementation(async (fid) => ({
+    members: members.filter((member) => member.family_id === fid),
+  }));
   vi.mocked(familyGraph.getPerson).mockResolvedValue(person);
   vi.mocked(homeApi.getFocus).mockResolvedValue({ items: [] });
   vi.mocked(homeApi.listFacts).mockResolvedValue({ groups: [] });
@@ -206,6 +208,24 @@ describe('PersonPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: copy['a11y.more'] }));
     fireEvent.click(await screen.findByRole('button', { name: copy['person.menu.edit'] }));
     expect(await screen.findByText('edit-page')).toBeTruthy();
+  });
+
+  it('shows the ⋯ menu when the viewer is an active admin of the person family', async () => {
+    const personFamily = mockFamilies[1];
+    const person = { ...mockPeople[0], family_id: personFamily.id };
+    mockPage(person, [
+      { ...mockMembers[0], family_id: mockFamilies[0].id, role: 'member' },
+      {
+        ...mockMembers[1],
+        family_id: personFamily.id,
+        role: 'admin',
+        left_at: null,
+        status: 'active',
+      },
+    ]);
+    renderPerson(person.id);
+    expect(await screen.findByRole('button', { name: copy['a11y.more'] })).toBeTruthy();
+    expect(familyGraph.listMembers).toHaveBeenCalledWith(personFamily.id);
   });
 
   it('hides the ⋯ menu when the viewer is not an admin', async () => {
