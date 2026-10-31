@@ -10,6 +10,7 @@ import {
   interpolate,
   interpolateHeading,
   ownerDisplayName,
+  resolvedCopy,
   optionalBadgeText,
   optionalFieldLabel,
   personRelationLabel,
@@ -18,12 +19,25 @@ import {
   truncateName,
 } from '@/copy';
 
+const EDDY_TODO_KEYS = [
+  'invite.landing.members',
+  'invite.expired.title',
+  'invite.expired.body',
+  'invite.invalid.title',
+] as const;
+
 describe('copy v0.4', () => {
-  it('has no remaining TODO placeholders', () => {
+  it('has no remaining TODO placeholders except Eddy invite keys', () => {
     const leftovers = Object.entries(copy)
       .filter(([, value]) => value.startsWith('TODO:'))
       .map(([key]) => key);
-    expect(leftovers).toEqual([]);
+    expect(leftovers.sort()).toEqual([...EDDY_TODO_KEYS].sort());
+  });
+
+  it('marks Figma-only invite strings as TODO: Eddy', () => {
+    for (const key of EDDY_TODO_KEYS) {
+      expect(copy[key]).toBe('TODO: Eddy');
+    }
   });
 
   it('has Thai copy for every key used on person profile and edit', () => {
@@ -170,6 +184,12 @@ describe('copy v0.4', () => {
     expect(copy['invite.landing.accept']).toBe('รับคำเชิญ');
     expect(copy['invite.landing.login']).toBe('เข้าสู่ระบบเพื่อรับคำเชิญ');
     expect(copy['invite.landing.expires']).toBe('คำเชิญนี้ใช้ได้ถึง {date}');
+    expect(copy['invite.accepted.title']).toBe('ยินดีต้อนรับสู่ {ชื่อครอบครัว}');
+    expect(copy['invite.accepted.next']).toBe('ไปดูความทรงจำ');
+    expect(copy['invite.landing.decline']).toBe('ไว้ทีหลัง');
+    expect(resolvedCopy('invite.invalid.title', copy['error.INVITE_INVALID'])).toBe(
+      copy['error.INVITE_INVALID']
+    );
     expect(copy['invite.accepted.toast']).toBe('ยินดีต้อนรับสู่ครอบครัว {family_name}');
     expect(copy['person.invite.note']).toBe('ลิงก์นี้ใช้ได้ครั้งเดียว ภายใน 7 วัน');
     expect(copy['invite.copied.toast']).toBe('คัดลอกลิงก์แล้ว');

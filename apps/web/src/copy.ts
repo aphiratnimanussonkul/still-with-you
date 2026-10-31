@@ -182,6 +182,10 @@ export const copy = {
   'invite.landing.decline': 'ไว้ทีหลัง',
   'invite.landing.expired': 'คำชวนนี้หมดอายุแล้ว ลองขอให้ {ชื่อผู้ชวน} ชวนใหม่อีกครั้ง',
   'invite.landing.revoked': 'คำชวนนี้ใช้ไม่ได้แล้ว ลองติดต่อ {ชื่อผู้ชวน}',
+  'invite.landing.members': 'TODO: Eddy',
+  'invite.expired.title': 'TODO: Eddy',
+  'invite.expired.body': 'TODO: Eddy',
+  'invite.invalid.title': 'TODO: Eddy',
   'invite.accepted.title': 'ยินดีต้อนรับสู่ {ชื่อครอบครัว}',
   'invite.accepted.toast': 'ยินดีต้อนรับสู่ครอบครัว {family_name}',
   'invite.accepted.next': 'ไปดูความทรงจำ',
@@ -557,6 +561,12 @@ export const copy = {
 } as const;
 
 export type CopyKey = keyof typeof copy;
+
+/** Use Eddy copy when written; otherwise an existing fallback (never invent Thai). */
+export function resolvedCopy(key: CopyKey, fallback: string): string {
+  const value = copy[key];
+  return value.startsWith('TODO:') ? fallback : value;
+}
 
 const NAME_VAR_KEYS = new Set([
   'ชื่อ',

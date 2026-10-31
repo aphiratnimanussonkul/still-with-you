@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { AuthScreen } from '@/components/AuthScreen';
+import { BusyIcon } from '@/components/BusyIcon';
 import { Illustration } from '@/components/Illustration';
-import { QueryLoading } from '@/components/QueryLoading';
+import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -29,8 +31,16 @@ export function ConsentPage() {
     onError: (cause) => setError(messageForError(cause)),
   });
 
-  if (me.isPending) return <QueryLoading />;
-  if (me.isError) return <p className="p-6 text-destructive">{messageForError(me.error)}</p>;
+  if (me.isPending) return <AuthScreen loading />;
+  if (me.isError) {
+    return (
+      <AuthScreen
+        actions={
+          <Alert>{messageForError(me.error)}</Alert>
+        }
+      />
+    );
+  }
   if (!me.data) return <Navigate to="/login" replace />;
   if (!isFirstUse(me.data)) return <Navigate to="/home" replace />;
 
@@ -46,13 +56,32 @@ export function ConsentPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6">
-      <Illustration name="onboarding-door" />
-      <h1 className={`text-h1 font-semibold ${pageHeadingClassName}`}>
-        {interpolateHeading(copy['welcome.title'], { ชื่อ: me.data.display_name || me.data.email || '' })}
-      </h1>
-      <p className="text-body text-muted-foreground">{copy['welcome.body']}</p>
-      <form className="flex flex-col gap-6" onSubmit={(event) => void handleSubmit(event)}>
+    <AuthScreen
+      illustration={<Illustration name="onboarding-door" float={false} className="size-[200px]" />}
+      title={
+        <h1 className={`text-center text-h1 font-semibold ${pageHeadingClassName}`}>
+          {interpolateHeading(copy['welcome.title'], { ชื่อ: me.data.display_name || me.data.email || '' })}
+        </h1>
+      }
+      actions={
+        <>
+          {error ? <Alert>{error}</Alert> : null}
+          <Button
+            type="submit"
+            form="consent-form"
+            size="lg"
+            className="w-full"
+            disabled={mutation.isPending}
+            aria-busy={mutation.isPending}
+          >
+            {mutation.isPending ? <BusyIcon /> : null}
+            {copy['consent.continue']}
+          </Button>
+        </>
+      }
+    >
+      <p className="text-center text-body text-muted-foreground">{copy['welcome.body']}</p>
+      <form id="consent-form" className="flex w-full flex-col gap-4 text-left" onSubmit={(event) => void handleSubmit(event)}>
         <div className="flex min-h-11 items-start gap-3">
           <Checkbox
             id="marketing-consent"
@@ -66,11 +95,7 @@ export function ConsentPage() {
         <p className="text-caption text-muted-foreground">
           {interpolate(copy['consent.helper'], { อีเมล: me.data.email ?? '' })}
         </p>
-        {error ? <p className="text-caption text-destructive">{error}</p> : null}
-        <Button type="submit" disabled={mutation.isPending}>
-          {copy['consent.continue']}
-        </Button>
       </form>
-    </main>
+    </AuthScreen>
   );
 }

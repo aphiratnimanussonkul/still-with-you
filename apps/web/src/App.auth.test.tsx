@@ -58,6 +58,7 @@ function renderAt(path: string) {
 
 describe('auth gate and OAuth callback', () => {
   beforeEach(() => {
+    sessionStorage.clear();
     authState.session = null;
     authState.loading = false;
   });
@@ -81,6 +82,21 @@ describe('auth gate and OAuth callback', () => {
     authState.session = { access_token: 'tok' };
     renderAt(`${AUTH_CALLBACK_PATH}?code=pkce-code`);
     expect(screen.getAllByRole('heading', { name: 'หน้าแรก' }).length).toBeGreaterThan(0);
+  });
+
+  it('returns a finished callback to the remembered invite instead of home', () => {
+    sessionStorage.setItem('swy.auth.next', '/invites/dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+    authState.session = { access_token: 'tok' };
+    renderAt(`${AUTH_CALLBACK_PATH}?code=pkce-code`);
+    expect(screen.getByRole('heading', { name: 'invite-landing' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'หน้าแรก' })).toBeNull();
+  });
+
+  it('sends an already-signed-in visitor from /login?next= back to the invite', () => {
+    authState.session = { access_token: 'tok' };
+    renderAt('/login?next=/invites/dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+    expect(screen.getByRole('heading', { name: 'invite-landing' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Still With You' })).toBeNull();
   });
 
   it('sends a finished implicit callback hash to home once a session exists', () => {

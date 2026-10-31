@@ -1,11 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { AuthScreen } from '@/components/AuthScreen';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { PwaUpdatePrompt } from '@/components/PwaUpdatePrompt';
-import { QueryLoading } from '@/components/QueryLoading';
 import { IconProvider } from '@/components/ui/icon';
 import { useAuth } from '@/hooks/use-auth';
 import { AUTH_CALLBACK_PATH, hasAuthCallbackParams } from '@/lib/auth-callback';
+import { authNextFromSearch, postAuthPath, rememberAuthNext } from '@/lib/auth-redirect';
 import { useInviteReferrerPolicy } from '@/lib/invite-privacy';
 import { rememberFamilyId } from '@/lib/last-family';
 import { AuthCallbackPage } from '@/pages/AuthCallbackPage';
@@ -35,6 +36,17 @@ function LegacyFamilyMemoriesRedirect() {
   return <Navigate to="/memories" replace />;
 }
 
+/** Signed-in /login → remembered invite, or home. */
+function SignedInLoginRedirect() {
+  const location = useLocation();
+  const [to] = useState(() => {
+    const fromQuery = authNextFromSearch(location.search);
+    if (fromQuery) rememberAuthNext(fromQuery);
+    return postAuthPath('/home');
+  });
+  return <Navigate to={to} replace />;
+}
+
 export function App() {
   const { session, loading } = useAuth();
   const location = useLocation();
@@ -49,15 +61,13 @@ export function App() {
       <PwaUpdatePrompt />
       <OfflineBanner />
       {loading ? (
-        <div className="mx-auto max-w-2xl px-4 py-10">
-          <QueryLoading />
-        </div>
+        <AuthScreen loading />
       ) : (
         <Routes>
           <Route path={AUTH_CALLBACK_PATH} element={<AuthCallbackPage />} />
           <Route
             path="/login"
-            element={session ? <Navigate to="/home" replace /> : <LoginPage />}
+            element={session ? <SignedInLoginRedirect /> : <LoginPage />}
           />
           <Route path="/invites/:inviteId" element={<PersonInvitePage />} />
           <Route element={<RequireSession />}>
