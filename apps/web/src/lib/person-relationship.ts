@@ -157,7 +157,7 @@ export function linkRelationshipErrorMessage(
     case 'exists':
       return copy['error.RELATIONSHIP_EXISTS'];
     case 'too_many_parents':
-      return copy['relation.link.error.too_many_parents'];
+      return interpolate(copy['relation.link.error.too_many_parents'], { ชื่อ: vars?.ชื่อ ?? '' });
     case 'person_gone':
       return interpolate(copy['relation.link.error.person_gone'], { ชื่อ: vars?.ชื่อ ?? '' });
     case 'forbidden':

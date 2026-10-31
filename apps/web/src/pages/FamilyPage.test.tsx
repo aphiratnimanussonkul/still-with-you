@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { copy } from '@/copy';
+import { copy, interpolate } from '@/copy';
 import type { FamilyPerson } from '@/lib/family-graph';
 import { mockAccount, mockFamilies, mockMembers, mockPeople, mockRelationships } from '@/mocks/data';
 
@@ -172,7 +172,9 @@ describe('FamilyPage', () => {
     expect(await screen.findByText('Atta')).toBeTruthy();
     fireEvent.click(screen.getByLabelText(copy['tree.node.add'].replace('{ชื่อ}', 'Atta')));
     expect(screen.getByText(copy['tree.node.add_parent'])).toBeTruthy();
-    expect(screen.getByText(copy['relation.link.error.too_many_parents'])).toBeTruthy();
+    expect(
+      screen.getByText(interpolate(copy['relation.link.error.too_many_parents'], { ชื่อ: 'Atta' }))
+    ).toBeTruthy();
     expect(screen.queryByRole('button', { name: copy['tree.node.add_parent'] })).toBeNull();
     expect(screen.queryByText(copy['relation.pick.subtitle'])).toBeNull();
   });

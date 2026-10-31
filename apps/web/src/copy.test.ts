@@ -19,14 +19,11 @@ import {
 } from '@/copy';
 
 describe('copy v0.4', () => {
-  it('has no remaining TODO placeholders except missing relation-link copy', () => {
+  it('has no remaining TODO placeholders', () => {
     const leftovers = Object.entries(copy)
       .filter(([, value]) => value.startsWith('TODO:'))
       .map(([key]) => key);
-    expect(leftovers).toEqual([
-      'relation.link.error.too_many_parents',
-      'relation.link.saving',
-    ]);
+    expect(leftovers).toEqual([]);
   });
 
   it('has Thai copy for every key used on person profile and edit', () => {
@@ -282,6 +279,10 @@ describe('copy v0.4', () => {
     expect(copy['relation.link.toast']).toBe('{ชื่อ}กับ{อีกคน}เชื่อมกันในผังแล้ว');
     expect(copy['relation.link.error.inline']).toBe('ขอโทษด้วย ตอนนี้ยังเชื่อมไม่ได้');
     expect(copy['relation.link.error.person_gone']).toBe('หา{ชื่อ}ในผังไม่เจอแล้ว');
+    expect(copy['relation.link.error.too_many_parents']).toBe(
+      '{ชื่อ}มีพ่อแม่ในผังครบสองคนแล้ว ถ้าอยากเปลี่ยน เอาคนเดิมออกก่อน แล้วจึงเพิ่มใหม่'
+    );
+    expect(copy['relation.link.saving']).toBe('กำลังเชื่อม…');
     expect(copy['error.INVALID_DEATH_DATE']).toBe(
       'วันที่จากไปต้องไม่ก่อนวันเกิด และไม่เกินวันนี้'
     );

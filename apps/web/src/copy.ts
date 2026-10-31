@@ -395,8 +395,9 @@ export const copy = {
   'relation.link.toast': '{ชื่อ}กับ{อีกคน}เชื่อมกันในผังแล้ว',
   'relation.link.error.inline': 'ขอโทษด้วย ตอนนี้ยังเชื่อมไม่ได้',
   'relation.link.error.person_gone': 'หา{ชื่อ}ในผังไม่เจอแล้ว',
-  'relation.link.error.too_many_parents': 'TODO: Eddy — relation.link.error.too_many_parents',
-  'relation.link.saving': 'TODO: Eddy — relation.link.saving',
+  'relation.link.error.too_many_parents':
+    '{ชื่อ}มีพ่อแม่ในผังครบสองคนแล้ว ถ้าอยากเปลี่ยน เอาคนเดิมออกก่อน แล้วจึงเพิ่มใหม่',
+  'relation.link.saving': 'กำลังเชื่อม…',
   'person.add.title': 'เพิ่มคนในครอบครัว',
   'person.name_label': 'ชื่อที่ใช้เรียก',
   'person.name_placeholder': 'เช่น ยายสมศรี',

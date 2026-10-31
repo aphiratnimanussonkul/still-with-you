@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { copy, interpolate } from '@/copy';
 import {
+  personDisplayName,
   personNodeLabel,
   type FamilyPerson,
   type FamilyRelationship,
@@ -250,7 +251,9 @@ export function FamilyTreeCanvas({
                           <div className="px-3 py-2">
                             <p className="text-body text-muted-foreground">{copy['tree.node.add_parent']}</p>
                             <p className="text-caption text-destructive">
-                              {copy['relation.link.error.too_many_parents']}
+                              {interpolate(copy['relation.link.error.too_many_parents'], {
+                                ชื่อ: personDisplayName(node.person),
+                              })}
                             </p>
                           </div>
                         ) : (

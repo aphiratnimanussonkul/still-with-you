@@ -182,10 +182,10 @@ describe('link relationship error mapping', () => {
       retry: false,
       message: copy['error.RELATIONSHIP_EXISTS'],
     });
-    expect(linkRelationshipError(apiError('TOO_MANY_PARENTS', 422))).toEqual({
+    expect(linkRelationshipError(apiError('TOO_MANY_PARENTS', 422), { ชื่อ: 'Atta' })).toEqual({
       kind: 'too_many_parents',
       retry: false,
-      message: copy['relation.link.error.too_many_parents'],
+      message: interpolate(copy['relation.link.error.too_many_parents'], { ชื่อ: 'Atta' }),
     });
     expect(linkRelationshipError(apiError(ErrorCode.INVALID_INPUT, 400), { ชื่อ: 'ยายหรรษา' })).toEqual({
       kind: 'person_gone',

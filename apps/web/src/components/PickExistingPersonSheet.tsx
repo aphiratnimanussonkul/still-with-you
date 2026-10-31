@@ -28,7 +28,9 @@ import {
   addPersonHref,
   existingLinkWriteBody,
   filterPickablePeople,
-  linkRelationshipError,
+  linkRelationshipCanRetry,
+  linkRelationshipErrorKind,
+  linkRelationshipErrorMessage,
   pickablePeople,
   type RelationshipUiType,
 } from '@/lib/person-relationship';
@@ -112,11 +114,13 @@ export function PickExistingPersonSheet({
       await queryClient.invalidateQueries({ queryKey: queryKeys.people(familyId) });
     },
     onError: (error, selected) => {
-      const mapped = linkRelationshipError(error, { ชื่อ: personDisplayName(selected) });
+      const kind = linkRelationshipErrorKind(error);
       setRowError({
         personId: selected.id,
-        message: mapped.message,
-        retry: mapped.retry,
+        message: linkRelationshipErrorMessage(kind, {
+          ชื่อ: kind === 'too_many_parents' ? subjectName : personDisplayName(selected),
+        }),
+        retry: linkRelationshipCanRetry(kind),
       });
     },
     onSettled: () => {
