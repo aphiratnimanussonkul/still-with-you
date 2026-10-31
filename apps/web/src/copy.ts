@@ -469,7 +469,19 @@ export const copy = {
   'person.invite.action': 'ชวน {name} เข้าครอบครัว',
   'person.invite.note': 'ลิงก์นี้ใช้ได้ครั้งเดียว ภายใน 7 วัน',
   'person.invite.share': 'ส่งลิงก์ชวน',
+  'person.menu.claim_self': 'นี่คือฉัน',
   'person.menu.edit': 'แก้ข้อมูล',
+  'person.claim_self.confirm.title': '{ชื่อ}คือคุณใช่ไหม',
+  'person.claim_self.confirm.body': 'กล่องนี้จะผูกกับบัญชีของคุณ ถ้าเลือกผิด ยกเลิกได้ทีหลัง',
+  'person.claim_self.confirm.primary': 'ใช่ นี่คือฉัน',
+  'person.claim_self.confirm.secondary': 'ไม่ใช่',
+  'person.claim_self.done': 'ผูก{ชื่อ}กับบัญชีของคุณแล้ว',
+  'person.claim_self.after_create_failed':
+    'เพิ่ม{ชื่อ}แล้ว แต่ยังผูกกับบัญชีของคุณไม่ได้ ลองกด "นี่คือฉัน" อีกที',
+  'person.claim_self.taken': '{ชื่อ}ผูกกับบัญชีอื่นอยู่แล้ว',
+  'person.claim_self.already_linked_self': 'บัญชีของคุณผูกกับ{ชื่อเดิม}ในผังอยู่แล้ว',
+  'person.claim_self.deceased': 'เลือกคนนี้เป็นตัวคุณไม่ได้',
+  'person.claim_self.failed': 'ขอโทษด้วย ตอนนี้ยังผูกไม่ได้ ลองอีกครั้งได้เลย',
   'person.edit.title': 'แก้ข้อมูลของ{name}',
   'person.edit.action': 'แก้ข้อมูล',
   'person.edit.relation_note': 'ถ้าอยากแก้ความสัมพันธ์ ไปแก้ที่หน้าผังครอบครัวได้เลย',
@@ -578,6 +590,7 @@ const NAME_VAR_KEYS = new Set([
   'family_name',
   'owner_display_name',
   'อีกคน',
+  'ชื่อเดิม',
 ]);
 
 export const DISPLAY_NAME_MAX = 20;

@@ -1,10 +1,16 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { copy, interpolate, personRelationLabel } from '@/copy';
 import { ApiClientError } from '@/lib/api-errors';
+import { CLAIM_SELF_AFTER_CREATE_TOAST_MS } from '@/lib/person-claim';
 import { mockAccount, mockFamilies, mockMembers, mockPeople } from '@/mocks/data';
+
+vi.mock('sonner', () => {
+  const toast = Object.assign(vi.fn(), { success: vi.fn() });
+  return { toast };
+});
 
 vi.mock('@/lib/api-client', () => ({
   api: {
@@ -20,6 +26,7 @@ vi.mock('@/lib/family-graph', async () => {
       listPeople: vi.fn(),
       listMembers: vi.fn(),
       createPerson: vi.fn(),
+      claimPerson: vi.fn(),
       createPersonInvite: vi.fn(),
     },
   };
@@ -39,14 +46,40 @@ vi.mock('@/components/PersonPhotoField', () => ({
   PersonPhotoField: () => <div data-testid="photo-field" />,
 }));
 
+import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import { familyGraph } from '@/lib/family-graph';
 import { AddPersonPage } from '@/pages/AddPersonPage';
 
-function renderAt(path: string, members = mockMembers) {
+const unlinkedPeople = mockPeople.map((person) => ({ ...person, account_id: null }));
+
+function createdPerson(displayName: string, id = '99999999-9999-4999-8999-999999999991') {
+  return {
+    id,
+    family_id: mockFamilies[0].id,
+    display_name: displayName,
+    name: displayName,
+    is_living: true,
+    death_date: null,
+    death_date_precision: null,
+    account_id: null,
+    avatar_url: null,
+    avatar_url_expires_at: null,
+    avatar_placeholder: null,
+    full_url: null,
+    full_url_expires_at: null,
+    memory_count: 0,
+  };
+}
+
+function renderAt(
+  path: string,
+  members = mockMembers,
+  people = mockPeople
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
-  vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
+  vi.mocked(familyGraph.listPeople).mockResolvedValue({ people, relationships: [] });
   vi.mocked(familyGraph.listMembers).mockResolvedValue({ members });
   return render(
     <QueryClientProvider client={client}>
@@ -54,6 +87,7 @@ function renderAt(path: string, members = mockMembers) {
         <Routes>
           <Route path="/family" element={<p>family-page</p>} />
           <Route path="/family/people/new" element={<AddPersonPage />} />
+          <Route path="/family/people/:personId" element={<p>person-page</p>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
@@ -61,6 +95,12 @@ function renderAt(path: string, members = mockMembers) {
 }
 
 describe('AddPersonPage', () => {
+  beforeEach(() => {
+    vi.mocked(familyGraph.createPerson).mockReset();
+    vi.mocked(familyGraph.claimPerson).mockReset();
+    vi.mocked(toast).mockReset();
+  });
+
   it('orders photo, name, nickname, relationship-to-me, living, and เพิ่มในผัง', async () => {
     renderAt('/family/people/new');
     expect(await screen.findByTestId('photo-field')).toBeTruthy();
@@ -281,6 +321,56 @@ describe('AddPersonPage', () => {
     expect(picker?.getAttribute('aria-invalid')).toBe('true');
     expect(screen.getByText(copy['error.INVALID_INPUT'])).toBeTruthy();
     expect(document.getElementById('person-related-error')).toBeTruthy();
+  });
+
+  it('hides นี่คือฉัน when the admin already has a linked person', async () => {
+    renderAt('/family/people/new');
+    expect(await screen.findByRole('button', { name: copy['person.add.submit'] })).toBeTruthy();
+    expect(screen.queryByLabelText(copy['person.menu.claim_self'])).toBeNull();
+  });
+
+  it('hides นี่คือฉัน when the living checkbox is off', async () => {
+    renderAt('/family/people/new', mockMembers, unlinkedPeople);
+    expect(await screen.findByLabelText(copy['person.menu.claim_self'])).toBeTruthy();
+    fireEvent.click(screen.getByLabelText(copy['person.living']));
+    expect(screen.queryByLabelText(copy['person.menu.claim_self'])).toBeNull();
+  });
+
+  it('creates then claims and opens the person page', async () => {
+    const person = createdPerson('สมชาย');
+    vi.mocked(familyGraph.createPerson).mockResolvedValue({ person, relationship: null });
+    vi.mocked(familyGraph.claimPerson).mockResolvedValue({ ...person, account_id: mockAccount.id });
+
+    renderAt('/family/people/new', mockMembers, unlinkedPeople);
+    fireEvent.click(await screen.findByLabelText(copy['person.menu.claim_self']));
+    fireEvent.change(screen.getByLabelText(copy['person.name.label']), { target: { value: 'สมชาย' } });
+    fireEvent.click(screen.getByRole('button', { name: copy['person.add.submit'] }));
+
+    await waitFor(() => expect(familyGraph.createPerson).toHaveBeenCalled());
+    await waitFor(() => expect(familyGraph.claimPerson).toHaveBeenCalledWith(person.id));
+    expect(await screen.findByText('person-page')).toBeTruthy();
+    expect(toast).toHaveBeenCalledWith(interpolate(copy['person.claim_self.done'], { ชื่อ: 'สมชาย' }));
+  });
+
+  it('keeps the created person and toasts after_create_failed when claim fails', async () => {
+    const person = createdPerson('สมชาย', '99999999-9999-4999-8999-999999999995');
+    vi.mocked(familyGraph.createPerson).mockResolvedValue({ person, relationship: null });
+    vi.mocked(familyGraph.claimPerson).mockRejectedValue(
+      new ApiClientError('PERSON_ALREADY_CLAIMED', 'taken', 409)
+    );
+
+    renderAt('/family/people/new', mockMembers, unlinkedPeople);
+    fireEvent.click(await screen.findByLabelText(copy['person.menu.claim_self']));
+    fireEvent.change(screen.getByLabelText(copy['person.name.label']), { target: { value: 'สมชาย' } });
+    fireEvent.click(screen.getByRole('button', { name: copy['person.add.submit'] }));
+
+    await waitFor(() => expect(familyGraph.claimPerson).toHaveBeenCalledWith(person.id));
+    expect(await screen.findByText('person-page')).toBeTruthy();
+    expect(toast).toHaveBeenCalledWith(
+      interpolate(copy['person.claim_self.after_create_failed'], { ชื่อ: 'สมชาย' }),
+      { duration: CLAIM_SELF_AFTER_CREATE_TOAST_MS }
+    );
+    expect(screen.queryByText(interpolate(copy['person.invite.after.title'], { ชื่อ: 'สมชาย' }))).toBeNull();
   });
 
   it('sends a non-admin away from add-person to the family tree', async () => {

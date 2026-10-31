@@ -2,6 +2,7 @@
  * Isolated members / invites / people client (tree + invite are not in api-client).
  */
 import {
+  claimPersonSchema,
   createPersonResponseSchema,
   createRelationshipSchema,
   personListResponseSchema,
@@ -186,6 +187,21 @@ export const familyGraph = {
     return request(`/v1/people/${personId}`, familyPersonSchema, {
       method: 'PATCH',
       body,
+    });
+  },
+
+  /** POST /v1/people/{id}/claim — family admin only. Links people.account_id to the caller. */
+  claimPerson(personId: string) {
+    return request(`/v1/people/${personId}/claim`, familyPersonSchema, {
+      method: 'POST',
+      body: claimPersonSchema.parse({}),
+    });
+  },
+
+  /** DELETE /v1/people/{id}/claim — linked account or family admin. */
+  unclaimPerson(personId: string) {
+    return request(`/v1/people/${personId}/claim`, familyPersonSchema, {
+      method: 'DELETE',
     });
   },
 

@@ -31,8 +31,10 @@ describe('copy v0.4', () => {
     const files = [
       'pages/PersonFormPage.tsx',
       'pages/PersonPage.tsx',
+      'pages/AddPersonPage.tsx',
       'components/PersonPhotoField.tsx',
       'components/PersonProfileMenu.tsx',
+      'components/ClaimSelfDialog.tsx',
     ];
     const used = new Set<string>();
     for (const file of files) {
@@ -144,6 +146,25 @@ describe('copy v0.4', () => {
     expect(copy['person.relation.type.placeholder']).toBe('เลือกความสัมพันธ์');
     expect(copy['person.living.label']).toBe('ยังมีชีวิตอยู่');
     expect(copy['person.add.saved_toast']).toBe('เพิ่ม {name} ในผังแล้ว');
+    expect(copy['person.menu.claim_self']).toBe('นี่คือฉัน');
+    expect(copy['person.claim_self.confirm.title']).toBe('{ชื่อ}คือคุณใช่ไหม');
+    expect(copy['person.claim_self.confirm.body']).toBe(
+      'กล่องนี้จะผูกกับบัญชีของคุณ ถ้าเลือกผิด ยกเลิกได้ทีหลัง'
+    );
+    expect(copy['person.claim_self.confirm.primary']).toBe('ใช่ นี่คือฉัน');
+    expect(copy['person.claim_self.confirm.secondary']).toBe('ไม่ใช่');
+    expect(copy['person.claim_self.done']).toBe('ผูก{ชื่อ}กับบัญชีของคุณแล้ว');
+    expect(copy['person.claim_self.after_create_failed']).toBe(
+      'เพิ่ม{ชื่อ}แล้ว แต่ยังผูกกับบัญชีของคุณไม่ได้ ลองกด "นี่คือฉัน" อีกที'
+    );
+    expect(copy['person.claim_self.taken']).toBe('{ชื่อ}ผูกกับบัญชีอื่นอยู่แล้ว');
+    expect(copy['person.claim_self.already_linked_self']).toBe(
+      'บัญชีของคุณผูกกับ{ชื่อเดิม}ในผังอยู่แล้ว'
+    );
+    expect(copy['person.claim_self.deceased']).toBe('เลือกคนนี้เป็นตัวคุณไม่ได้');
+    expect(copy['person.claim_self.failed']).toBe('ขอโทษด้วย ตอนนี้ยังผูกไม่ได้ ลองอีกครั้งได้เลย');
+    expect(copy['relation.link.error.person_gone']).toBe('หา{ชื่อ}ในผังไม่เจอแล้ว');
+    expect(copy['person.error.ok']).toBe('เข้าใจแล้ว');
     expect(copy['person.events.empty']).toBe('ยังไม่มีใครเล่าเรื่องที่มี{name}');
     expect(copy['common.retry']).toBe('ลองอีกครั้ง');
     expect(copy['error.NAME_REQUIRED']).toBe('ใส่ชื่อก่อนบันทึก');

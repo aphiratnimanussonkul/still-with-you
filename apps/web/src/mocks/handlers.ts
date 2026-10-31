@@ -854,6 +854,68 @@ export const handlers = [
     return jsonContract(personResponseSchema, person);
   }),
 
+  http.post(`${api}/v1/people/:id/claim`, async ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const person = people.find((row) => row.id === params.id);
+    if (!person) {
+      return HttpResponse.json(
+        { error: { code: ErrorCode.PERSON_DELETED, message: 'Person deleted' } },
+        { status: 422 }
+      );
+    }
+    const caller = members.find((row) => row.family_id === person.family_id && row.account_id === account.id);
+    if (caller?.role !== 'admin') {
+      return HttpResponse.json({ error: { code: 'FORBIDDEN', message: 'admin required' } }, { status: 403 });
+    }
+    if (person.is_living === false) {
+      return HttpResponse.json(
+        { error: { code: ErrorCode.PERSON_DECEASED, message: 'Person deceased' } },
+        { status: 422 }
+      );
+    }
+    if (person.account_id) {
+      return HttpResponse.json(
+        { error: { code: ErrorCode.PERSON_ALREADY_CLAIMED, message: 'Person already claimed' } },
+        { status: 409 }
+      );
+    }
+    const linked = people.find(
+      (row) => row.family_id === person.family_id && row.account_id === account.id && !row.deleted_at
+    );
+    if (linked) {
+      return HttpResponse.json(
+        {
+          error: {
+            code: ErrorCode.ACCOUNT_ALREADY_LINKED,
+            message: 'Account already linked',
+            details: { person_id: linked.id, display_name: linked.display_name },
+          },
+        },
+        { status: 409 }
+      );
+    }
+    person.account_id = account.id;
+    return jsonContract(personResponseSchema, person);
+  }),
+
+  http.delete(`${api}/v1/people/:id/claim`, ({ request, params }) => {
+    const denied = requireAuth(request);
+    if (denied) return denied;
+    const person = people.find((row) => row.id === params.id);
+    if (!person) {
+      return HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Person not found' } }, { status: 404 });
+    }
+    const caller = members.find((row) => row.family_id === person.family_id && row.account_id === account.id);
+    const isAdmin = caller?.role === 'admin';
+    const isOwner = person.account_id === account.id;
+    if (!isAdmin && !isOwner) {
+      return HttpResponse.json({ error: { code: 'FORBIDDEN', message: 'forbidden' } }, { status: 403 });
+    }
+    person.account_id = null;
+    return jsonContract(personResponseSchema, person);
+  }),
+
   http.delete(`${api}/v1/people/:id`, ({ request, params }) => {
     const denied = requireAuth(request);
     if (denied) return denied;

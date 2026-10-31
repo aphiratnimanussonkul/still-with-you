@@ -24,6 +24,7 @@ vi.mock('@/lib/family-graph', async () => {
       getPerson: vi.fn(),
       updatePerson: vi.fn(),
       deletePerson: vi.fn(),
+      claimPerson: vi.fn(),
       createPersonInvite: vi.fn(),
     },
   };
@@ -79,9 +80,9 @@ function renderPerson(id = mockPeople[0].id) {
   );
 }
 
-function mockPage(person = mockPeople[0], members = mockMembers) {
+function mockPage(person = mockPeople[0], members = mockMembers, people = mockPeople) {
   vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
-  vi.mocked(familyGraph.listPeople).mockResolvedValue({ people: mockPeople, relationships: [] });
+  vi.mocked(familyGraph.listPeople).mockResolvedValue({ people, relationships: [] });
   vi.mocked(familyGraph.listMembers).mockImplementation(async (fid) => ({
     members: members.filter((member) => member.family_id === fid),
   }));
@@ -261,6 +262,23 @@ describe('PersonPage', () => {
         name: interpolateHeading(copy['person.invite.action'], { name: mockPeople[1].display_name }),
       })
     ).toBeNull();
+  });
+
+  it('shows นี่คือฉัน for an admin on a living unlinked person when they have no linked box', async () => {
+    const people = mockPeople.map((row) => ({ ...row, account_id: null }));
+    const person = { ...mockPeople[1], account_id: null, is_living: true };
+    mockPage(person, mockMembers, people);
+    renderPerson(person.id);
+    fireEvent.click(await screen.findByRole('button', { name: copy['a11y.more'] }));
+    expect(await screen.findByRole('button', { name: copy['person.menu.claim_self'] })).toBeTruthy();
+  });
+
+  it('hides นี่คือฉัน when the person is deceased or the admin is already linked', async () => {
+    mockPage(mockPeople[0]);
+    renderPerson();
+    fireEvent.click(await screen.findByRole('button', { name: copy['a11y.more'] }));
+    expect(await screen.findByRole('button', { name: copy['person.menu.edit'] })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: copy['person.menu.claim_self'] })).toBeNull();
   });
 
   it('does not offer delete for a linked member', async () => {
