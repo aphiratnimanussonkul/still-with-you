@@ -103,9 +103,13 @@ export const people = pgTable(
   },
   (table) => ({
     idFamilyKey: uniqueIndex('people_id_family_id_key').on(table.id, table.familyId),
+    // One person per account when claimed (NULL account_id is allowed many times).
+    accountIdKey: uniqueIndex('people_account_id_key')
+      .on(table.accountId)
+      .where(sql`account_id is not null`),
     familyAccountLive: uniqueIndex('people_family_account_live')
       .on(table.familyId, table.accountId)
-      .where(sql`account_id is not null and deleted_at is null`),
+      .where(sql`deleted_at is null and account_id is not null`),
   })
 );
 

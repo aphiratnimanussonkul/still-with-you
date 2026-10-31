@@ -35,6 +35,14 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
           },
         });
       }
+      if (constraint.includes('people_account_id')) {
+        return reply.status(409).send({
+          error: {
+            code: ErrorCode.PERSON_ALREADY_CLAIMED,
+            message: errorMessages[ErrorCode.PERSON_ALREADY_CLAIMED],
+          },
+        });
+      }
       if (constraint.includes('people_family_account') || constraint.includes('invites_person_pending')) {
         return reply.status(409).send({
           error: {

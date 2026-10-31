@@ -138,7 +138,7 @@ describe('Family tree (contract v0.8)', () => {
   });
 
   describe('permission matrix', () => {
-    it('lets only the family steward create or PATCH a person; other members 403', async () => {
+    it('lets only the family steward create a person; PATCH is steward or linked self-edit', async () => {
       const memberCreate = await createPerson(memberToken, { name: 'ห้าม' });
       expect(memberCreate.statusCode).toBe(403);
       expect(JSON.parse(memberCreate.body).error.code).toBe('FORBIDDEN');
@@ -194,10 +194,22 @@ describe('Family tree (contract v0.8)', () => {
         method: 'PATCH',
         url: `/v1/people/${id}`,
         headers: await auth(otherToken),
-        payload: { bio: 'ห้าม' },
+        payload: { bio: 'ได้' },
       });
-      expect(linkedPatch.statusCode).toBe(403);
-      expect(JSON.parse(linkedPatch.body).error.code).toBe('FORBIDDEN');
+      expect(linkedPatch.statusCode).toBe(200);
+      expect(JSON.parse(linkedPatch.body).bio).toBe('ได้');
+
+      const linkedForbidden = await server.inject({
+        method: 'PATCH',
+        url: `/v1/people/${id}`,
+        headers: await auth(otherToken),
+        payload: { family_name: 'ห้าม' },
+      });
+      expect(linkedForbidden.statusCode).toBe(403);
+      expect(JSON.parse(linkedForbidden.body).error).toMatchObject({
+        code: 'FORBIDDEN',
+        field: 'family_name',
+      });
     });
 
     it('lets only the family steward soft-delete a person; other members 403', async () => {

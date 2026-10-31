@@ -425,7 +425,23 @@ export const createPersonSchema = z.object({
   relationship: inlineRelationshipSchema.optional(),
 });
 
-/** PATCH /v1/people/{id} body. Steward (`family_members.role = 'admin'`) only; others 403. */
+/**
+ * Fields a linked account may PATCH on their own person
+ * (`people.account_id` = caller). Any other field => 403 FORBIDDEN with
+ * `error.field` set to the first offending field. Admins may PATCH all fields.
+ */
+export const PERSON_SELF_EDITABLE_FIELDS = [
+  'avatar_media_id',
+  'display_name',
+  'relation_label',
+  'bio',
+  'birth_date',
+  'birth_date_precision',
+] as const;
+
+export const personSelfEditableFieldSchema = z.enum(PERSON_SELF_EDITABLE_FIELDS);
+
+/** PATCH /v1/people/{id} body. Admin: any field. Self-editor: only PERSON_SELF_EDITABLE_FIELDS. */
 export const updatePersonSchema = z.object({
   display_name: optionalNameSchema,
   name: optionalNameSchema,
@@ -439,6 +455,44 @@ export const updatePersonSchema = z.object({
   death_date_precision: deathDatePrecisionSchema.nullable().optional(),
   bio: z.string().trim().max(2000).nullable().optional(),
   avatar_media_id: uuidSchema.nullable().optional(),
+});
+
+/** POST /v1/people/{id}/claim — empty body. Links people.account_id to the caller. */
+export const claimPersonSchema = z.object({}).strict();
+
+/** 409 ACCOUNT_ALREADY_LINKED `error.details` on POST /v1/people/{id}/claim. */
+export const accountAlreadyLinkedDetailsSchema = z.object({
+  person_id: uuidSchema,
+  display_name: z.string(),
+});
+
+export const accountAlreadyLinkedErrorSchema = z.object({
+  error: z.object({
+    code: z.literal('ACCOUNT_ALREADY_LINKED'),
+    message: z.string(),
+    details: accountAlreadyLinkedDetailsSchema,
+  }),
+});
+
+export const personAlreadyClaimedErrorSchema = z.object({
+  error: z.object({
+    code: z.literal('PERSON_ALREADY_CLAIMED'),
+    message: z.string(),
+  }),
+});
+
+export const personDeletedErrorSchema = z.object({
+  error: z.object({
+    code: z.literal('PERSON_DELETED'),
+    message: z.string(),
+  }),
+});
+
+export const personDeceasedErrorSchema = z.object({
+  error: z.object({
+    code: z.literal('PERSON_DECEASED'),
+    message: z.string(),
+  }),
 });
 
 /** POST /v1/families/{id}/relationships. Steward only. No PATCH. Parent cap 2 live parents (422 TOO_MANY_PARENTS). */
@@ -614,8 +668,12 @@ export type UpdateContribution = z.infer<typeof updateContributionSchema>;
 export type ContributionResponse = z.infer<typeof contributionResponseSchema>;
 export type ContributionListResponse = z.infer<typeof contributionListResponseSchema>;
 export type CreatePerson = z.infer<typeof createPersonSchema>;
-/** PATCH /v1/people/{id} body. Steward-only write; no version/optimistic concurrency. */
+/** PATCH /v1/people/{id} body. Admin: any field. Linked self-editor: PERSON_SELF_EDITABLE_FIELDS only. */
 export type UpdatePerson = z.infer<typeof updatePersonSchema>;
+export type PersonSelfEditableField = z.infer<typeof personSelfEditableFieldSchema>;
+export type ClaimPerson = z.infer<typeof claimPersonSchema>;
+export type AccountAlreadyLinkedDetails = z.infer<typeof accountAlreadyLinkedDetailsSchema>;
+export type AccountAlreadyLinkedError = z.infer<typeof accountAlreadyLinkedErrorSchema>;
 export type CreateRelationship = z.infer<typeof createRelationshipSchema>;
 export type PersonResponse = z.infer<typeof personResponseSchema>;
 export type RelationshipResponse = z.infer<typeof relationshipResponseSchema>;
