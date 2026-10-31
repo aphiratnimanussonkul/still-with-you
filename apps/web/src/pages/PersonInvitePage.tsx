@@ -7,7 +7,7 @@ import { Illustration } from '@/components/Illustration';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { copy, interpolate, interpolateHeading, pageHeadingClassName, resolvedCopy } from '@/copy';
+import { copy, interpolate, interpolateHeading, pageHeadingClassName } from '@/copy';
 import { useAuth } from '@/hooks/use-auth';
 import { ApiClientError, messageForError } from '@/lib/api-errors';
 import { loginPathForInvite, rememberAuthNext } from '@/lib/auth-redirect';
@@ -30,6 +30,14 @@ function inviteLandingError(error: unknown, vars?: Record<string, string>): stri
 
 function backHomeTo(signedIn: boolean): string {
   return signedIn ? '/home' : '/login';
+}
+
+function isInviteInvalid(error: unknown): boolean {
+  return error instanceof ApiClientError && error.code === 'INVITE_INVALID';
+}
+
+function isInviteRateLimited(error: unknown): boolean {
+  return error instanceof ApiClientError && (error.code === 'RATE_LIMITED' || error.status === 429);
 }
 
 export function PersonInvitePage() {
@@ -75,17 +83,58 @@ export function PersonInvitePage() {
     return <AuthScreen loading />;
   }
 
-  if (invite.isError) {
-    const rateLimited =
-      invite.error instanceof ApiClientError &&
-      (invite.error.code === 'RATE_LIMITED' || invite.error.status === 429);
-    const title = rateLimited
-      ? copy['error.RATE_LIMITED.invite']
-      : resolvedCopy('invite.invalid.title', copy['error.INVITE_INVALID']);
+  if (invite.isError && isInviteRateLimited(invite.error)) {
     return (
       <AuthScreen
         illustration={<Illustration name="error-offline" float={false} className="size-[200px]" />}
-        title={<h1 className={`text-center text-h2 font-semibold ${pageHeadingClassName}`}>{title}</h1>}
+        title={
+          <h1 className={`text-center text-h2 font-semibold ${pageHeadingClassName}`}>
+            {copy['error.RATE_LIMITED.invite']}
+          </h1>
+        }
+        actions={
+          <Button type="button" variant="outline" size="lg" className="w-full" asChild>
+            <Link to={backHomeTo(Boolean(session))}>{copy['common.back_home']}</Link>
+          </Button>
+        }
+      />
+    );
+  }
+
+  // Preview and accept both return 410 INVITE_INVALID for expired/revoked/unknown.
+  // Until the API distinguishes those, show the invalid set (no inviter name).
+  if (
+    (invite.isError && isInviteInvalid(invite.error)) ||
+    (accept.isError && isInviteInvalid(accept.error))
+  ) {
+    return (
+      <AuthScreen
+        illustration={<Illustration name="error-offline" float={false} className="size-[200px]" />}
+        title={
+          <h1 className={`text-center text-h2 font-semibold ${pageHeadingClassName}`}>
+            {copy['invite.invalid.title']}
+          </h1>
+        }
+        actions={
+          <Button type="button" variant="outline" size="lg" className="w-full" asChild>
+            <Link to={backHomeTo(Boolean(session))}>{copy['common.back_home']}</Link>
+          </Button>
+        }
+      >
+        <p className="text-center text-body text-muted-foreground">{copy['invite.invalid.body']}</p>
+      </AuthScreen>
+    );
+  }
+
+  if (invite.isError) {
+    return (
+      <AuthScreen
+        illustration={<Illustration name="error-offline" float={false} className="size-[200px]" />}
+        title={
+          <h1 className={`text-center text-h2 font-semibold ${pageHeadingClassName}`}>
+            {inviteLandingError(invite.error)}
+          </h1>
+        }
         actions={
           <Button type="button" variant="outline" size="lg" className="w-full" asChild>
             <Link to={backHomeTo(Boolean(session))}>{copy['common.back_home']}</Link>
@@ -98,6 +147,8 @@ export function PersonInvitePage() {
   if (!invite.data) return null;
   const name = invite.data.person_display_name;
   const loginTo = loginPathForInvite(inviteId);
+  // Preview contract has no member_count yet — keep the Eddy key wired but unrendered.
+  const memberCount: number | null = null;
 
   return (
     <AuthScreen
@@ -168,9 +219,11 @@ export function PersonInvitePage() {
         <div className="flex items-center justify-between gap-3 px-4 py-3 text-left">
           <div className="min-w-0">
             <p className="text-label font-medium">{invite.data.family_name}</p>
-            {copy['invite.landing.members'].startsWith('TODO:') ? null : (
-              <p className="text-caption text-muted-foreground">{copy['invite.landing.members']}</p>
-            )}
+            {memberCount !== null ? (
+              <p className="text-caption text-muted-foreground">
+                {interpolate(copy['invite.landing.members'], { จำนวน: String(memberCount) })}
+              </p>
+            ) : null}
           </div>
         </div>
       </Card>

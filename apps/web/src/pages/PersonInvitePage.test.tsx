@@ -94,9 +94,10 @@ describe('PersonInvitePage', () => {
       )
     ).toBeTruthy();
     expect(screen.getAllByText(mockFamilies[0].name).length).toBeGreaterThan(0);
+    expect(screen.queryByText(interpolate(copy['invite.landing.members'], { จำนวน: '0' }))).toBeNull();
+    expect(screen.queryByText(/สมาชิก/)).toBeNull();
     expect(screen.getByRole('button', { name: copy['invite.landing.accept'] })).toBeTruthy();
     expect(screen.getByRole('button', { name: copy['invite.landing.decline'] })).toBeTruthy();
-    expect(screen.queryByText('TODO: Eddy')).toBeNull();
   });
 
   it('shows the family-invite body when person_display_name is null', async () => {
@@ -139,15 +140,18 @@ describe('PersonInvitePage', () => {
     expect(screen.queryByText(copy['error.RATE_LIMITED'])).toBeNull();
   });
 
-  it('shows INVITE_INVALID on a dedicated error screen', async () => {
+  it('shows the invalid set for 410 INVITE_INVALID', async () => {
     vi.mocked(familyGraph.getPersonInvite).mockRejectedValue(
       new ApiClientError('INVITE_INVALID', 'gone', 410)
     );
     renderInvite();
-    expect(await screen.findByRole('heading', { name: copy['error.INVITE_INVALID'] })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: copy['invite.invalid.title'] })).toBeTruthy();
+    expect(screen.getByText(copy['invite.invalid.body'])).toBeTruthy();
     expect(screen.getByTestId('illustration-error-offline')).toBeTruthy();
     expect(screen.getByRole('link', { name: copy['common.back_home'] })).toBeTruthy();
-    expect(screen.queryByText('TODO: Eddy')).toBeNull();
+    expect(screen.queryByText(copy['invite.expired.title'])).toBeNull();
+    expect(screen.queryByText(copy['invite.expired.body'])).toBeNull();
+    expect(screen.queryByText(mockAccount.display_name)).toBeNull();
   });
 
   it('shows PERSON_ALREADY_LINKED on accept', async () => {
@@ -163,13 +167,15 @@ describe('PersonInvitePage', () => {
     ).toBeTruthy();
   });
 
-  it('shows INVITE_INVALID when accept fails with 410', async () => {
+  it('shows the invalid set when accept fails with 410', async () => {
     vi.mocked(familyGraph.acceptPersonInvite).mockRejectedValue(
       new ApiClientError('INVITE_INVALID', 'gone', 410)
     );
     renderInvite();
     fireEvent.click(await screen.findByRole('button', { name: copy['invite.landing.accept'] }));
-    expect(await screen.findByText(copy['error.INVITE_INVALID'])).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: copy['invite.invalid.title'] })).toBeTruthy();
+    expect(screen.getByText(copy['invite.invalid.body'])).toBeTruthy();
+    expect(screen.queryByText(copy['error.INVITE_INVALID'])).toBeNull();
   });
 
   it('maps unknown self-link codes to generic copy', async () => {
