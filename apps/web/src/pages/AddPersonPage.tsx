@@ -90,7 +90,7 @@ function AddPersonForm({
   const myPerson = findMyPerson(people, accountId);
   const prefilledKind = params.get('kind');
   const prefilledPerson = params.get('person');
-  const [name, setName] = useState('');
+  const [name, setName] = useState(params.get('name') ?? '');
   const [nickname, setNickname] = useState('');
   const [kind, setKind] = useState<RelationshipKind | ''>(isKind(prefilledKind) ? prefilledKind : '');
   const [relatedId, setRelatedId] = useState(prefilledPerson || myPerson?.id || '');

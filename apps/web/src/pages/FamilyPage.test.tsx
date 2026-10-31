@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { copy } from '@/copy';
+import { copy, interpolate } from '@/copy';
 import type { FamilyPerson } from '@/lib/family-graph';
 import { mockAccount, mockFamilies, mockMembers, mockPeople, mockRelationships } from '@/mocks/data';
 
@@ -26,6 +26,7 @@ vi.mock('@/lib/family-graph', async () => {
     familyGraph: {
       listPeople: vi.fn(),
       createPerson: vi.fn(),
+      createRelationship: vi.fn(),
       listMembers: vi.fn(),
       listInvites: vi.fn(),
       createInvite: vi.fn(),
@@ -140,6 +141,70 @@ describe('FamilyPage', () => {
     expect(screen.getByText(copy['tree.node.add_spouse'])).toBeTruthy();
     fireEvent.click(screen.getByText('ยาย'));
     expect(await screen.findByText('person-page')).toBeTruthy();
+  });
+
+  it('opens the pick-existing sheet instead of the add-person form', async () => {
+    const uncle = productionPerson('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa10', 'สมศักดิ์');
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({
+      people: [...mockPeople, uncle],
+      relationships: mockRelationships,
+    });
+
+    renderPage();
+    expect(await screen.findByText('ยาย')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText(copy['tree.node.add'].replace('{ชื่อ}', 'ยาย')));
+    fireEvent.click(screen.getByText(copy['tree.node.add_spouse']));
+    expect(await screen.findByText(copy['relation.pick.subtitle'])).toBeTruthy();
+    expect(screen.getAllByText('สมศักดิ์').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: copy['relation.pick.link'] })).toBeTruthy();
+    expect(screen.queryByText('add-form')).toBeNull();
+  });
+
+  it('disables add-parent when the person already has two parents', async () => {
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({
+      people: mockPeople,
+      relationships: mockRelationships,
+    });
+
+    renderPage();
+    expect(await screen.findByText('Atta')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText(copy['tree.node.add'].replace('{ชื่อ}', 'Atta')));
+    expect(screen.getByText(copy['tree.node.add_parent'])).toBeTruthy();
+    expect(
+      screen.getByText(interpolate(copy['relation.link.error.too_many_parents'], { ชื่อ: 'Atta' }))
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: copy['tree.node.add_parent'] })).toBeNull();
+    expect(screen.queryByText(copy['relation.pick.subtitle'])).toBeNull();
+  });
+
+  it('focuses the newly linked person on the tree after a successful link', async () => {
+    const uncle = productionPerson('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa10', 'สมศักดิ์');
+    vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
+    vi.mocked(familyGraph.listPeople).mockResolvedValue({
+      people: [...mockPeople, uncle],
+      relationships: mockRelationships,
+    });
+    vi.mocked(familyGraph.createRelationship).mockResolvedValue({
+      id: '99999999-9999-4999-8999-999999999996',
+      family_id: mockFamilies[0].id,
+      person_id: mockPeople[0].id,
+      related_person_id: uncle.id,
+      type: 'spouse',
+      created_by_account_id: mockAccount.id,
+      created_at: '2026-10-31T00:00:00.000Z',
+    });
+
+    renderPage();
+    expect(await screen.findByText('ยาย')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText(copy['tree.node.add'].replace('{ชื่อ}', 'ยาย')));
+    fireEvent.click(screen.getByText(copy['tree.node.add_spouse']));
+    fireEvent.click(await screen.findByRole('button', { name: copy['relation.pick.link'] }));
+    await waitFor(() => expect(familyGraph.createRelationship).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'สมศักดิ์' }).getAttribute('aria-current')).toBe('true')
+    );
   });
 
   it('remembers the list tab and sorts by generation', async () => {

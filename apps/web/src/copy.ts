@@ -380,6 +380,24 @@ export const copy = {
   'tree.node.add_parent': 'เพิ่มพ่อแม่',
   'tree.node.add_child': 'เพิ่มลูก',
   'tree.node.add_spouse': 'เพิ่มคู่',
+  'relation.pick.title.spouse': 'ใครเป็นคู่ชีวิตของ{ชื่อ}',
+  'relation.pick.title.parent': 'ใครเป็นพ่อหรือแม่ของ{ชื่อ}',
+  'relation.pick.title.child': 'ใครเป็นลูกของ{ชื่อ}',
+  'relation.pick.subtitle': 'เลือกจากคนที่อยู่ในผังแล้ว หรือเพิ่มคนใหม่ก็ได้',
+  'relation.pick.search.placeholder': 'หาชื่อ',
+  'relation.pick.section.existing': 'คนในผัง',
+  'relation.pick.add_new': 'เพิ่มคนใหม่',
+  'relation.pick.add_new.caption': 'คนที่ยังไม่อยู่ในผัง',
+  'relation.pick.search.empty': 'หา{คำค้น}ในผังไม่เจอ',
+  'relation.pick.search.add': 'เพิ่ม{คำค้น}เป็นคนใหม่',
+  'relation.pick.empty': 'ยังไม่มีคนอื่นในผังที่เลือกได้',
+  'relation.pick.link': 'เชื่อมในผัง',
+  'relation.link.toast': '{ชื่อ}กับ{อีกคน}เชื่อมกันในผังแล้ว',
+  'relation.link.error.inline': 'ขอโทษด้วย ตอนนี้ยังเชื่อมไม่ได้',
+  'relation.link.error.person_gone': 'หา{ชื่อ}ในผังไม่เจอแล้ว',
+  'relation.link.error.too_many_parents':
+    '{ชื่อ}มีพ่อแม่ในผังครบสองคนแล้ว ถ้าอยากเปลี่ยน เอาคนเดิมออกก่อน แล้วจึงเพิ่มใหม่',
+  'relation.link.saving': 'กำลังเชื่อม…',
   'person.add.title': 'เพิ่มคนในครอบครัว',
   'person.name_label': 'ชื่อที่ใช้เรียก',
   'person.name_placeholder': 'เช่น ยายสมศรี',
@@ -558,6 +576,7 @@ const NAME_VAR_KEYS = new Set([
   'event_title',
   'family_name',
   'owner_display_name',
+  'อีกคน',
 ]);
 
 export const DISPLAY_NAME_MAX = 20;
