@@ -135,7 +135,6 @@ function FamilyPeoplePanel({
   tab: FamilyViewTab;
 }) {
   const me = useMe();
-  const [resetToken, setResetToken] = useState(0);
   const members = useQuery({
     queryKey: queryKeys.members(familyId),
     queryFn: () => familyGraph.listMembers(familyId),
@@ -196,7 +195,6 @@ function FamilyPeoplePanel({
             relationships={relationships}
             accountId={me.data?.id}
             canAdd={isAdmin}
-            resetToken={resetToken}
           />
         )
       ) : (
@@ -209,15 +207,10 @@ function FamilyPeoplePanel({
         </ol>
       )}
 
-      {onlySelf ? null : (
+      {onlySelf || !isAdmin ? null : (
         <div className="flex gap-2">
-          {isAdmin ? (
-            <Button asChild className="flex-1">
-              <Link to="/family/people/new">{copy['person.add.action']}</Link>
-            </Button>
-          ) : null}
-          <Button type="button" variant="secondary" className="flex-1" onClick={() => setResetToken((value) => value + 1)}>
-            {copy['tree.back_to_me']}
+          <Button asChild className="flex-1">
+            <Link to="/family/people/new">{copy['person.add.action']}</Link>
           </Button>
         </div>
       )}

@@ -105,7 +105,7 @@ describe('FamilyPage', () => {
     vi.mocked(layoutFamilyTree).mockImplementation((...args) => actualLayoutFamilyTree.current!(...args));
   });
 
-  it('shows the tree, Buddhist years, and only the add / back-to-me toolbar', async () => {
+  it('shows the tree, Buddhist years, and only the add toolbar', async () => {
     vi.mocked(api.listFamilies).mockResolvedValue({ families: mockFamilies });
     vi.mocked(familyGraph.listPeople).mockResolvedValue({
       people: mockPeople,
@@ -121,7 +121,7 @@ describe('FamilyPage', () => {
     expect(screen.getByRole('button', { name: copy['family.tab.graph'] })).toBeTruthy();
     expect(screen.getByRole('button', { name: copy['family.tab.list'] })).toBeTruthy();
     expect(screen.getByRole('link', { name: copy['person.add.action'] })).toBeTruthy();
-    expect(screen.getByRole('button', { name: copy['tree.back_to_me'] })).toBeTruthy();
+    expect(screen.queryByText('กลับมาที่ฉัน')).toBeNull();
     expect(screen.queryByText(copy['family.focus.toggle'])).toBeNull();
     expect(screen.queryByText(copy['family.tab.members'])).toBeNull();
   });
@@ -233,7 +233,6 @@ describe('FamilyPage', () => {
     expect(await screen.findByText(copy['tree.only_self.title'])).toBeTruthy();
     expect(screen.getByText(copy['tree.only_self.body'])).toBeTruthy();
     expect(screen.getByRole('link', { name: copy['person.add.action'] })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: copy['tree.back_to_me'] })).toBeNull();
   });
 
   it('renders people with no relationships as tree nodes', async () => {
@@ -309,7 +308,7 @@ describe('FamilyPage', () => {
     expect(screen.queryByRole('link', { name: copy['person.add.action'] })).toBeNull();
     expect(screen.queryByLabelText(copy['tree.node.add'].replace('{ชื่อ}', 'ยาย'))).toBeNull();
     expect(screen.queryByText(copy['tree.node.add_parent'])).toBeNull();
-    expect(screen.getByRole('button', { name: copy['tree.back_to_me'] })).toBeTruthy();
+    expect(screen.queryByText('กลับมาที่ฉัน')).toBeNull();
     expect(screen.queryByText(copy['tree.unrelated.body'])).toBeNull();
     expect(screen.queryByText(copy['tree.readonly.note'])).toBeNull();
   });

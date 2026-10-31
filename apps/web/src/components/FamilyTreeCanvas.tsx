@@ -21,7 +21,6 @@ type FamilyTreeCanvasProps = {
   relationships: FamilyRelationship[];
   accountId?: string;
   canAdd?: boolean;
-  resetToken: number;
 };
 
 type PickTarget = {
@@ -47,7 +46,6 @@ export function FamilyTreeCanvas({
   relationships,
   accountId,
   canAdd = false,
-  resetToken,
 }: FamilyTreeCanvasProps) {
   const navigate = useNavigate();
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -63,10 +61,6 @@ export function FamilyTreeCanvas({
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ distance: number; scale: number } | null>(null);
   const drag = useRef<{ x: number; y: number; viewX: number; viewY: number } | null>(null);
-
-  useEffect(() => {
-    setFocusPersonId(null);
-  }, [resetToken]);
 
   useEffect(() => {
     const focused = focusPersonId
@@ -86,7 +80,7 @@ export function FamilyTreeCanvas({
       scale: 1,
     });
     setMenuFor(null);
-  }, [layout, resetToken, focusPersonId]);
+  }, [layout, focusPersonId]);
 
   function openPick(kind: RelationshipUiType, personId: string) {
     setMenuFor(null);
