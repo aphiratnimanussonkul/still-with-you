@@ -125,20 +125,6 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
 
     const body = updateEventSchema.parse(request.body);
 
-    if (body.version === undefined) {
-      const userAgent = request.headers['user-agent'];
-      // Root logger (not request.log) so we do not attach req IP or other PII.
-      fastify.log.warn(
-        {
-          event: 'event_patch_missing_version',
-          event_id: event.id,
-          account_id: request.user!.id,
-          user_agent: Array.isArray(userAgent) ? userAgent[0] ?? null : userAgent ?? null,
-        },
-        'event_patch_missing_version'
-      );
-    }
-
     const updated = await db.transaction(async (tx) => {
       const [row] = await tx
         .update(events)

@@ -3,10 +3,6 @@ import { eventPatchVersionMessage, eventResponseSchema } from '@still-with-you/c
 import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
 import { db, familyMembers } from '../lib/db/index.js';
 
-function parseLogLine(chunk: string): Record<string, unknown> {
-  return JSON.parse(chunk) as Record<string, unknown>;
-}
-
 describe('PATCH /v1/events/:id optimistic concurrency', () => {
   let server: Awaited<ReturnType<typeof createTestServer>>;
   let steward: Awaited<ReturnType<typeof createTestAccount>>;
@@ -14,7 +10,6 @@ describe('PATCH /v1/events/:id optimistic concurrency', () => {
   let stewardToken: string;
   let creatorToken: string;
   let familyId: string;
-  let logLines: Record<string, unknown>[];
 
   async function createEvent(title = 'วันเกิดยาย') {
     const response = await server.inject({
@@ -37,17 +32,7 @@ describe('PATCH /v1/events/:id optimistic concurrency', () => {
   }
 
   beforeEach(async () => {
-    logLines = [];
-    server = await createTestServer({
-      logger: {
-        level: 'warn',
-        stream: {
-          write(chunk: string) {
-            logLines.push(parseLogLine(chunk));
-          },
-        },
-      },
-    });
+    server = await createTestServer();
     await cleanupTestData();
 
     steward = await createTestAccount('auth-steward-cas', 'steward-cas@example.com', 'Steward');
