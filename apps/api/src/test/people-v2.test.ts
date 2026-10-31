@@ -26,7 +26,7 @@ describe('People v2 (living, death, inline relationship)', () => {
     return server.inject({
       method: 'POST',
       url: `/v1/families/${familyId}/people`,
-      headers: await auth(memberToken),
+      headers: await auth(stewardToken),
       payload,
     });
   }
@@ -308,7 +308,7 @@ describe('People v2 (living, death, inline relationship)', () => {
     const loop = await server.inject({
       method: 'POST',
       url: `/v1/families/${familyId}/relationships`,
-      headers: await auth(memberToken),
+      headers: await auth(stewardToken),
       payload: { person_id: c.id, related_person_id: a.id, type: 'parent' },
     });
     expect(loop.statusCode).toBe(400);
@@ -327,7 +327,7 @@ describe('People v2 (living, death, inline relationship)', () => {
     const dup = await server.inject({
       method: 'POST',
       url: `/v1/families/${familyId}/relationships`,
-      headers: await auth(memberToken),
+      headers: await auth(stewardToken),
       payload: { person_id: b.id, related_person_id: a.id, type: 'parent' },
     });
     expect(dup.statusCode).toBe(409);

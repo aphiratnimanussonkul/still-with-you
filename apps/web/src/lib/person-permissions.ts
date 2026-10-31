@@ -28,7 +28,7 @@ export function canInvitePerson(
 
 /**
  * PATCH /v1/people/{id} and DELETE /v1/people/{id} are family steward only
- * (`family_members.role = 'admin'`). Creator and linked self are 403; missing/non-member are 404.
+ * (`family_members.role = 'admin'`). Non-steward members are 403; missing/non-member are 404.
  */
 export function canEditPerson(
   _person: FamilyPerson,

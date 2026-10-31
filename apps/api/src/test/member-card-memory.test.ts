@@ -113,8 +113,8 @@ describe('Member cards + Memory page contract', () => {
     familyId = JSON.parse(familyRes.body).id;
     await db.insert(familyMembers).values({ familyId, accountId: member.id, role: 'member' });
 
-    grandmaId = await createPerson(memberToken, 'ยาย');
-    grandpaId = await createPerson(memberToken, 'ปู่');
+    grandmaId = await createPerson(stewardToken, 'ยาย');
+    grandpaId = await createPerson(stewardToken, 'ปู่');
   });
 
   afterEach(async () => {

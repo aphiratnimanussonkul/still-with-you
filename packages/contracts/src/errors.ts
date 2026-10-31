@@ -22,6 +22,7 @@ export const ErrorCode = {
 
   // 422 Unprocessable
   TOO_MANY_FOCUS: 'TOO_MANY_FOCUS',
+  TOO_MANY_PARENTS: 'TOO_MANY_PARENTS',
 
   // 401 Unauthorized
   UNAUTHENTICATED: 'UNAUTHENTICATED',
@@ -104,6 +105,7 @@ export const errorMessages: Record<ErrorCode, string> = {
   UNSUPPORTED_TYPE: 'File type is not allowed',
   TOO_MANY_PHOTOS: 'Too many photos attached',
   TOO_MANY_FOCUS: 'Too many focus people',
+  TOO_MANY_PARENTS: 'A person cannot have more than two parents',
   INVALID_INPUT: 'Invalid input provided',
   ANSWER_REQUIRED: 'Answer text is required',
   NAME_REQUIRED: 'Display name is required',

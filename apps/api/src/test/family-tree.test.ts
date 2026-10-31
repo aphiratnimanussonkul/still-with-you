@@ -69,19 +69,19 @@ describe('Family tree (contract v0.8)', () => {
 
   describe('person validation', () => {
     it('returns 400 NAME_REQUIRED with field name when name is blank', async () => {
-      const res = await createPerson(memberToken, { name: '  ' });
+      const res = await createPerson(stewardToken, { name: '  ' });
       expect(res.statusCode).toBe(400);
       expect(JSON.parse(res.body).error).toMatchObject({ code: 'NAME_REQUIRED', field: 'name' });
     });
 
     it('returns 400 NAME_REQUIRED with field display_name when display_name is blank', async () => {
-      const res = await createPerson(memberToken, { display_name: '' });
+      const res = await createPerson(stewardToken, { display_name: '' });
       expect(res.statusCode).toBe(400);
       expect(JSON.parse(res.body).error).toMatchObject({ code: 'NAME_REQUIRED', field: 'display_name' });
     });
 
     it('returns 400 INVALID_BIRTH_DATE for a future birth_date', async () => {
-      const res = await createPerson(memberToken, { name: 'เด็ก', birth_date: '2099-01-01' });
+      const res = await createPerson(stewardToken, { name: 'เด็ก', birth_date: '2099-01-01' });
       expect(res.statusCode).toBe(400);
       expect(JSON.parse(res.body).error).toMatchObject({
         code: 'INVALID_BIRTH_DATE',
@@ -91,11 +91,11 @@ describe('Family tree (contract v0.8)', () => {
 
     it('accepts gender female|male|other|null and rejects other values', async () => {
       for (const gender of ['female', 'male', 'other', null]) {
-        const res = await createPerson(memberToken, { name: `คน-${gender}`, gender });
+        const res = await createPerson(stewardToken, { name: `คน-${gender}`, gender });
         expect(res.statusCode).toBe(201);
         expect(createdPerson(res).gender).toBe(gender);
       }
-      const bad = await createPerson(memberToken, { name: 'ไม่ใช่', gender: 'unknown' });
+      const bad = await createPerson(stewardToken, { name: 'ไม่ใช่', gender: 'unknown' });
       expect(bad.statusCode).toBe(400);
       expect(JSON.parse(bad.body).error).toMatchObject({ code: 'INVALID_INPUT', field: 'gender' });
     });
@@ -103,7 +103,7 @@ describe('Family tree (contract v0.8)', () => {
 
   describe('GET people', () => {
     it('returns people and relationships with computed age and invite_status', async () => {
-      const created = await createPerson(memberToken, {
+      const created = await createPerson(stewardToken, {
         display_name: 'ยายสมศรี',
         birth_date: '1942',
         birth_date_precision: 'year',
@@ -138,19 +138,23 @@ describe('Family tree (contract v0.8)', () => {
   });
 
   describe('permission matrix', () => {
-    it('lets any member create; only the family steward may PATCH or DELETE', async () => {
-      const created = await createPerson(memberToken, { name: 'ปู่' });
+    it('lets only the family steward create or PATCH a person; other members 403', async () => {
+      const memberCreate = await createPerson(memberToken, { name: 'ห้าม' });
+      expect(memberCreate.statusCode).toBe(403);
+      expect(JSON.parse(memberCreate.body).error.code).toBe('FORBIDDEN');
+
+      const created = await createPerson(stewardToken, { name: 'ปู่' });
       expect(created.statusCode).toBe(201);
       const id = createdPerson(created).id;
 
-      const creatorPatch = await server.inject({
+      const memberPatch = await server.inject({
         method: 'PATCH',
         url: `/v1/people/${id}`,
         headers: await auth(memberToken),
-        payload: { bio: 'ผู้สร้าง' },
+        payload: { bio: 'ห้าม' },
       });
-      expect(creatorPatch.statusCode).toBe(403);
-      expect(JSON.parse(creatorPatch.body).error.code).toBe('FORBIDDEN');
+      expect(memberPatch.statusCode).toBe(403);
+      expect(JSON.parse(memberPatch.body).error.code).toBe('FORBIDDEN');
 
       const stewardPatch = await server.inject({
         method: 'PATCH',
@@ -190,14 +194,14 @@ describe('Family tree (contract v0.8)', () => {
         method: 'PATCH',
         url: `/v1/people/${id}`,
         headers: await auth(otherToken),
-        payload: { bio: 'โปรไฟล์ตัวเอง' },
+        payload: { bio: 'ห้าม' },
       });
       expect(linkedPatch.statusCode).toBe(403);
       expect(JSON.parse(linkedPatch.body).error.code).toBe('FORBIDDEN');
     });
 
-    it('lets only the steward soft-delete; creator, linked self, and other member 403', async () => {
-      const created = await createPerson(memberToken, { name: 'ลบได้' });
+    it('lets only the family steward soft-delete a person; other members 403', async () => {
+      const created = await createPerson(stewardToken, { name: 'ลบได้' });
       const id = createdPerson(created).id;
 
       const otherDelete = await server.inject({
@@ -207,13 +211,13 @@ describe('Family tree (contract v0.8)', () => {
       });
       expect(otherDelete.statusCode).toBe(403);
 
-      const creatorDelete = await server.inject({
+      const memberDelete = await server.inject({
         method: 'DELETE',
         url: `/v1/people/${id}`,
         headers: await auth(memberToken),
       });
-      expect(creatorDelete.statusCode).toBe(403);
-      expect(JSON.parse(creatorDelete.body).error.code).toBe('FORBIDDEN');
+      expect(memberDelete.statusCode).toBe(403);
+      expect(JSON.parse(memberDelete.body).error.code).toBe('FORBIDDEN');
 
       const deleted = await server.inject({
         method: 'DELETE',
@@ -233,7 +237,7 @@ describe('Family tree (contract v0.8)', () => {
 
   describe('soft delete', () => {
     it('keeps stories, removes person_facts, and returns 409 PERSON_LINKED when account_id is set', async () => {
-      const created = await createPerson(memberToken, { name: 'ยาย' });
+      const created = await createPerson(stewardToken, { name: 'ยาย' });
       const id = createdPerson(created).id;
 
       const event = await server.inject({
@@ -274,7 +278,7 @@ describe('Family tree (contract v0.8)', () => {
       expect(stories.length).toBeGreaterThan(0);
       expect(stories[0].story).toBe('เล่าเรื่องยาย');
 
-      const linked = await createPerson(memberToken, { name: 'คนลิงก์' });
+      const linked = await createPerson(stewardToken, { name: 'คนลิงก์' });
       const linkedId = createdPerson(linked).id;
       const invite = await server.inject({
         method: 'POST',
@@ -300,14 +304,14 @@ describe('Family tree (contract v0.8)', () => {
 
   describe('relationships', () => {
     it('stores parent and spouse; self-link and cycles are 400 INVALID_RELATIONSHIP; duplicates 409', async () => {
-      const a = createdPerson(await createPerson(memberToken, { name: 'A' }));
-      const b = createdPerson(await createPerson(memberToken, { name: 'B' }));
-      const c = createdPerson(await createPerson(memberToken, { name: 'C' }));
+      const a = createdPerson(await createPerson(stewardToken, { name: 'A' }));
+      const b = createdPerson(await createPerson(stewardToken, { name: 'B' }));
+      const c = createdPerson(await createPerson(stewardToken, { name: 'C' }));
 
       const self = await server.inject({
         method: 'POST',
         url: `/v1/families/${familyId}/relationships`,
-        headers: await auth(memberToken),
+        headers: await auth(stewardToken),
         payload: { person_id: a.id, related_person_id: a.id, type: 'parent' },
       });
       expect(self.statusCode).toBe(400);
@@ -316,7 +320,7 @@ describe('Family tree (contract v0.8)', () => {
       const ab = await server.inject({
         method: 'POST',
         url: `/v1/families/${familyId}/relationships`,
-        headers: await auth(memberToken),
+        headers: await auth(stewardToken),
         payload: { person_id: a.id, related_person_id: b.id, type: 'parent' },
       });
       expect(ab.statusCode).toBe(201);
@@ -324,7 +328,7 @@ describe('Family tree (contract v0.8)', () => {
       const bc = await server.inject({
         method: 'POST',
         url: `/v1/families/${familyId}/relationships`,
-        headers: await auth(memberToken),
+        headers: await auth(stewardToken),
         payload: { person_id: b.id, related_person_id: c.id, type: 'parent' },
       });
       expect(bc.statusCode).toBe(201);
@@ -332,7 +336,7 @@ describe('Family tree (contract v0.8)', () => {
       const cycle = await server.inject({
         method: 'POST',
         url: `/v1/families/${familyId}/relationships`,
-        headers: await auth(memberToken),
+        headers: await auth(stewardToken),
         payload: { person_id: c.id, related_person_id: a.id, type: 'parent' },
       });
       expect(cycle.statusCode).toBe(400);
@@ -341,7 +345,7 @@ describe('Family tree (contract v0.8)', () => {
       const dup = await server.inject({
         method: 'POST',
         url: `/v1/families/${familyId}/relationships`,
-        headers: await auth(memberToken),
+        headers: await auth(stewardToken),
         payload: { person_id: a.id, related_person_id: b.id, type: 'parent' },
       });
       expect(dup.statusCode).toBe(409);
@@ -350,14 +354,14 @@ describe('Family tree (contract v0.8)', () => {
       const spouse = await server.inject({
         method: 'POST',
         url: `/v1/families/${familyId}/relationships`,
-        headers: await auth(memberToken),
+        headers: await auth(stewardToken),
         payload: { person_id: a.id, related_person_id: c.id, type: 'spouse' },
       });
       expect(spouse.statusCode).toBe(201);
       const reverse = await server.inject({
         method: 'POST',
         url: `/v1/families/${familyId}/relationships`,
-        headers: await auth(memberToken),
+        headers: await auth(stewardToken),
         payload: { person_id: c.id, related_person_id: a.id, type: 'spouse' },
       });
       expect(reverse.statusCode).toBe(409);
@@ -382,7 +386,8 @@ describe('Family tree (contract v0.8)', () => {
         url: `/v1/relationships/${JSON.parse(ab.body).id}`,
         headers: await auth(memberToken),
       });
-      expect(creatorDelete.statusCode).toBe(204);
+      expect(creatorDelete.statusCode).toBe(403);
+      expect(JSON.parse(creatorDelete.body).error.code).toBe('FORBIDDEN');
 
       const stewardDelete = await server.inject({
         method: 'DELETE',
@@ -395,7 +400,7 @@ describe('Family tree (contract v0.8)', () => {
 
   describe('person invites', () => {
     it('is steward-only; links account_id on accept; PERSON_ALREADY_LINKED and INVITE_INVALID', async () => {
-      const created = await createPerson(memberToken, { name: 'ลิงก์ฉัน' });
+      const created = await createPerson(stewardToken, { name: 'ลิงก์ฉัน' });
       const id = createdPerson(created).id;
 
       const memberInvite = await server.inject({
@@ -446,7 +451,7 @@ describe('Family tree (contract v0.8)', () => {
       expect(again.statusCode).toBe(409);
       expect(JSON.parse(again.body).error.code).toBe('PERSON_ALREADY_LINKED');
 
-      const doomed = await createPerson(memberToken, { name: 'ลบแล้ว' });
+      const doomed = await createPerson(stewardToken, { name: 'ลบแล้ว' });
       const doomedId = createdPerson(doomed).id;
       await server.inject({
         method: 'DELETE',
@@ -462,7 +467,7 @@ describe('Family tree (contract v0.8)', () => {
       expect(invalid.statusCode).toBe(410);
       expect(JSON.parse(invalid.body).error.code).toBe('INVITE_INVALID');
 
-      const live = await createPerson(memberToken, { name: 'จะถูกลบ' });
+      const live = await createPerson(stewardToken, { name: 'จะถูกลบ' });
       const liveId = createdPerson(live).id;
       const pendingInvite = await server.inject({
         method: 'POST',
@@ -488,7 +493,7 @@ describe('Family tree (contract v0.8)', () => {
 
   describe('avatar_media_id', () => {
     it('returns 409 MEDIA_NOT_READY when not completed and 422 UPLOAD_MISMATCH for wrong purpose or family', async () => {
-      const person = createdPerson(await createPerson(memberToken, { name: 'รูป' }));
+      const person = createdPerson(await createPerson(stewardToken, { name: 'รูป' }));
 
       const [pending] = await db
         .insert(media)

@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
   AppError,
   ErrorCode,
@@ -18,7 +18,7 @@ import {
 } from './age.js';
 import { loadVariantKeys, signAvatarImage, type VariantKeyMap } from './media/variants.js';
 
-type QueryClient = Pick<typeof db, 'select' | 'update' | 'insert'>;
+type QueryClient = Pick<typeof db, 'select' | 'update' | 'insert' | 'execute'>;
 
 export type PersonRow = typeof people.$inferSelect;
 
@@ -302,6 +302,33 @@ export function mapRelationshipKind(
   return { personId, relatedPersonId, type: 'spouse' };
 }
 
+export const MAX_LIVE_PARENTS = 2;
+
+/**
+ * Serialize parent-cap checks for this child until COMMIT/ROLLBACK.
+ * Must run inside a transaction (`pg_advisory_xact_lock` is a no-op across statements otherwise).
+ * Key is the first 64 bits of the child person UUID.
+ */
+async function lockChildParentSlots(client: QueryClient, childId: string): Promise<void> {
+  await client.execute(
+    sql`select pg_advisory_xact_lock(('x' || substr(replace(${childId}::text, '-', ''), 1, 16))::bit(64)::bigint)`
+  );
+}
+
+async function countLiveParents(client: QueryClient, childId: string): Promise<number> {
+  const rows = await client
+    .select({ id: personRelationships.id })
+    .from(personRelationships)
+    .innerJoin(
+      people,
+      and(eq(people.id, personRelationships.personId), isNull(people.deletedAt))
+    )
+    .where(
+      and(eq(personRelationships.relatedPersonId, childId), eq(personRelationships.type, 'parent'))
+    );
+  return rows.length;
+}
+
 export async function insertPersonRelationship(
   client: QueryClient,
   input: {
@@ -385,6 +412,13 @@ export async function insertPersonRelationship(
     .limit(1);
   if (existing) {
     throw new AppError(ErrorCode.RELATIONSHIP_EXISTS, errorMessages[ErrorCode.RELATIONSHIP_EXISTS], 409);
+  }
+
+  if (input.type === 'parent') {
+    await lockChildParentSlots(client, relatedPersonId);
+    if ((await countLiveParents(client, relatedPersonId)) >= MAX_LIVE_PARENTS) {
+      throw new AppError(ErrorCode.TOO_MANY_PARENTS, errorMessages[ErrorCode.TOO_MANY_PARENTS], 422);
+    }
   }
 
   const [created] = await client

@@ -50,7 +50,7 @@ describe('event creator_display_name', () => {
     const person = await server.inject({
       method: 'POST',
       url: `/v1/families/${familyId}/people`,
-      headers: await auth(creatorToken),
+      headers: await auth(stewardToken),
       payload: { name: 'ยาย' },
     });
     expect(person.statusCode).toBe(201);

@@ -118,6 +118,7 @@ export const copy = {
   'error.INVALID_DEATH_DATE': 'วันที่จากไปต้องไม่ก่อนวันเกิด และไม่เกินวันนี้',
   'error.ANSWER_REQUIRED': 'พิมพ์คำตอบสักนิดก่อนบันทึก',
   'error.TOO_MANY_FOCUS': 'เลือกได้สูงสุด 10 คน เอาบางคนออกก่อนแล้วค่อยเพิ่ม',
+  'error.TOO_MANY_PARENTS': 'คนนี้มีพ่อแม่ครบ 2 คนแล้ว เอาคนใดคนหนึ่งออกก่อนแล้วค่อยเพิ่ม',
   'error.ALREADY_ANSWERED': 'คุณเคยตอบคำถามนี้แล้ว แก้คำตอบเดิมได้เลย',
   'error.NAME_REQUIRED': 'ใส่ชื่อก่อนบันทึก',
   'error.INVALID_BIRTH_DATE': 'วันเกิดต้องไม่เกินวันนี้',

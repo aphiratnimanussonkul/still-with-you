@@ -228,6 +228,9 @@ describe('copy v0.4', () => {
     expect(copy['error.generic']).toBe('มีบางอย่างผิดพลาด ลองใหม่อีกครั้ง');
     expect(copy['error.ANSWER_REQUIRED']).toBe('พิมพ์คำตอบสักนิดก่อนบันทึก');
     expect(copy['error.TOO_MANY_FOCUS']).toBe('เลือกได้สูงสุด 10 คน เอาบางคนออกก่อนแล้วค่อยเพิ่ม');
+    expect(copy['error.TOO_MANY_PARENTS']).toBe(
+      'คนนี้มีพ่อแม่ครบ 2 คนแล้ว เอาคนใดคนหนึ่งออกก่อนแล้วค่อยเพิ่ม'
+    );
     expect(copy['error.ALREADY_ANSWERED']).toBe('คุณเคยตอบคำถามนี้แล้ว แก้คำตอบเดิมได้เลย');
     expect(copy['home.question.already_answered.action']).toBe('แก้คำตอบเดิม');
     expect(copy['home.question.saved.toast']).toBe('บันทึกคำตอบแล้ว');

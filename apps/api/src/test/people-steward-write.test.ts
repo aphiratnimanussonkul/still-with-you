@@ -55,7 +55,7 @@ describe('PATCH/DELETE /v1/people/{id} steward-only', () => {
     const created = await server.inject({
       method: 'POST',
       url: `/v1/families/${familyId}/people`,
-      headers: await auth(creatorToken),
+      headers: await auth(stewardToken),
       payload: { name: 'ยาย' },
     });
     personId = JSON.parse(created.body).person.id;
@@ -83,7 +83,7 @@ describe('PATCH/DELETE /v1/people/{id} steward-only', () => {
     });
   }
 
-  it('returns 403 FORBIDDEN for creator-non-steward, linked self, and regular member on PATCH and DELETE', async () => {
+  it('returns 403 FORBIDDEN for non-steward members on PATCH and DELETE', async () => {
     const invite = await server.inject({
       method: 'POST',
       url: `/v1/people/${personId}/invites`,
