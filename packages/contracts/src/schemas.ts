@@ -126,6 +126,9 @@ export const createEventSchema = z.object({
   source_contribution_ids: z.array(uuidSchema).optional(),
 });
 
+/** Covers omitted and non-integer `version` on PATCH /v1/events/:id. */
+export const eventPatchVersionMessage = 'version must be an integer';
+
 export const updateEventSchema = z.object({
   title: nonEmptyStringSchema.optional(),
   description: z.string().optional(),
@@ -134,8 +137,13 @@ export const updateEventSchema = z.object({
   date_precision: z.string().optional(),
   location: z.string().optional(),
   person_ids: z.array(uuidSchema).optional(),
-  /** Optional for now. Required in a later PR. When sent, PATCH is compare-and-swap on events.version. */
-  version: z.number().int().optional(),
+  /** Required. PATCH is compare-and-swap on events.version. */
+  version: z
+    .number({
+      required_error: eventPatchVersionMessage,
+      invalid_type_error: eventPatchVersionMessage,
+    })
+    .int({ message: eventPatchVersionMessage }),
 });
 
 /** 409 EVENT_EDIT_CONFLICT `error.details`. Integer on the row only; no editor name. */

@@ -149,20 +149,12 @@ export const api = {
   },
 
   /**
-   * PATCH /v1/events/{id}. `version` is optional on the API; the web client
-   * always sends the loaded event's version for compare-and-swap.
+   * PATCH /v1/events/{id}. `version` is required (compare-and-swap).
    */
-  updateEvent(
-    eventId: string,
-    body: Omit<UpdateEvent, 'version'> & { version: number }
-  ): Promise<EventResponse> {
-    const payload = updateEventSchema.parse({ ...body, version: body.version });
-    if (payload.version === undefined) {
-      throw new TypeError('updateEvent requires version from the loaded event');
-    }
+  updateEvent(eventId: string, body: UpdateEvent): Promise<EventResponse> {
     return request(`/v1/events/${eventId}`, eventResponseSchema, {
       method: 'PATCH',
-      body: payload,
+      body: updateEventSchema.parse(body),
     });
   },
 

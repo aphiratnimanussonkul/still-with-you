@@ -1,11 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { eventResponseSchema } from '@still-with-you/contracts';
+import { eventPatchVersionMessage, eventResponseSchema } from '@still-with-you/contracts';
 import { createTestServer, createTestAccount, generateTestToken, cleanupTestData } from './helpers.js';
 import { db, familyMembers } from '../lib/db/index.js';
-
-function parseLogLine(chunk: string): Record<string, unknown> {
-  return JSON.parse(chunk) as Record<string, unknown>;
-}
 
 describe('PATCH /v1/events/:id optimistic concurrency', () => {
   let server: Awaited<ReturnType<typeof createTestServer>>;
@@ -14,7 +10,6 @@ describe('PATCH /v1/events/:id optimistic concurrency', () => {
   let stewardToken: string;
   let creatorToken: string;
   let familyId: string;
-  let logLines: Record<string, unknown>[];
 
   async function createEvent(title = 'วันเกิดยาย') {
     const response = await server.inject({
@@ -37,17 +32,7 @@ describe('PATCH /v1/events/:id optimistic concurrency', () => {
   }
 
   beforeEach(async () => {
-    logLines = [];
-    server = await createTestServer({
-      logger: {
-        level: 'warn',
-        stream: {
-          write(chunk: string) {
-            logLines.push(parseLogLine(chunk));
-          },
-        },
-      },
-    });
+    server = await createTestServer();
     await cleanupTestData();
 
     steward = await createTestAccount('auth-steward-cas', 'steward-cas@example.com', 'Steward');
@@ -71,7 +56,7 @@ describe('PATCH /v1/events/:id optimistic concurrency', () => {
     await cleanupTestData();
   });
 
-  it('returns version 1 on GET/create and increments when PATCH omits version', async () => {
+  it('returns version 1 on GET/create', async () => {
     const created = await createEvent();
     expect(created.version).toBe(1);
 
@@ -81,54 +66,41 @@ describe('PATCH /v1/events/:id optimistic concurrency', () => {
       headers: { authorization: `Bearer ${creatorToken}` },
     });
     expect(eventResponseSchema.parse(JSON.parse(got.body)).version).toBe(1);
-
-    const patched = await patchEvent(created.id, { title: 'หัวข้อใหม่' });
-    expect(patched.statusCode).toBe(200);
-    const body = eventResponseSchema.parse(JSON.parse(patched.body));
-    expect(body.title).toBe('หัวข้อใหม่');
-    expect(body.version).toBe(2);
   });
 
-  it('emits structured event_patch_missing_version warn when PATCH omits version', async () => {
+  it('returns 400 INVALID_INPUT with field version when PATCH omits version', async () => {
     const created = await createEvent();
-    const patched = await server.inject({
-      method: 'PATCH',
+    const patched = await patchEvent(created.id, { title: 'หัวข้อใหม่' });
+    expect(patched.statusCode).toBe(400);
+    expect(JSON.parse(patched.body).error).toEqual({
+      code: 'INVALID_INPUT',
+      message: eventPatchVersionMessage,
+      field: 'version',
+    });
+    const still = await server.inject({
+      method: 'GET',
       url: `/v1/events/${created.id}`,
-      headers: {
-        authorization: `Bearer ${creatorToken}`,
-        'user-agent': 'swy-test-agent/1.0',
-      },
-      payload: { title: 'ไม่มีเวอร์ชัน' },
+      headers: { authorization: `Bearer ${creatorToken}` },
     });
-    expect(patched.statusCode).toBe(200);
+    expect(eventResponseSchema.parse(JSON.parse(still.body)).title).toBe('วันเกิดยาย');
+    expect(eventResponseSchema.parse(JSON.parse(still.body)).version).toBe(1);
+  });
 
-    const warns = logLines.filter((line) => line.msg === 'event_patch_missing_version');
-    expect(warns).toHaveLength(1);
-    expect(warns[0]).toMatchObject({
-      level: 40,
-      msg: 'event_patch_missing_version',
-      event: 'event_patch_missing_version',
-      event_id: created.id,
-      account_id: creator.id,
-      user_agent: 'swy-test-agent/1.0',
+  it('returns 400 INVALID_INPUT with field version when PATCH version is not an integer', async () => {
+    const created = await createEvent();
+    const patched = await patchEvent(created.id, { title: 'หัวข้อใหม่', version: '1' });
+    expect(patched.statusCode).toBe(400);
+    expect(JSON.parse(patched.body).error).toEqual({
+      code: 'INVALID_INPUT',
+      message: eventPatchVersionMessage,
+      field: 'version',
     });
-    const serialized = JSON.stringify(warns[0]);
-    expect(serialized).not.toMatch(/creator-cas@example.com|auth-creator-cas/);
-    expect(serialized).not.toContain(creator.displayName);
-    expect(serialized).not.toContain('ไม่มีเวอร์ชัน');
-    expect(warns[0]).not.toHaveProperty('email');
-    expect(warns[0]).not.toHaveProperty('display_name');
-    expect(warns[0]).not.toHaveProperty('req');
-
-    const beforeWithVersion = logLines.length;
-    const withVersion = await patchEvent(created.id, {
-      title: 'มีเวอร์ชัน',
-      version: eventResponseSchema.parse(JSON.parse(patched.body)).version,
+    const still = await server.inject({
+      method: 'GET',
+      url: `/v1/events/${created.id}`,
+      headers: { authorization: `Bearer ${creatorToken}` },
     });
-    expect(withVersion.statusCode).toBe(200);
-    expect(logLines.slice(beforeWithVersion).filter((line) => line.msg === 'event_patch_missing_version')).toHaveLength(
-      0
-    );
+    expect(eventResponseSchema.parse(JSON.parse(still.body)).version).toBe(1);
   });
 
   it('succeeds when body.version matches and returns the incremented version', async () => {

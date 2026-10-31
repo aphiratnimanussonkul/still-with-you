@@ -12,9 +12,9 @@ export type MockPatchEventResult =
   | { ok: true; event: EventResponse }
   | { ok: false; status: 409; body: EventEditConflictError };
 
-/** In-memory PATCH /v1/events/{id}: CAS when `version` is sent, last-write-wins when omitted. */
+/** In-memory PATCH /v1/events/{id}: compare-and-swap on required `version`. */
 export function mockPatchEvent(event: EventResponse, body: UpdateEvent): MockPatchEventResult {
-  if (body.version !== undefined && body.version !== event.version) {
+  if (body.version !== event.version) {
     return {
       ok: false,
       status: 409,

@@ -517,7 +517,18 @@ export const handlers = [
     }
     const parsed = updateEventSchema.safeParse(await request.json());
     if (!parsed.success) {
-      return HttpResponse.json({ error: { code: 'INVALID_INPUT', message: 'invalid event' } }, { status: 400 });
+      const first = parsed.error.errors[0];
+      const field = first?.path.join('.') || undefined;
+      return HttpResponse.json(
+        {
+          error: {
+            code: ErrorCode.INVALID_INPUT,
+            message: first?.message ?? 'invalid event',
+            ...(field ? { field } : {}),
+          },
+        },
+        { status: 400 }
+      );
     }
     const result = mockPatchEvent(event, parsed.data);
     if (!result.ok) {

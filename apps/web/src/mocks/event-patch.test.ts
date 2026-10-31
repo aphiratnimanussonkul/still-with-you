@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ErrorCode, eventEditConflictErrorSchema } from '@still-with-you/contracts';
+import {
+  ErrorCode,
+  eventEditConflictErrorSchema,
+  eventPatchVersionMessage,
+  updateEventSchema,
+} from '@still-with-you/contracts';
 import { mockEvents } from '@/mocks/data';
 import { mockPatchEvent } from '@/mocks/event-patch';
 
@@ -14,12 +19,20 @@ describe('mock PATCH /v1/events/{id}', () => {
     expect(event.version).toBe(1);
   });
 
-  it('increments version when the client omits version (API last-write-wins)', () => {
-    const event = { ...mockEvents[0] };
-    const result = mockPatchEvent(event, { title: 'ไม่ส่งเวอร์ชัน' });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.event.version).toBe(2);
+  it('rejects a body that omits version at the schema', () => {
+    const parsed = updateEventSchema.safeParse({ title: 'ไม่ส่งเวอร์ชัน' });
+    expect(parsed.success).toBe(false);
+    if (parsed.success) return;
+    expect(parsed.error.errors[0]?.path).toEqual(['version']);
+    expect(parsed.error.errors[0]?.message).toBe(eventPatchVersionMessage);
+  });
+
+  it('rejects a non-integer version at the schema', () => {
+    const parsed = updateEventSchema.safeParse({ title: 'ทศนิยม', version: 1.5 });
+    expect(parsed.success).toBe(false);
+    if (parsed.success) return;
+    expect(parsed.error.errors[0]?.path).toEqual(['version']);
+    expect(parsed.error.errors[0]?.message).toBe(eventPatchVersionMessage);
   });
 
   it('returns 409 EVENT_EDIT_CONFLICT with details.current_version and no editor name', () => {
