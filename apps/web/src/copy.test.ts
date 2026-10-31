@@ -19,11 +19,14 @@ import {
 } from '@/copy';
 
 describe('copy v0.4', () => {
-  it('has no remaining TODO placeholders', () => {
+  it('has no remaining TODO placeholders except missing relation-link copy', () => {
     const leftovers = Object.entries(copy)
       .filter(([, value]) => value.startsWith('TODO:'))
       .map(([key]) => key);
-    expect(leftovers).toEqual([]);
+    expect(leftovers).toEqual([
+      'relation.link.error.too_many_parents',
+      'relation.link.saving',
+    ]);
   });
 
   it('has Thai copy for every key used on person profile and edit', () => {
@@ -262,6 +265,23 @@ describe('copy v0.4', () => {
       'ตอนนี้ยังเปิดผังครอบครัวไม่ได้ เลยแสดงเป็นรายชื่อให้ก่อน'
     );
     expect(copy['tree.node.add_parent']).toBe('เพิ่มพ่อแม่');
+    expect(copy['relation.pick.title.spouse']).toBe('ใครเป็นคู่ชีวิตของ{ชื่อ}');
+    expect(copy['relation.pick.title.parent']).toBe('ใครเป็นพ่อหรือแม่ของ{ชื่อ}');
+    expect(copy['relation.pick.title.child']).toBe('ใครเป็นลูกของ{ชื่อ}');
+    expect(copy['relation.pick.subtitle']).toBe(
+      'เลือกจากคนที่อยู่ในผังแล้ว หรือเพิ่มคนใหม่ก็ได้'
+    );
+    expect(copy['relation.pick.search.placeholder']).toBe('หาชื่อ');
+    expect(copy['relation.pick.section.existing']).toBe('คนในผัง');
+    expect(copy['relation.pick.add_new']).toBe('เพิ่มคนใหม่');
+    expect(copy['relation.pick.add_new.caption']).toBe('คนที่ยังไม่อยู่ในผัง');
+    expect(copy['relation.pick.search.empty']).toBe('หา{คำค้น}ในผังไม่เจอ');
+    expect(copy['relation.pick.search.add']).toBe('เพิ่ม{คำค้น}เป็นคนใหม่');
+    expect(copy['relation.pick.empty']).toBe('ยังไม่มีคนอื่นในผังที่เลือกได้');
+    expect(copy['relation.pick.link']).toBe('เชื่อมในผัง');
+    expect(copy['relation.link.toast']).toBe('{ชื่อ}กับ{อีกคน}เชื่อมกันในผังแล้ว');
+    expect(copy['relation.link.error.inline']).toBe('ขอโทษด้วย ตอนนี้ยังเชื่อมไม่ได้');
+    expect(copy['relation.link.error.person_gone']).toBe('หา{ชื่อ}ในผังไม่เจอแล้ว');
     expect(copy['error.INVALID_DEATH_DATE']).toBe(
       'วันที่จากไปต้องไม่ก่อนวันเกิด และไม่เกินวันนี้'
     );

@@ -191,6 +191,7 @@ function FamilyPeoplePanel({
           <TreeFallbackList listed={listed} />
         ) : (
           <FamilyTreeCanvas
+            familyId={familyId}
             people={items}
             relationships={relationships}
             accountId={me.data?.id}

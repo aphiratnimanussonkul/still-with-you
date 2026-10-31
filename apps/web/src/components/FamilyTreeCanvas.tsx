@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusIcon } from '@phosphor-icons/react/Plus';
+import { PickExistingPersonSheet } from '@/components/PickExistingPersonSheet';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { copy, interpolate } from '@/copy';
@@ -8,17 +9,23 @@ import {
   personNodeLabel,
   type FamilyPerson,
   type FamilyRelationship,
-  type RelationshipKind,
 } from '@/lib/family-graph';
 import { TREE_NODE_WIDTH, layoutFamilyTree, livingLabelVisible } from '@/lib/family-tree';
+import { hasTwoParents, type RelationshipUiType } from '@/lib/person-relationship';
 import { formatNodeYears } from '@/lib/person-years';
 
 type FamilyTreeCanvasProps = {
+  familyId: string;
   people: FamilyPerson[];
   relationships: FamilyRelationship[];
   accountId?: string;
   canAdd?: boolean;
   resetToken: number;
+};
+
+type PickTarget = {
+  personId: string;
+  kind: RelationshipUiType;
 };
 
 function PersonAvatar({ person }: { person: FamilyPerson }) {
@@ -34,6 +41,7 @@ function PersonAvatar({ person }: { person: FamilyPerson }) {
 }
 
 export function FamilyTreeCanvas({
+  familyId,
   people,
   relationships,
   accountId,
@@ -48,30 +56,40 @@ export function FamilyTreeCanvas({
   );
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [pick, setPick] = useState<PickTarget | null>(null);
+  const [focusPersonId, setFocusPersonId] = useState<string | null>(null);
+  const pickSubject = pick ? people.find((person) => person.id === pick.personId) : undefined;
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ distance: number; scale: number } | null>(null);
   const drag = useRef<{ x: number; y: number; viewX: number; viewY: number } | null>(null);
 
   useEffect(() => {
-    const me = layout.nodes.find((node) => node.isMe) ?? layout.nodes[0];
+    setFocusPersonId(null);
+  }, [resetToken]);
+
+  useEffect(() => {
+    const focused = focusPersonId
+      ? layout.nodes.find((node) => node.id === focusPersonId)
+      : undefined;
+    const target = focused ?? layout.nodes.find((node) => node.isMe) ?? layout.nodes[0];
     const viewport = viewportRef.current;
-    if (!me || !viewport) {
+    if (!target || !viewport) {
       setView({ x: 0, y: 0, scale: 1 });
       return;
     }
     const width = viewport.clientWidth;
     const height = viewport.clientHeight;
     setView({
-      x: width / 2 - (me.x + TREE_NODE_WIDTH / 2),
-      y: Math.max(24, height / 3 - me.y),
+      x: width / 2 - (target.x + TREE_NODE_WIDTH / 2),
+      y: Math.max(24, height / 3 - target.y),
       scale: 1,
     });
     setMenuFor(null);
-  }, [layout, resetToken]);
+  }, [layout, resetToken, focusPersonId]);
 
-  function goAdd(kind: RelationshipKind, personId: string) {
+  function openPick(kind: RelationshipUiType, personId: string) {
     setMenuFor(null);
-    navigate(`/family/people/new?kind=${kind}&person=${personId}`);
+    setPick({ personId, kind });
   }
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
@@ -194,9 +212,10 @@ export function FamilyTreeCanvas({
                 <button
                   type="button"
                   className={`flex w-full flex-col items-center gap-1 rounded-xl bg-card px-1 py-2 ${
-                    node.isMe ? 'ring-2 ring-primary' : ''
+                    node.isMe || focusPersonId === node.id ? 'ring-2 ring-primary' : ''
                   }`}
                   aria-label={personNodeLabel(node.person)}
+                  aria-current={focusPersonId === node.id ? 'true' : undefined}
                   onClick={() => navigate(`/family/people/${node.id}`)}
                 >
                   <PersonAvatar person={node.person} />
@@ -226,14 +245,35 @@ export function FamilyTreeCanvas({
                       <Icon as={PlusIcon} size={16} />
                     </Button>
                     {open ? (
-                      <div className="absolute left-1/2 z-10 mt-1 w-36 -translate-x-1/2 rounded-xl border border-border bg-card p-1 shadow-e2">
-                        <button type="button" className="flex min-h-11 w-full items-center px-3 text-left text-body" onClick={() => goAdd('parent_of', node.id)}>
-                          {copy['tree.node.add_parent']}
-                        </button>
-                        <button type="button" className="flex min-h-11 w-full items-center px-3 text-left text-body" onClick={() => goAdd('child_of', node.id)}>
+                      <div className="absolute left-1/2 z-10 mt-1 w-44 -translate-x-1/2 rounded-xl border border-border bg-card p-1 shadow-e2">
+                        {hasTwoParents(node.id, relationships) ? (
+                          <div className="px-3 py-2">
+                            <p className="text-body text-muted-foreground">{copy['tree.node.add_parent']}</p>
+                            <p className="text-caption text-destructive">
+                              {copy['relation.link.error.too_many_parents']}
+                            </p>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="flex min-h-11 w-full items-center px-3 text-left text-body"
+                            onClick={() => openPick('parent', node.id)}
+                          >
+                            {copy['tree.node.add_parent']}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="flex min-h-11 w-full items-center px-3 text-left text-body"
+                          onClick={() => openPick('child', node.id)}
+                        >
                           {copy['tree.node.add_child']}
                         </button>
-                        <button type="button" className="flex min-h-11 w-full items-center px-3 text-left text-body" onClick={() => goAdd('spouse_of', node.id)}>
+                        <button
+                          type="button"
+                          className="flex min-h-11 w-full items-center px-3 text-left text-body"
+                          onClick={() => openPick('spouse', node.id)}
+                        >
                           {copy['tree.node.add_spouse']}
                         </button>
                       </div>
@@ -245,6 +285,20 @@ export function FamilyTreeCanvas({
           })}
         </div>
       </div>
+      {pick && pickSubject ? (
+        <PickExistingPersonSheet
+          open
+          onOpenChange={(next) => {
+            if (!next) setPick(null);
+          }}
+          familyId={familyId}
+          subject={pickSubject}
+          kind={pick.kind}
+          people={people}
+          relationships={relationships}
+          onLinked={(selected) => setFocusPersonId(selected.id)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -80,6 +80,12 @@ describe('AddPersonPage', () => {
     expect(screen.getByRole('option', { name: copy['person.relationship.spouse'] })).toBeTruthy();
   });
 
+  it('prefills the typed name from the pick-existing search', async () => {
+    renderAt(`/family/people/new?kind=spouse_of&person=${mockPeople[2].id}&name=${encodeURIComponent('น้องใหม่')}`);
+    expect(await screen.findByDisplayValue('น้องใหม่')).toBeTruthy();
+    expect(screen.getByDisplayValue(copy['person.relationship.spouse'])).toBeTruthy();
+  });
+
   it('labels the relationship as เป็นอะไรกับ {ชื่อ} when the target is not me', async () => {
     renderAt(`/family/people/new?kind=parent_of&person=${mockPeople[0].id}`);
     expect(
