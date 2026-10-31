@@ -170,6 +170,16 @@ describe('copy v0.4', () => {
     expect(copy['invite.landing.accept']).toBe('รับคำเชิญ');
     expect(copy['invite.landing.login']).toBe('เข้าสู่ระบบเพื่อรับคำเชิญ');
     expect(copy['invite.landing.expires']).toBe('คำเชิญนี้ใช้ได้ถึง {date}');
+    expect(copy['invite.accepted.title']).toBe('ยินดีต้อนรับสู่ {ชื่อครอบครัว}');
+    expect(copy['invite.accepted.next']).toBe('ไปดูความทรงจำ');
+    expect(copy['invite.landing.decline']).toBe('ไว้ทีหลัง');
+    expect(copy['invite.landing.members']).toBe('สมาชิก {จำนวน} คน');
+    expect(copy['invite.expired.title']).toBe('ลิงก์นี้หมดอายุแล้ว');
+    expect(copy['invite.expired.body']).toBe(
+      'ลิงก์ชวนใช้ได้ 7 วัน ลองขอให้คนที่ชวนส่งลิงก์ใหม่มาอีกที'
+    );
+    expect(copy['invite.invalid.title']).toBe('ลิงก์นี้ใช้ไม่ได้แล้ว');
+    expect(copy['invite.invalid.body']).toBe('ลองขอให้คนที่ชวนส่งลิงก์ใหม่มาอีกที');
     expect(copy['invite.accepted.toast']).toBe('ยินดีต้อนรับสู่ครอบครัว {family_name}');
     expect(copy['person.invite.note']).toBe('ลิงก์นี้ใช้ได้ครั้งเดียว ภายใน 7 วัน');
     expect(copy['invite.copied.toast']).toBe('คัดลอกลิงก์แล้ว');

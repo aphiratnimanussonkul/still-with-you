@@ -103,8 +103,30 @@ describe('ConsentPage submit', () => {
     vi.mocked(api.updateConsent).mockRejectedValue(new Error('boom'));
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: copy['consent.continue'] }));
-    expect(await screen.findByText(copy['error.unknown'])).toBeTruthy();
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByText(copy['error.unknown'])).toBeTruthy();
     expect(screen.getByRole('button', { name: copy['consent.continue'] })).toBeTruthy();
     expect(api.updateConsent).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a spinner on ไปต่อ while consent is saving', async () => {
+    let resolveConsent: (value: AccountResponse) => void = () => undefined;
+    vi.mocked(api.updateConsent).mockReturnValue(
+      new Promise((resolve) => {
+        resolveConsent = resolve;
+      })
+    );
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: copy['consent.continue'] }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: copy['consent.continue'] }).getAttribute('aria-busy')).toBe(
+        'true'
+      );
+    });
+    resolveConsent({
+      ...unanswered,
+      consent_answered_at: '2026-10-22T00:00:00.000Z',
+    });
+    expect(await screen.findByText('home')).toBeTruthy();
   });
 });
