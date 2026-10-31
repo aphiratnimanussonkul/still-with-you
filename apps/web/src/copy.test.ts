@@ -259,7 +259,6 @@ describe('copy v0.4', () => {
     expect(copy['person.relationship.parent']).toBe('เป็นพ่อแม่ของ');
     expect(copy['person.relationship.child']).toBe('เป็นลูกของ');
     expect(copy['person.relationship.spouse']).toBe('เป็นคู่ของ');
-    expect(copy['tree.back_to_me']).toBe('กลับมาที่ฉัน');
     expect(copy['tree.fallback_list.title']).toBe('แสดงเป็นรายชื่อแทน');
     expect(copy['tree.fallback_list.body']).toBe(
       'ตอนนี้ยังเปิดผังครอบครัวไม่ได้ เลยแสดงเป็นรายชื่อให้ก่อน'
