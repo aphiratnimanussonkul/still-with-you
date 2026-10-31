@@ -16,6 +16,7 @@ import { messageForError } from '@/lib/api-errors';
 import { familyGraph, isPersonLiving, personDisplayName, type FamilyPerson } from '@/lib/family-graph';
 import { FOCUS_MAX, homeApi } from '@/lib/home-api';
 import { apiPersonAge, personAgeCopyKey } from '@/lib/person-age';
+import { canClaimPerson } from '@/lib/person-claim';
 import { canInvitePerson, isFamilySteward } from '@/lib/person-permissions';
 import { formatNodeYears, livingDeathWriteFields } from '@/lib/person-years';
 import { queryKeys } from '@/lib/query-client';
@@ -93,11 +94,19 @@ export function PersonPage() {
     return <p className="text-body text-destructive">{copy['error.NOT_FOUND']}</p>;
   }
 
+  const isAdmin = isFamilySteward(members.data?.members, me.data?.id);
+  const canClaim = canClaimPerson(person, {
+    isAdmin,
+    accountId: me.data?.id,
+    people: people.data?.people ?? [],
+  });
+
   return (
     <PersonPageBody
       person={person}
       familyId={familyId ?? undefined}
-      isAdmin={isFamilySteward(members.data?.members, me.data?.id)}
+      isAdmin={isAdmin}
+      canClaim={canClaim}
       facts={facts}
       focus={focus}
       toggleFocus={toggleFocus}
@@ -112,6 +121,7 @@ function PersonPageBody({
   person,
   familyId,
   isAdmin,
+  canClaim,
   facts,
   focus,
   toggleFocus,
@@ -122,6 +132,7 @@ function PersonPageBody({
   person: FamilyPerson;
   familyId?: string;
   isAdmin: boolean;
+  canClaim: boolean;
   facts: {
     isPending: boolean;
     isError: boolean;
@@ -153,8 +164,11 @@ function PersonPageBody({
   const name = personDisplayName(person);
   const [inviteOpen, setInviteOpen] = useState(false);
   const extra = useMemo(
-    () => (isAdmin && familyId ? <PersonProfileMenu person={person} familyId={familyId} /> : null),
-    [isAdmin, familyId, person]
+    () =>
+      isAdmin && familyId ? (
+        <PersonProfileMenu person={person} familyId={familyId} canClaim={canClaim} />
+      ) : null,
+    [isAdmin, canClaim, familyId, person]
   );
   useAppBarOverride({ title: name, extra });
   const years = formatNodeYears(person);

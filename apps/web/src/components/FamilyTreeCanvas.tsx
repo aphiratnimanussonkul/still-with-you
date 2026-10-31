@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEven
 import { useNavigate } from 'react-router-dom';
 import { PlusIcon } from '@phosphor-icons/react/Plus';
 import { PickExistingPersonSheet } from '@/components/PickExistingPersonSheet';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { copy, interpolate } from '@/copy';
@@ -224,6 +225,11 @@ export function FamilyTreeCanvas({
                     {personNodeLabel(node.person)}
                   </span>
                   {years ? <span className="text-overline text-muted-foreground">{years}</span> : null}
+                  {node.isMe ? (
+                    <Badge variant="secondary" className="rounded-full">
+                      {copy['nav.me']}
+                    </Badge>
+                  ) : null}
                   {livingLabelVisible(node.person) ? (
                     <span className="text-center text-overline text-muted-foreground">
                       {interpolate(copy['person.death.age'], { อายุ: String(node.person.age) })}

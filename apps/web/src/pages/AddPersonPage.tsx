@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { PersonInviteCard } from '@/components/PersonInviteCard';
 import { PersonPhotoField } from '@/components/PersonPhotoField';
 import { QueryLoading } from '@/components/QueryLoading';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { copy, interpolate, personRelationLabel } from '@/copy';
 import { useMe } from '@/hooks/use-me';
@@ -21,6 +22,7 @@ import {
   type RelationshipKind,
 } from '@/lib/family-graph';
 import { findMyPerson } from '@/lib/family-tree';
+import { canClaimPerson, CLAIM_SELF_AFTER_CREATE_TOAST_MS } from '@/lib/person-claim';
 import { isFamilySteward } from '@/lib/person-permissions';
 import { livingDeathWriteFields } from '@/lib/person-years';
 import { queryKeys } from '@/lib/query-client';
@@ -86,6 +88,7 @@ function AddPersonForm({
   accountId?: string;
 }) {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const myPerson = findMyPerson(people, accountId);
   const prefilledKind = params.get('kind');
@@ -101,6 +104,7 @@ function AddPersonForm({
   const [photoId, setPhotoId] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [saved, setSaved] = useState<FamilyPerson | null>(null);
+  const [claimSelf, setClaimSelf] = useState(false);
 
   const related = people.find((person) => person.id === relatedId);
   const relatedIsMe = Boolean(related && accountId && related.account_id === accountId);
@@ -111,10 +115,14 @@ function AddPersonForm({
       : personRelationLabel(null);
 
   const canSubmit = name.trim().length > 0 && !photoBusy && (!kind || Boolean(relatedId));
+  const showClaimSwitch = canClaimPerson(
+    { account_id: null, is_living: living },
+    { isAdmin, accountId, people }
+  );
 
   const create = useMutation({
-    mutationFn: () => {
-      return familyGraph.createPerson(familyId, {
+    mutationFn: async () => {
+      const result = await familyGraph.createPerson(familyId, {
         display_name: name.trim(),
         ...livingDeathWriteFields({
           living,
@@ -126,11 +134,32 @@ function AddPersonForm({
         ...(photoId ? { avatar_media_id: photoId } : {}),
         ...(kind && relatedId ? { relationship: { kind, person_id: relatedId } } : {}),
       });
+      if (!claimSelf) {
+        return { result, claimed: false as const, claimFailed: false as const };
+      }
+      try {
+        await familyGraph.claimPerson(result.person.id);
+        return { result, claimed: true as const, claimFailed: false as const };
+      } catch {
+        return { result, claimed: false as const, claimFailed: true as const };
+      }
     },
-    onSuccess: async (result) => {
-      setSaved(result.person);
-      toast(interpolate(copy['person.add.saved_toast'], { name: personDisplayName(result.person) }));
+    onSuccess: async ({ result, claimed, claimFailed }) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.people(familyId) });
+      const createdName = personDisplayName(result.person);
+      if (claimSelf) {
+        if (claimed) {
+          toast(interpolate(copy['person.claim_self.done'], { ชื่อ: createdName }));
+        } else if (claimFailed) {
+          toast(interpolate(copy['person.claim_self.after_create_failed'], { ชื่อ: createdName }), {
+            duration: CLAIM_SELF_AFTER_CREATE_TOAST_MS,
+          });
+        }
+        navigate(`/family/people/${result.person.id}`);
+        return;
+      }
+      setSaved(result.person);
+      toast(interpolate(copy['person.add.saved_toast'], { name: createdName }));
     },
   });
   const relatedFieldError = fieldForError(create.error) === 'person-related';
@@ -224,7 +253,11 @@ function AddPersonForm({
             id="person-living"
             checked={living}
             disabled={Boolean(saved)}
-            onCheckedChange={(value) => setLiving(value === true)}
+            onCheckedChange={(value) => {
+              const next = value === true;
+              setLiving(next);
+              if (!next) setClaimSelf(false);
+            }}
           />
           <Label htmlFor="person-living" className="text-body font-normal">
             {copy['person.living.label']}
@@ -280,6 +313,20 @@ function AddPersonForm({
             </div>
           </div>
         )}
+
+        {showClaimSwitch ? (
+          <div className="flex min-h-[52px] items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+            <Label htmlFor="person-claim-self" className="flex-1 text-body font-medium">
+              {copy['person.menu.claim_self']}
+            </Label>
+            <Switch
+              id="person-claim-self"
+              checked={claimSelf}
+              disabled={Boolean(saved)}
+              onCheckedChange={(value) => setClaimSelf(value)}
+            />
+          </div>
+        ) : null}
 
         {create.isError && !relatedFieldError ? (
           <p className="text-caption text-destructive">{messageForError(create.error)}</p>

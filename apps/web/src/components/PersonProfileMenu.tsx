@@ -4,6 +4,7 @@ import { PencilSimpleIcon } from '@phosphor-icons/react/PencilSimple';
 import { XIcon } from '@phosphor-icons/react/X';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { ClaimSelfDialog } from '@/components/ClaimSelfDialog';
 import { DetailMoreButton } from '@/components/DetailMoreButton';
 import {
   AlertDialog,
@@ -33,13 +34,16 @@ import { queryKeys } from '@/lib/query-client';
 export function PersonProfileMenu({
   person,
   familyId,
+  canClaim = false,
 }: {
   person: FamilyPerson;
   familyId: string;
+  canClaim?: boolean;
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [claimOpen, setClaimOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [linkedBlocked, setLinkedBlocked] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -87,6 +91,18 @@ export function PersonProfileMenu({
             <SheetTitle className="text-body font-medium">{name}</SheetTitle>
             {meta ? <SheetDescription>{meta}</SheetDescription> : null}
           </SheetHeader>
+          {canClaim ? (
+            <button
+              type="button"
+              className="flex min-h-12 w-full items-center gap-3 py-3 text-left text-body"
+              onClick={() => {
+                setOpen(false);
+                setClaimOpen(true);
+              }}
+            >
+              {copy['person.menu.claim_self']}
+            </button>
+          ) : null}
           <button
             type="button"
             className="flex min-h-12 w-full items-center gap-3 py-3 text-left text-body"
@@ -145,6 +161,13 @@ export function PersonProfileMenu({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ClaimSelfDialog
+        person={person}
+        familyId={familyId}
+        open={claimOpen}
+        onOpenChange={setClaimOpen}
+      />
 
       <AlertDialog open={linkedBlocked} onOpenChange={setLinkedBlocked}>
         <AlertDialogContent className="rounded-xl">

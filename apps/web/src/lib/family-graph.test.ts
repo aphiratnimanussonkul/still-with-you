@@ -3,6 +3,8 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  accountAlreadyLinkedDetailsSchema,
+  claimPersonSchema,
   createPersonResponseSchema,
   createPersonSchema,
   personListResponseSchema,
@@ -97,6 +99,26 @@ describe('family-graph vs live API handlers', () => {
         death_date_precision: null,
       }).death_date_precision
     ).toBeNull();
+  });
+
+  it('POST /v1/people/{id}/claim is admin-only and maps coded 409/422', () => {
+    const source = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), '../mocks/handlers.ts'),
+      'utf8'
+    );
+    expect(source).toContain('http.post(`${api}/v1/people/:id/claim`');
+    expect(source).toContain('http.delete(`${api}/v1/people/:id/claim`');
+    expect(source).toContain('PERSON_ALREADY_CLAIMED');
+    expect(source).toContain('ACCOUNT_ALREADY_LINKED');
+    expect(source).toContain('PERSON_DECEASED');
+    expect(source).toContain('PERSON_DELETED');
+    expect(claimPersonSchema.parse({})).toEqual({});
+    expect(
+      accountAlreadyLinkedDetailsSchema.parse({
+        person_id: personId,
+        display_name: 'ใบเตย',
+      })
+    ).toEqual({ person_id: personId, display_name: 'ใบเตย' });
   });
 
   it('POST /v1/families/{id}/people is steward-only 403 FORBIDDEN', () => {
